@@ -183,3 +183,14 @@ Regression after the pass: gait slip 1.1 cm or less, zero overlaps in the collis
 - **Loop seams:** `scripts/inspect-loops.mjs` checks that every looping clip ends where it starts. All 15 models are seamless.
 - **Swimmers floated like logs.** The mosasaurus rode with 1.3 m of its 2 m body above the surface. Swimmers now sit low: big ones 65% submerged, so the back and tail break the surface; small ones 45%, so the Pistosaurus keeps its head and neck up where a child can see it. They keep to water at least 1.05 times their height deep, so a submerged body never clips the sea floor. Breaching on a tap still lifts them clear.
 - **Demo reel:** `tests/reel.mjs` renders a 40 s, 30 fps H.264 video: a T. rex walking past, a Triceratops turning around on a fixed camera, a sauropod with its baby, feeding from the child's camera, and tap, roar and stomp. Output goes to `demo/dino-pals-reel.mp4` (git-ignored, about 15 MB) so motion can be judged by eye, not just by numbers.
+
+### Idle life and full-body steering
+- **Idle statues.** Filmed for 16 s, an idle Triceratops near the child held one pose and stared fixedly. Standing animals now:
+  - shift their weight slowly from side to side, on a 6 to 9 s period that varies per animal;
+  - breathe visibly through the hips;
+  - swish their tails;
+  - take a small fidget step every 7 to 18 s.
+
+  Near the child they mostly watch, but glance around and down at the ground now and then. They keep their eyes on the child for 7 s after a tap, while turning to face them, and while following.
+- **Full-capsule steering.** Steering circles now run from the body's front tip to its back end, with extra circles along long bodies. The previous circles at 80% let a head-on approach touch a trunk: a T. rex walking into a tree was stopped by the hard constraint. A blocked feeding shuffle step now tries half a step instead of pausing a frame.
+- **Measured:** four smoothness runs (free, food, taps, food) all pass with single-frame acceleration of 5.8 m/s² or less and sideways slide of 0.01 m/s or less. Collisions zero. Feeding 23 bites, median 4.9 cm. A profile (`tests/perf_prof.mjs`, `aiProf` in stats) shows steering costs about 0.013 ms per decision; locomotion IK and the animation mixer dominate. Throttled frame rates swing 39 to 56 fps run to run from scenario randomness alone.

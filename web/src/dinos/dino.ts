@@ -1,6 +1,7 @@
 // A single dinosaur: GLB (skinned, animated) or procedural placeholder,
 // animation mixer + small state machine. Movement decisions live in ai.ts.
 import * as THREE from 'three';
+import { aiProf } from './ai_land.ts';
 import type { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { ClipName, Species } from './manifest.ts';
@@ -293,12 +294,14 @@ export class Dino {
       this.loco.placeBody(dt, this.heading);
       if (!this.animated) return;
       this.animTime += dt;
+      const tm0 = performance.now();
       this.loco.restoreClipPose();
       if (this.mixer) {
         this.mixer.update(dt);
         if (this.current && this.current.loop === THREE.LoopOnce && !this.current.isRunning() && !this.isBusy) this.play(this.clipFor(this.state));
       }
       this.loco.captureClipPose();
+      const tm1 = performance.now(); aiProf.mixer += tm1 - tm0;
       this.loco.stomp = this.state === 'stomp';
       this.loco.crouch = this.state === 'sleep' ? 1 : 0;
       this.loco.jawTarget = this.state === 'roar' ? 0.4 : 1;
@@ -306,6 +309,7 @@ export class Dino {
       this.loco.update(dt, this.heading, {
         onPlant: (at, _leg, heavy) => ctx.onFootstep(this, this.sizeM >= 6 || heavy, at, heavy),
       }, this.isBusy);
+      aiProf.loco += performance.now() - tm1;
       return;
     }
     // vertical placement

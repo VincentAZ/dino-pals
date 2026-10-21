@@ -142,6 +142,9 @@ export function headingError(d: Dino, tx: number, tz: number): number {
  * and the overlap fix then shoved both sideways.
  */
 export function turnBlocked(d: Dino, ctx: DinoContext, h: number): boolean {
+  const t0 = performance.now(); try { return turnBlockedImpl(d, ctx, h); } finally { aiProf.turn += performance.now() - t0; aiProf.turnN++; }
+}
+function turnBlockedImpl(d: Dino, ctx: DinoContext, h: number): boolean {
   const pos = d.root.position; const b = bodyOf(d);
   for (const e of ctx.others) {
     if (e === d || !e.awake || e.species.kind !== 'land') continue;
@@ -211,7 +214,18 @@ const circles: Circle[] = [];
  * along its axis) and pick the cheapest safe option. Keeps a slight right-hand preference so two
  * animals meeting head-on pass instead of mirroring each other.
  */
+/** Offsets along the body axis (+ forward) whose circles of radius r cover the whole capsule. */
+const axisCache = new WeakMap<Body, number[]>();
+function axisSamples(b: Body): number[] {
+  let a = axisCache.get(b); if (a) return a;
+  const len = b.front + b.back; const n = Math.max(3, Math.ceil(len / (1.6 * b.r)) + 1);
+  a = []; for (let i = 0; i < n; i++) a.push(b.front - (len * i) / (n - 1));
+  axisCache.set(b, a); return a;
+}
 function chooseVelocity(d: Dino, ctx: DinoContext, dx: number, dz: number, pref: number): { dir: number; speed: number } {
+  const t0 = performance.now(); try { return chooseVelocityImpl(d, ctx, dx, dz, pref); } finally { aiProf.vo += performance.now() - t0; aiProf.voN++; }
+}
+function chooseVelocityImpl(d: Dino, ctx: DinoContext, dx: number, dz: number, pref: number): { dir: number; speed: number } {
   const ai = d.ai; const pos = d.root.position; const b = bodyOf(d);
   const reachR = pref * HORIZON + b.front + b.back + 4;
   circles.length = 0;
@@ -226,29 +240,29 @@ function chooseVelocity(d: Dino, ctx: DinoContext, dx: number, dz: number, pref:
     // lower-priority animals treat moving higher-priority ones as moving; the others only half
     const share = e.index < d.index || !moving ? 1 : 0.5;
     const fk = coEaters(d, e) ? 0.35 : 1;
-    // three circles cover the whole capsule (two at mid-length left the ends of long bodies unseen)
-    circles.push({ x: ep.x + s * eb.front * 0.8 * fk, z: ep.z + c * eb.front * 0.8 * fk, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
-    circles.push({ x: ep.x, z: ep.z, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
-    circles.push({ x: ep.x - s * eb.back * 0.8, z: ep.z - c * eb.back * 0.8, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
+    // circles at the capsule's ends and along it (two at mid-length left the ends of long bodies unseen)
+    for (const f of axisSamples(eb)) { const o = f > 0 ? f * fk : f; circles.push({ x: ep.x + s * o, z: ep.z + c * o, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false }); }
   }
   for (const [ox, oz, rr] of ctx.keepClear) circles.push({ x: ox, z: oz, r: rr + 0.6, vx: 0, vz: 0, hard: true });
   const base = Math.atan2(dx, dz);
+  const own = axisSamples(b);
+  // drop circles that cannot be reached within the horizon whatever direction we pick (most of them)
+  const ext = Math.max(b.front, b.back) + b.r;
+  let m = 0;
+  for (const o of circles) { const reach = (pref + Math.hypot(o.vx, o.vz)) * HORIZON + ext + o.r; if ((o.x - pos.x) ** 2 + (o.z - pos.z) ** 2 <= reach * reach) circles[m++] = o; }
+  circles.length = m;
   let best = { dir: base, speed: 0 }, bestCost = Infinity;
   for (const a of ANGLES) {
     const dir = base + a; const s = Math.sin(dir), c = Math.cos(dir);
     for (const k of [1, 0.55]) {
       const sp = pref * k;
       const vx = s * sp, vz = c * sp;
-      // our body as three circles along the candidate direction (front, middle, back of the capsule)
-      const fx = pos.x + s * b.front * 0.8, fz = pos.z + c * b.front * 0.8;
-      const bx = pos.x - s * b.back * 0.8, bz = pos.z - c * b.back * 0.8;
+      // our body as circles along the candidate direction, from the front tip to the back end
       let t = Infinity;
       for (const o of circles) {
         const R = o.r + b.r;
-        const t1 = ttc(o.x - fx, o.z - fz, o.vx - vx, o.vz - vz, R);
-        const t2 = ttc(o.x - bx, o.z - bz, o.vx - vx, o.vz - vz, R);
-        const t3 = ttc(o.x - pos.x, o.z - pos.z, o.vx - vx, o.vz - vz, R);
-        const tt = Math.min(t1, t2, t3);
+        let tt = Infinity;
+        for (const f of own) { const tk = ttc(o.x - pos.x - s * f, o.z - pos.z - c * f, o.vx - vx, o.vz - vz, R); if (tk < tt) tt = tk; if (tt === 0) break; }
         if (tt < t) t = tt;
         if (t === 0) break;
       }
@@ -326,6 +340,9 @@ let aiCtx: DinoContext | null = null;
 export function setAICtx(ctx: DinoContext): void { aiCtx = ctx; }
 /** Would moving the body to (x,z) bring it closer into another animal, a tree, or the explorer / camera? */
 export function moveBlocked(d: Dino, ctx: DinoContext, x: number, z: number): boolean {
+  const t0 = performance.now(); try { return moveBlockedImpl(d, ctx, x, z); } finally { aiProf.move += performance.now() - t0; aiProf.moveN++; }
+}
+function moveBlockedImpl(d: Dino, ctx: DinoContext, x: number, z: number): boolean {
   const pos = d.root.position; const b = bodyOf(d);
   const [ax, az, bx, bz] = capsule(d, x, z, d.heading);
   const [cx0, cz0, cx1, cz1] = capsule(d, pos.x, pos.z, d.heading);
@@ -360,6 +377,8 @@ export function brake(d: Dino, dt: number): void {
 /** Hard non-overlap constraint against trees/rocks and other dinosaurs (small positional fixes). */
 /** debug: positional corrections applied by the last resolveOverlaps call, per dinosaur */
 export const pushStats = { tree: 0, dino: 0, lastOther: '' };
+/** profiling (ms, cumulative) */
+export const aiProf: Record<string, number> = { vo: 0, voN: 0, turn: 0, turnN: 0, move: 0, moveN: 0, ai: 0, mixer: 0, loco: 0 };
 export const lastPush = new WeakMap<Dino, [number, number, string]>();
 export function resolveOverlaps(d: Dino, ctx: DinoContext): void {
   pushStats.tree = 0; pushStats.dino = 0; pushStats.lastOther = '';

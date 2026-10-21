@@ -23,7 +23,7 @@ import { loadSkinDetail } from './dinos/skin.ts';
 import { facePlayer, tapAction } from './dinos/ai.ts';
 import { Dino } from './dinos/dino.ts';
 import type { DinoContext, DinoState, Food } from './dinos/dino.ts';
-import { bodyOf, warmStats, lastPush } from './dinos/ai_land.ts';
+import { bodyOf, warmStats, lastPush, aiProf } from './dinos/ai_land.ts';
 import { routeStats } from './dinos/path.ts';
 import { Player } from './player/player.ts';
 import { TouchInput } from './input/touch.ts';
@@ -319,7 +319,7 @@ async function main(): Promise<void> {
   const api: DinoApi = {
     ready: false, version: VERSION, errors, lastTapped: null,
     stats: () => ({
-      fps: Math.round(fps), frameMs: +frameMs.toFixed(2), dinoMs: +dinoMs.toFixed(2), dinoMaxMs: +dinoMaxMs.toFixed(2), route: { ...routeStats, warmed: warmStats.cells }, triangles: renderer.info.render.triangles, calls: renderer.info.render.calls,
+      fps: Math.round(fps), frameMs: +frameMs.toFixed(2), dinoMs: +dinoMs.toFixed(2), dinoMaxMs: +dinoMaxMs.toFixed(2), route: { ...routeStats, warmed: warmStats.cells }, aiProf: Object.fromEntries(Object.entries(aiProf).map(([k, v]) => [k, +v.toFixed(1)])), triangles: renderer.info.render.triangles, calls: renderer.info.render.calls,
       geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, terrain: terrain.stats, dinos: dinos.stats,
       vegLoaded: vegetation.loadedCount, veg: vegetation.stats, grassTris: grass.triangles, light: grass.material.uniforms.uLight.value.toArray().map((v: number) => +v.toFixed(2)), grassSample: Array.from(grass.sample()), hours: +sky.hours.toFixed(2), quality: quality.tier, pixelRatio: renderer.getPixelRatio(),
       contextLosses, audioState: audio.ctx.state, renderScale: +renderScale.toFixed(2),

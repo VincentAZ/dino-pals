@@ -250,7 +250,8 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
           if (ul > amax) { ai.shuffleV.x += ux / ul * amax; ai.shuffleV.z += uz / ul * amax; } else { ai.shuffleV.x += ux; ai.shuffleV.z += uz; }
           let stepX = ai.shuffleV.x * dt, stepZ = ai.shuffleV.z * dt; const sl = Math.hypot(stepX, stepZ);
           if (sl > here) { stepX *= here / sl; stepZ *= here / sl; }
-          if (!moveBlocked(d, ctx, pos.x + stepX, pos.z + stepZ)) { pos.x += stepX; pos.z += stepZ; } else ai.shuffleV.multiplyScalar(0.5);
+          if (!moveBlocked(d, ctx, pos.x + stepX, pos.z + stepZ)) { pos.x += stepX; pos.z += stepZ; }
+          else { ai.shuffleV.multiplyScalar(0.5); if (!moveBlocked(d, ctx, pos.x + stepX * 0.5, pos.z + stepZ * 0.5)) { pos.x += stepX * 0.5; pos.z += stepZ * 0.5; } }
           d.speed = 0; pivotToward(d, item.pos.x, item.pos.z, dt, ctx);   // turn only (the step above is the motion)
           d.speed = Math.hypot(ai.shuffleV.x, ai.shuffleV.z); d.setState('walk');
           if (here < ai.bestDist - 0.03) { ai.bestDist = here; ai.progressAt = ctx.time; }
@@ -433,7 +434,23 @@ function updateLook(d: Dino, ctx: DinoContext): void {
   if (d.state === 'eat' || d.state === 'sniff') { loco.lookWeight = 0; return; }
   if (ai.foodTarget || ai.sniffFood) return;     // the food branches aim the head while approaching
   const dist = Math.hypot(ctx.eye.x - pos.x, ctx.eye.z - pos.z);
-  if (dist < 32) { loco.lookTarget = ctx.eye; loco.lookWeight = d.state === 'roar' ? 0.7 : 1; return; }
+  if (dist < 32) {
+    // near the child: mostly watch them, but glance around and down now and then like a real animal
+    // (a fixed stare reads as a statue); just after a tap or while turning to the child, keep watching
+    const attentive = !!ai.faceTarget || ctx.time < ai.awakeUntil - 38 || ctx.time < ai.followUntil;
+    if (ctx.time > ai.glanceUntil) {
+      ai.glanceUntil = ctx.time + 2 + Math.random() * 3.5;
+      const r = Math.random();
+      if (r < (dist < 10 ? 0.65 : 0.5)) ai.glancing = false;
+      else {
+        const down = r > 0.86, a = d.heading + (Math.random() - 0.5) * (down ? 0.8 : 2.2), rr = down ? 2 + Math.random() * 2 : 7 + Math.random() * 15;
+        ai.glance.set(pos.x + Math.sin(a) * rr, pos.y + (down ? 0.1 : d.species.heightM * (0.3 + Math.random() * 0.5)), pos.z + Math.cos(a) * rr);
+        ai.glancing = true;
+      }
+    }
+    loco.lookTarget = ai.glancing && !attentive ? ai.glance : ctx.eye; loco.lookWeight = d.state === 'roar' ? 0.7 : 1;
+    return;
+  }
   if (ctx.time > ai.glanceUntil) {
     ai.glanceUntil = ctx.time + 3 + Math.random() * 5;
     if (Math.random() < 0.6) {

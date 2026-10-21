@@ -98,6 +98,9 @@ export class Locomotion {
   private yawRate = 0;
   private speedEff = 0;
   private stillTime = 0;
+  // idle life: weight shifts, breathing, tail swish and the odd fidget step while standing
+  private clock = 0; private idleK = 0; private fidgetAt = 5 + Math.random() * 8; private fidgetLeg: Leg | null = null;
+  private readonly seed = Math.random() * 100; private readonly swayPeriod = 6 + Math.random() * 3; private readonly tailPeriod = 3.8 + Math.random() * 2.5;
   private bodyY = 0;
   private reachDrop = 0;
   private pitch = 0; private roll = 0;
@@ -276,6 +279,14 @@ export class Locomotion {
     for (const l of this.legs) l.offset = THREE.MathUtils.lerp(l.walkOffset, l.trotOffset, this.trotK);
     this.duty = THREE.MathUtils.lerp(this.walkDuty, this.biped ? 0.48 : 0.44, this.trotK);
     if (moving) { this.phase += dt / cycle; this.stillTime = 0; } else this.stillTime += dt;
+    this.clock += dt;
+    this.idleK += ((!moving && !busy && this.crouch < 0.5 ? 1 : 0) - this.idleK) * Math.min(1, dt * 1.2);
+    if (moving || busy) this.fidgetAt = Math.max(this.fidgetAt, this.stillTime + 4);
+    this.fidgetLeg = null;
+    if (!moving && !busy && this.crouch < 0.5 && this.stillTime > this.fidgetAt && !this.legs.some((o) => o.swinging)) {
+      this.fidgetLeg = this.legs[Math.floor(Math.random() * this.legs.length)];
+      this.fidgetAt = this.stillTime + 7 + Math.random() * 11;
+    }
     this.lastCycle = cycle;
     const stance = (1 - this.duty) * cycle;
 
@@ -297,6 +308,7 @@ export class Locomotion {
         const conflict = this.legs.some((o) => o !== l && o.swinging && (this.biped || o.front === l.front || o.side === l.side));
         if (this.stomp && !conflict && this.stillTime > 0.15) { start = true; settle = true; }
         else if (!conflict && this.stillTime > 0.2 && (err > 0.12 * this.legLen || yawErr > 0.45)) { start = true; settle = true; }
+        else if (l === this.fidgetLeg) { start = true; settle = true; }
       }
       // reach: a planted leg pulled nearly straight by the body moving / turning away from it steps now,
       // instead of the hips dropping to let it reach (real animals step; they don't squat)
@@ -321,6 +333,11 @@ export class Locomotion {
       const fh = heading + this.yawRate * lead;
       l.from.copy(l.plant); l.fromYaw = l.plantYaw;
       this.homeAt(l, fx, fz, fh, l.to); l.toYaw = fh;
+      if (l === this.fidgetLeg) {   // a small repositioning step, a little off the rest spot
+        const a = Math.random() * Math.PI * 2, r = (0.05 + Math.random() * 0.05) * this.legLen;
+        l.to.x += Math.cos(a) * r; l.to.z += Math.sin(a) * r; l.to.y = heightAt(l.to.x, l.to.z);
+        l.toYaw = l.plantYaw + (Math.random() - 0.5) * 0.15;
+      }
       l.swinging = true; l.t = 0; l.dur = dur;
       const stride = Math.hypot(l.to.x - l.from.x, l.to.z - l.from.z);
       l.lift = this.stomp ? 0.22 * this.legLen : THREE.MathUtils.clamp(0.06 * this.legLen + 0.22 * stride, 0.03, 0.45 * this.legLen);
@@ -371,7 +388,10 @@ export class Locomotion {
     // ---------------------------------------------------------------- pelvis: bob, sway and reach
     const amp = (this.biped ? 0.03 : 0.015) * this.legLen * Math.min(1, sf + (this.stomp ? 0.8 : 0));
     const bobY = nSw ? amp * (bob / nSw - 0.45) : (moving ? -0.45 * amp : 0);
-    const swayX = (this.biped ? 0.018 : 0.008) * this.legLen * Math.min(1, sf) * sway;
+    let swayX = (this.biped ? 0.018 : 0.008) * this.legLen * Math.min(1, sf) * sway;
+    // standing still: a slow weight shift from side to side, and breathing you can see
+    swayX += this.idleK * (this.biped ? 0.022 : 0.014) * this.legLen * Math.sin(this.clock * 2 * Math.PI / this.swayPeriod + this.seed);
+    const breath = this.idleK * 0.006 * this.legLen * Math.sin(this.clock * 2 * Math.PI / (this.legLen > 1.6 ? 3.6 : 2.4) + this.seed * 0.7);
     // lower the hips just enough that every foot can reach its target (no overstretched legs)
     let need = 0;
     for (let i = 0; i < this.legs.length; i++) {
@@ -388,7 +408,7 @@ export class Locomotion {
     const maxV = 0.45 * this.legLen;
     this.reachDrop += THREE.MathUtils.clamp((need - this.reachDrop) * Math.min(1, dt * (need > this.reachDrop ? 12 : 3)), -maxV * dt, maxV * dt);
     this.crouchCur += (this.crouch - this.crouchCur) * Math.min(1, dt * (this.crouch > this.crouchCur ? 0.7 : 1.6));
-    const dy = bobY - this.reachDrop - this.crouchCur * (this.biped ? 0.36 : 0.42) * this.legLen;
+    const dy = bobY + breath - this.reachDrop - this.crouchCur * (this.biped ? 0.36 : 0.42) * this.legLen;
     if (Math.abs(dy) > 1e-4 || Math.abs(swayX) > 1e-4) {  // (includes crouch)
       const right = _f.set(Math.cos(heading), 0, -Math.sin(heading));
       const pw = wpos(this.pelvis, _g);
@@ -420,7 +440,8 @@ export class Locomotion {
       const k = (i + 1) / n;
       const lag = THREE.MathUtils.clamp(-this.yawRate * (0.07 + 0.1 * k), -0.22, 0.22);
       const swing = Math.sin((this.phase * 2 - 0.12 * i) * Math.PI) * 0.045 * Math.min(1, sf) * (0.3 + 0.7 * k);
-      const target = lag + (this.biped ? swing : swing * 0.6);
+      const swish = this.idleK * 0.07 * (0.25 + 0.75 * k) * Math.sin(this.clock * 2 * Math.PI / this.tailPeriod - 0.55 * i + this.seed);
+      const target = lag + (this.biped ? swing : swing * 0.6) + swish;
       this.tailAng[i] += (target - this.tailAng[i]) * Math.min(1, dt * (7 - 4 * k));
       rotateAxis(this.tail[i], bodyUp, this.tailAng[i]);
     }
