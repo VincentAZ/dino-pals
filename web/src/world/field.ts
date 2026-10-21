@@ -56,7 +56,7 @@ PAL[L.mud] = { col: [92, 104, 48], cov: 0.62, reed: 1, tuft: 0, dry: 0.25 };
 PAL[L.redGround] = { col: [176, 150, 84], cov: 0.11, reed: 0, tuft: 1, dry: 0.9 };
 PAL[L.riverbed] = { col: [140, 132, 80], cov: 0.06, reed: 0, tuft: 1, dry: 0.5 };
 PAL[L.swampMoss] = { col: [80, 96, 44], cov: 0.55, reed: 0.7, tuft: 0, dry: 0.2 };
-PAL[L.ash] = { col: [120, 112, 80], cov: 0.012, reed: 0, tuft: 1, dry: 0.9 };
+PAL[L.ash] = { col: [128, 118, 78], cov: 0.05, reed: 0, tuft: 1, dry: 0.95 };
 export const DRY_SRGB: [number, number, number] = [160, 142, 86];
 
 const toLin = (c: number) => Math.pow(c / 255, 2.2);
@@ -83,8 +83,8 @@ vec4 grassField(vec2 xz, float w[${LAYER_COUNT}]) {
   c *= 0.84 + 0.32 * nB.a;
   c = mix(c, c * vec3(1.08, 1.04, 0.72), smoothstep(0.35, 0.75, nA.b) * 0.6);
   cov *= smoothstep(0.12, 0.42, nA.a * 0.55 + nB.g * 0.45);
-  // nothing grows on snow, fresh volcanic ground or bare cliffs
-  cov *= 1.0 - smoothstep(0.04, 0.3, w[${L.snow}] + w[${L.lavaRock}] + w[${L.ash}] * 0.7 + w[${L.lava}] + w[${L.cliff}] * 0.6 + w[${L.redCliff}] * 0.6);
+  // nothing grows on snow, fresh volcanic rock and cinders or bare cliffs; the weathered ash of the volcano's apron takes sparse tufts
+  cov *= 1.0 - smoothstep(0.04, 0.3, w[${L.snow}] + w[${L.lavaRock}] + w[${L.cinder}] + w[${L.aa}] + w[${L.ash}] * 0.3 + w[${L.lava}] + w[${L.cliff}] * 0.6 + w[${L.redCliff}] * 0.6);
   return vec4(c, cov);
 }`;
 
@@ -124,12 +124,12 @@ export function grassFieldAt(f: FieldSampler, x: number, z: number, w: ArrayLike
   const br = 0.84 + 0.32 * nB[3]; r *= br; g *= br; b *= br;
   const y = ss(0.35, 0.75, nA[2]) * 0.6; r *= 1 + 0.08 * y; g *= 1 + 0.04 * y; b *= 1 - 0.28 * y;
   cov *= ss(0.12, 0.42, nA[3] * 0.55 + nB[1] * 0.45);
-  cov *= 1 - ss(0.04, 0.3, w[L.snow] + w[L.lavaRock] + w[L.ash] * 0.7 + w[L.lava] + w[L.cliff] * 0.6 + w[L.redCliff] * 0.6);
+  cov *= 1 - ss(0.04, 0.3, w[L.snow] + w[L.lavaRock] + w[L.cinder] + w[L.aa] + w[L.ash] * 0.3 + w[L.lava] + w[L.cliff] * 0.6 + w[L.redCliff] * 0.6);
   out.r = r; out.g = g; out.b = b; out.cov = cov; out.reed = reed; out.tuft = tuft; out.hVar = nB[0] * 0.6 + nA[1] * 0.4;
   return out;
 }
 
-/** Bilinear sample of the 12-layer splat map (planes of RGBA8), like LINEAR + CLAMP. */
+/** Bilinear sample of the LAYER_COUNT-channel splat map (planes of RGBA8), like LINEAR + CLAMP. */
 export function sampleSplat(data: Uint8Array, res: number, u: number, v: number, out: Float32Array): Float32Array {
   const x = Math.min(res - 1, Math.max(0, u * res - 0.5)), y = Math.min(res - 1, Math.max(0, v * res - 0.5));
   const x0 = Math.floor(x), y0 = Math.floor(y); const fx = x - x0, fy = y - y0;
@@ -149,7 +149,7 @@ export function applySteep(w: Float32Array, slope: number): void {
   const steep = ss(0.36, 0.6, slope);
   const cliffW = steep * (1 - Math.min(1, w[L.lavaRock] + w[L.cliff] + w[L.redCliff] + w[L.lava]));
   if (cliffW <= 0) return;
-  const rv = ss(0.2, 0.5, w[L.lavaRock] + w[L.ash] + w[L.lava]), rc = ss(0.2, 0.5, w[L.redGround] + w[L.redCliff]) * (1 - rv);
+  const rv = ss(0.2, 0.5, w[L.lavaRock] + w[L.ash] + w[L.lava] + w[L.cinder] + w[L.aa]), rc = ss(0.2, 0.5, w[L.redGround] + w[L.redCliff]) * (1 - rv);
   for (let i = 0; i < LAYER_COUNT; i++) w[i] *= 1 - cliffW;
   w[L.lavaRock] += cliffW * rv; w[L.redCliff] += cliffW * rc; w[L.cliff] += cliffW * (1 - rv - rc);
 }
@@ -158,7 +158,7 @@ void applySteep(inout float w[${LAYER_COUNT}], float slope) {
   float steep = smoothstep(0.36, 0.6, slope);
   float cliffW = steep * (1.0 - min(1.0, w[${L.lavaRock}] + w[${L.cliff}] + w[${L.redCliff}] + w[${L.lava}]));
   if (cliffW <= 0.0) return;
-  float rv = smoothstep(0.2, 0.5, w[${L.lavaRock}] + w[${L.ash}] + w[${L.lava}]);
+  float rv = smoothstep(0.2, 0.5, w[${L.lavaRock}] + w[${L.ash}] + w[${L.lava}] + w[${L.cinder}] + w[${L.aa}]);
   float rc = smoothstep(0.2, 0.5, w[${L.redGround}] + w[${L.redCliff}]) * (1.0 - rv);
   for (int i = 0; i < ${LAYER_COUNT}; i++) w[i] *= 1.0 - cliffW;
   w[${L.lavaRock}] += cliffW * rv; w[${L.redCliff}] += cliffW * rc; w[${L.cliff}] += cliffW * (1.0 - rv - rc);

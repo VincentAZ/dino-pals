@@ -1,6 +1,6 @@
 // Web worker: builds terrain chunk geometry, the splat map, the far mesh and
 // vegetation placements off the main thread.
-import { heightAt, layerWeightsAt, waterAt, riverInfo, slopeAt } from './heightmap.ts';
+import { heightAt, layerWeightsAt, waterAt, riverInfo, slopeAt, volcanoAt, type VolcanoInfo } from './heightmap.ts';
 import { BIOME_IDS, BIOMES, HALF, LAYER_COUNT, biomeWeights, SEA_LEVEL } from './biomes.ts';
 import { VEG, AO_RADIUS } from './vegrules.ts';
 import { Simplex2, hash2, mulberry32 } from '../util/noise.ts';
@@ -14,6 +14,8 @@ export type WorkerRequest = ChunkRequest | SplatRequest | FarRequest;
 const clusterNoise = new Simplex2(777);
 const CLEAR_POINTS: [number, number, number][] = [[0, 0, 17], ...Object.values(BIOMES).map((b) => [b.anchor[0], b.anchor[1], b.id === 'jungle' ? 4.5 : 9] as [number, number, number])];
 const BEACH = BIOME_IDS.indexOf('beach');
+const VOLC = BIOME_IDS.indexOf('volcano');
+const volc: VolcanoInfo = { h: 0, lava: 0, flow: 0, near: 0, dv: 0 };
 
 /** Horizon-based ambient occlusion from a height grid with a margin of `m` samples. */
 function horizonAO(G: Float32Array, gw: number, m: number, n: number, step: number, out: Float32Array, outStride: number): void {
@@ -146,7 +148,7 @@ function placeVegetation(cx: number, cz: number, size: number, x0: number, z0: n
     let maxD = 0;
     for (const v of Object.values(sp.density)) maxD = Math.max(maxD, v ?? 0);
     const rnd = mulberry32((hash2(cx, cz, 91 + s) * 1e9) | 0);
-    const K = Math.ceil(maxD * densityMul * 1.15);
+    const K = Math.ceil(maxD * (sp.onFlow ?? 1) * densityMul * 1.15); // onFlow: more tries, thinned again off the flows
     const items: number[] = [];
     for (let k = 0; k < K; k++) {
       const x = x0 + rnd() * size, z = z0 + rnd() * size;
@@ -162,6 +164,7 @@ function placeVegetation(cx: number, cz: number, size: number, x0: number, z0: n
         const c = clusterNoise.noise(x * 0.02 + s * 3.1, z * 0.02) * 0.5 + 0.5;
         accept *= (1 - sp.cluster) + sp.cluster * (c * c * 2.2);
       }
+      if (sp.onFlow) { const f = bw[VOLC] > 0.3 ? volcanoAt(x, z, volc).flow : 0; accept *= (1 + (sp.onFlow - 1) * f) / sp.onFlow; }
       if (rnd() > accept) continue;
       const h = h0;
       const wi = waterAt(x, z);
@@ -175,6 +178,12 @@ function placeVegetation(cx: number, cz: number, size: number, x0: number, z0: n
         if (clear) continue;
       }
       if (sp.kind !== 'rock' && riverInfo(x, z).d < 9) continue;
+      // nothing stands in molten lava; volcanic-apron plants keep to their band and off the young flows
+      if (bw[VOLC] > 0.02) {
+        volcanoAt(x, z, volc);
+        if (volc.lava > 0.04) continue;
+        if (sp.volcBand && bw[VOLC] > 0.5 && (volc.dv < sp.volcBand[0] || volc.dv > sp.volcBand[1] || volc.flow > 0.45 || volc.near > 0.3)) continue;
+      }
       const slope = slopeAt(x, z, 1.5);
       if (slope > sp.maxSlope) continue;
       if (sp.spacing > 0) {
@@ -188,8 +197,19 @@ function placeVegetation(cx: number, cz: number, size: number, x0: number, z0: n
       }
       const scale = sp.baseScale * (sp.scale[0] + rnd() * (sp.scale[1] - sp.scale[0]));
       const rot = rnd() * Math.PI * 2;
-      const y = h - sp.sink * scale - slope * 0.5;
+      const y = h - sp.sink * scale - slope * (sp.slopeSink ?? 0.5);
       items.push(x, y, z, rot, scale, rnd());
+      // clumped scatter (small clasts): a few more around the accepted spot, smaller, on the local ground
+      if (sp.clump) {
+        const n = sp.clump[0] + Math.floor(rnd() * (sp.clump[1] - sp.clump[0] + 1));
+        for (let c = 0; c < n; c++) {
+          const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * sp.clump[2];
+          const cx2 = x + Math.cos(a) * r, cz2 = z + Math.sin(a) * r;
+          if (cx2 < x0 || cz2 < z0 || cx2 >= x0 + size || cz2 >= z0 + size || volcanoAt(cx2, cz2, volc).lava > 0.04) continue;
+          const s2 = scale * (0.45 + rnd() * 0.6);
+          items.push(cx2, heightAt(cx2, cz2) - sp.sink * s2 - slope * (sp.slopeSink ?? 0.5), cz2, rnd() * Math.PI * 2, s2, rnd());
+        }
+      }
     }
     if (items.length) out[sp.id] = new Float32Array(items);
   }

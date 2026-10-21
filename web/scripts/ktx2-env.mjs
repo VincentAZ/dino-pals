@@ -13,6 +13,16 @@ import { ktx2 } from 'ktx2-encoder/gltf-transform';
 
 const imageDecoder = async (buf) => { const { data, info } = await sharp(Buffer.from(buf)).ensureAlpha().raw().toBuffer({ resolveWithObject: true }); return { width: info.width, height: info.height, data: new Uint8Array(data) }; };
 
+/** Removes primitives without triangles (left behind by simplification); meshopt cannot encode them. */
+export function dropEmptyPrimitives(doc) {
+  let n = 0;
+  for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
+    const pos = prim.getAttribute('POSITION'); const idx = prim.getIndices();
+    if (!pos || !pos.getCount() || (idx && !idx.getCount())) { prim.dispose(); n++; }
+  }
+  return n;
+}
+
 /** In-place: base-colour textures -> KTX2 ETC1S. */
 export async function colourToKtx2(doc) {
   await doc.transform(ktx2({
@@ -33,6 +43,7 @@ if (isMain) {
     const doc = await io.read(f);
     if (doc.getRoot().listTextures().every((t) => t.getMimeType() === 'image/ktx2' || !t.listParents().length)) { console.log('skip', path.basename(f)); continue; }
     await colourToKtx2(doc);
+    dropEmptyPrimitives(doc);
     await doc.transform(meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
     const bin = await io.writeBinary(doc);
     await fs.writeFile(f, bin);

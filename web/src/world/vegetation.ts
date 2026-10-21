@@ -20,8 +20,6 @@ interface Variant { lod0: Part[]; lod1: Part[]; bounds: THREE.Box3; height: numb
 interface SpeciesAssets { def: VegSpecies; variants: Variant[]; loaded: boolean; failed: boolean; lod: [number, number, number] }
 
 const STRIDE = 6; // x, y, z, rotY, scale, variantSeed
-/** brightness gain for the conifers' needle-spray cards (their baked crown shading is dark) */
-const CANOPY_GAIN: Record<string, number> = { fir_tree_01: 1.35, pine_tree_01: 1.55, pine_sapling_medium: 1.45 };
 const CELLS = 2;  // cells per chunk side
 const CELL = CHUNK_SIZE / CELLS;
 const BAND = 5;   // CPU bucketing margin (m) around each LOD band
@@ -36,6 +34,8 @@ interface CellSpecies { data: Float32Array[]; l0: (Batch | null)[] }
 interface Cell { cx: number; cz: number; species: Map<string, CellSpecies>; pending: VegPlacement }
 interface ChunkRec { cx: number; cz: number; cells: Cell[]; bb: THREE.Mesh | null; bbSpecies: number; l1: Map<string, (Batch | null)[]> }
 
+/** Conifer needle atlases (scripts/conifer.mjs): separate KTX2 files, loaded once and shared by every species baked from them. */
+const needleAtlases = new Map<string, Promise<{ map: THREE.Texture; normalMap: THREE.Texture }>>();
 const shared = {
   time: { value: 0 }, wind: { value: 1 }, light: { value: new THREE.Color(1, 1, 1) },
   center: { value: new THREE.Vector3() },
@@ -56,38 +56,80 @@ const FOLIAGE_TRANSLUCENCY = /* glsl */ `
 #endif`;
 
 // alpha-tested leaves keep their coverage in the distance: mipmapping averages alpha
-// towards transparent, so scale alpha up with the mip level (Golus) before the test
-const FOLIAGE_ALPHA = /* glsl */ `
-#ifdef USE_MAP
-  {
+// towards transparent, so scale alpha up with the mip level (Golus) before the test.
+// Needle atlases bring their own per-mip scales (coverage-preserving, Castano), baked by
+// scripts/conifer.mjs: a generic boost would merge thin needles into solid blobs.
+const MIP_LEVEL = /* glsl */ `
     vec2 tsz = vec2(textureSize(map, 0));
     vec2 ddx = dFdx(vMapUv * tsz), ddy = dFdy(vMapUv * tsz);
-    float mipL = max(0.0, 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy))));
-    diffuseColor.a *= 1.0 + mipL * 0.28;
+    float mipL = max(0.0, 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy))));`;
+const MIP_TABLE = 9;
+const mipScaleGLSL = (table: boolean): string => table ? `
+    float mipF = min(mipL, ${MIP_TABLE - 1}.0); int mi = int(floor(mipF));
+    diffuseColor.a *= mix(uMipAlpha[mi], uMipAlpha[min(mi + 1, ${MIP_TABLE - 1})], mipF - float(mi));` : `
+    diffuseColor.a *= 1.0 + mipL * 0.28;`;
+const foliageAlpha = (table: boolean): string => /* glsl */ `
+#ifdef USE_MAP
+  {${MIP_LEVEL}${mipScaleGLSL(table)}
   }
 #endif
 #include <alphatest_fragment>`;
 // leaves right at the lens dissolve (screen-space dither) instead of filling the view
-const FOLIAGE_NEAR_FADE = /* glsl */ `
+const nearFade = (a: number, b: number): string => /* glsl */ `
   {
     float camD = length(vViewPosition);
     float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-    if (ign > smoothstep(1.0, 3.2, camD)) discard;
+    if (ign > smoothstep(${a.toFixed(2)}, ${b.toFixed(2)}, camD)) discard;
   }`;
 
-function vegetationHooks(mat: THREE.Material, range: [number, number], height: number, windAmt: number, key: string, foliage = false): void {
+// Conifer crown light (scripts/conifer.mjs): COLOR_0 holds the sky / sun visibility through the
+// needle mass as L1 spherical harmonics (r = c0, gba = c1 * 0.5 + 0.5, tree space). Direct sun is
+// scaled by the visibility towards the sun (the crown shades its own far side and inside at any
+// hour), sky light by the visibility of the upper hemisphere.
+const CROWN_VERT_PARS = /* glsl */ `attribute vec4 color; varying float vCrown0; varying vec3 vCrown1;`;
+const CROWN_VERT = /* glsl */ `
+  {
+    vec3 c1 = color.gba * 2.0 - 1.0;
+    vCrown0 = color.r;
+#ifdef USE_INSTANCING
+    mat3 im = mat3(instanceMatrix); c1 = im * c1 / max(length(im[0]), 1e-4);
+#endif
+    vCrown1 = mat3(viewMatrix) * (mat3(modelMatrix) * c1);
+  }`;
+const CROWN_FRAG_PARS = /* glsl */ `varying float vCrown0; varying vec3 vCrown1;`;
+const CROWN_FRAG = /* glsl */ `
+  {
+#if NUM_DIR_LIGHTS > 0
+    float sunVis = smoothstep(0.04, 0.8, vCrown0 + dot(vCrown1, directionalLights[0].direction));
+    reflectedLight.directDiffuse *= sunVis; reflectedLight.directSpecular *= sunVis * CROWN_SPEC;
+#endif
+    vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+    float skyVis = mix(CROWN_FLOOR, 1.0, clamp(vCrown0 + 0.667 * dot(vCrown1, upV), 0.0, 1.0));
+    reflectedLight.indirectDiffuse *= skyVis; reflectedLight.indirectSpecular *= skyVis * CROWN_SPEC;
+  }`;
+
+interface VegHookOpts { foliage?: boolean; crown?: boolean; crownSpec?: number; crownFloor?: number; mipAlpha?: number[]; fade?: [number, number] }
+function vegetationHooks(mat: THREE.Material, range: [number, number], height: number, windAmt: number, key: string, o: VegHookOpts = {}): void {
+  const table = o.mipAlpha && o.mipAlpha.length ? Array.from({ length: MIP_TABLE }, (_, i) => o.mipAlpha![Math.min(i, o.mipAlpha!.length - 1)]) : null;
+  const fade = o.fade ?? [1.0, 3.2];
   mat.onBeforeCompile = (shader) => {
-    if (foliage) {
+    if (o.foliage) {
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <alphatest_fragment>', FOLIAGE_ALPHA + (shader.fragmentShader.includes('varying vec3 vViewPosition') ? FOLIAGE_NEAR_FADE : ''))
+        .replace('#include <alphatest_fragment>', foliageAlpha(!!table) + (shader.fragmentShader.includes('varying vec3 vViewPosition') ? nearFade(fade[0], fade[1]) : ''))
         .replace('#include <normal_fragment_begin>', FOLIAGE_NORMAL)
         .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>\n${FOLIAGE_TRANSLUCENCY}`);
+      if (table) { shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\nuniform float uMipAlpha[${MIP_TABLE}];`); shader.uniforms.uMipAlpha = { value: table }; }
+    }
+    if (o.crown) {
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>\n#define CROWN_SPEC ${(o.crownSpec ?? 1).toFixed(2)}\n#define CROWN_FLOOR ${(o.crownFloor ?? 0.2).toFixed(2)}\n${CROWN_FRAG_PARS}`)
+        .replace('#include <aomap_fragment>', `#include <aomap_fragment>\n${CROWN_FRAG}`);
     }
     shader.uniforms.uTime = shared.time; shader.uniforms.uWind = shared.wind; shader.uniforms.uLodCenter = shared.center;
     shader.uniforms.uLodRange = { value: new THREE.Vector2(range[0], range[1]) };
     shader.uniforms.uHeight = { value: height }; shader.uniforms.uWindAmt = { value: windAmt };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>\nuniform float uTime; uniform float uWind; uniform vec2 uLodRange; uniform float uHeight; uniform float uWindAmt; uniform vec3 uLodCenter;`)
+      .replace('#include <common>', `#include <common>\nuniform float uTime; uniform float uWind; uniform vec2 uLodRange; uniform float uHeight; uniform float uWindAmt; uniform vec3 uLodCenter;${o.crown ? `\n${CROWN_VERT_PARS}` : ''}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 #ifdef USE_INSTANCING
   vec3 iPos = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -99,9 +141,9 @@ function vegetationHooks(mat: THREE.Material, range: [number, number], height: n
   transformed.x += sway * hf * hf * uHeight * 0.05;
   transformed.z += sway * hf * hf * uHeight * 0.03 * cos(ph * 0.7);
   transformed *= vis;
-#endif`);
+#endif${o.crown ? CROWN_VERT : ''}`);
   };
-  mat.customProgramCacheKey = () => `veg-${key}-${foliage ? 'f' : 'o'}`;
+  mat.customProgramCacheKey = () => `veg-${key}-${o.foliage ? 'f' : 'o'}${o.crown ? `c${o.crownSpec ?? 1}-${o.crownFloor ?? 0.2}` : ''}${table ? 'm' : ''}`;
 }
 
 const BILL_V = /* glsl */ `
@@ -468,6 +510,13 @@ export class Vegetation {
     try {
       const gltf: GLTF = await this.loader.loadAsync(`/assets/env/${id}.glb`);
       const root = gltf.scene;
+      // conifer needle cards: attach their (shared) atlas before the materials are prepared and compiled
+      const needleMats = new Set<THREE.MeshStandardMaterial>();
+      root.traverse((o) => { const mm = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined; if (mm && !Array.isArray(mm) && mm.userData?.atlas) needleMats.add(mm); });
+      for (const mm of needleMats) {
+        const a = await this.needleAtlas(mm.userData.atlas as string);
+        mm.map = a.map; mm.normalMap = a.normalMap; mm.needsUpdate = true;
+      }
       root.updateMatrixWorld(true);
       const windAmt = sp.def.kind === 'rock' ? 0 : sp.def.kind === 'tree' ? 1 : 1.6;
       const collect = (node: THREE.Object3D): Part[] => {
@@ -501,9 +550,18 @@ export class Vegetation {
           const cutout = !!m.alphaMap || m.alphaTest > 0 || m.transparent || sp.def.kind !== 'rock';
           if (cutout) { m.alphaTest = 0.5; m.transparent = false; m.side = THREE.DoubleSide; m.depthWrite = true; }
           m.vertexColors = !!it.geometry.getAttribute('color');
-          if (m.name.startsWith('canopy_') && CANOPY_GAIN[id]) m.color.multiplyScalar(CANOPY_GAIN[id]);
-          m.roughness = sp.def.kind === 'rock' ? Math.max(m.roughness, 0.7) : 0.9; m.envMapIntensity = sp.def.kind === 'rock' ? 0.5 : 0.35; m.metalness = 0;
-          vegetationHooks(m, range, va.height, windAmt, `${id}-${tag}`, cutout && sp.def.kind !== 'rock');
+          // conifers (scripts/conifer.mjs): needle cards keep their waxy sheen and baked needle normals,
+          // needles and bark read the crown light from COLOR_0 instead of using it as a colour
+          const needles = m.name.startsWith('needles_'), wood = m.name.startsWith('wood_');
+          const crown = !!m.userData.crownLight;
+          if (crown) m.vertexColors = false;
+          // needle edges antialiased by MSAA (alpha to coverage) instead of stair-stepping
+          if (needles) m.alphaToCoverage = true;
+          m.roughness = sp.def.kind === 'rock' ? Math.max(m.roughness, 0.7) : needles ? 0.72 : 0.9; m.envMapIntensity = sp.def.kind === 'rock' ? 0.5 : 0.35; m.metalness = 0;
+          vegetationHooks(m, range, va.height, windAmt, `${id}-${tag}`, {
+            foliage: cutout && sp.def.kind !== 'rock' && !wood, crown,
+            mipAlpha: m.userData.mipAlphaScale as number[] | undefined, fade: needles ? [0.7, 1.9] : undefined, crownSpec: needles ? 0.3 : 1, crownFloor: needles ? 0.2 : 0.5, // bark under the crown still gets the horizon light
+          });
           it.material = m;
           if (shadow) {
             const dm = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
@@ -526,6 +584,19 @@ export class Vegetation {
     }
     this.loading--;
     for (const rec of this.chunks.values()) for (const c of rec.cells) this.resolvePending(c);
+  }
+
+  private needleAtlas(key: string): Promise<{ map: THREE.Texture; normalMap: THREE.Texture }> {
+    let p = needleAtlases.get(key);
+    if (!p) {
+      const kl = ktx2Loader(this.renderer);
+      p = Promise.all([kl.loadAsync(`/assets/env/${key}.ktx2`), kl.loadAsync(`/assets/env/${key}_nor.ktx2`)]).then(([map, normalMap]) => {
+        map.colorSpace = THREE.SRGBColorSpace; normalMap.colorSpace = THREE.NoColorSpace;
+        return { map, normalMap };
+      });
+      needleAtlases.set(key, p);
+    }
+    return p;
   }
 
   private ensureAtlas(): void {
@@ -565,17 +636,39 @@ export class Vegetation {
       const mats: THREE.Material[] = [];
       for (const it of va.lod0) {
         const src = it.material as THREE.MeshStandardMaterial;
-        const am = new THREE.MeshBasicMaterial({ map: src.map, color: src.color, alphaTest: src.alphaTest, side: src.side, vertexColors: src.vertexColors, fog: false });
-        am.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', `${FOLIAGE_ALPHA}\ndiffuseColor.a = 1.0;`); };
-        am.customProgramCacheKey = () => `imp-a-${am.map ? 1 : 0}-${am.alphaTest > 0 ? 1 : 0}-${am.vertexColors ? 1 : 0}`;
+        const mip = src.userData.mipAlphaScale as number[] | undefined;
+        const table = mip && mip.length ? Array.from({ length: MIP_TABLE }, (_, i) => mip[Math.min(i, mip.length - 1)]) : null;
+        const crown = !!src.userData.crownLight;
+        const am = new THREE.MeshBasicMaterial({ map: src.map, color: src.color, alphaTest: src.alphaTest, side: src.side, vertexColors: src.vertexColors && !crown, fog: false });
+        am.onBeforeCompile = (sh) => {
+          // same alpha test as in the world; conifers darken with their crown's sky visibility (as their sky light does)
+          sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', `${foliageAlpha(!!table)}\ndiffuseColor.a = 1.0;${crown ? '\ndiffuseColor.rgb *= mix(0.25, 1.0, vSky);' : ''}`);
+          if (table) { sh.uniforms.uMipAlpha = { value: table }; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nuniform float uMipAlpha[${MIP_TABLE}];`); }
+          if (crown) {
+            sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 color; varying float vSky;')
+              .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSky = clamp(color.r + 0.667 * (color.b * 2.0 - 1.0), 0.0, 1.0);');
+            sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vSky;');
+          }
+        };
+        am.customProgramCacheKey = () => `imp-a-${am.map ? 1 : 0}-${am.alphaTest > 0 ? 1 : 0}-${am.vertexColors ? 1 : 0}-${table ? 1 : 0}-${crown ? 1 : 0}`;
         const nm = new THREE.ShaderMaterial({
           side: src.side,
-          uniforms: { map: { value: src.map }, useMap: { value: src.map && src.alphaTest > 0 ? 1 : 0 } },
+          uniforms: { map: { value: src.map }, useMap: { value: src.map && src.alphaTest > 0 ? 1 : 0 }, uMipAlpha: { value: table ?? [1] } },
+          defines: table ? { MIP_TABLE: 1 } : {},
           vertexShader: 'varying vec3 vN; varying vec2 vUv; void main() { vN = normal; vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
           fragmentShader: `uniform sampler2D map; uniform float useMap; varying vec3 vN; varying vec2 vUv;
+#ifdef MIP_TABLE
+uniform float uMipAlpha[${MIP_TABLE}];
+#endif
 void main() {
   if (useMap > 0.5) { vec2 tsz = vec2(textureSize(map, 0)); vec2 ddx = dFdx(vUv * tsz), ddy = dFdy(vUv * tsz);
-    float mipL = max(0.0, 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy)))); if (texture2D(map, vUv).a * (1.0 + mipL * 0.28) < 0.5) discard; }
+    float mipL = max(0.0, 0.5 * log2(max(dot(ddx, ddx), dot(ddy, ddy))));
+#ifdef MIP_TABLE
+    float mipF = min(mipL, ${MIP_TABLE - 1}.0); int mi = int(floor(mipF)); float sc = mix(uMipAlpha[mi], uMipAlpha[min(mi + 1, ${MIP_TABLE - 1})], mipF - float(mi));
+#else
+    float sc = 1.0 + mipL * 0.28;
+#endif
+    if (texture2D(map, vUv).a * sc < 0.5) discard; }
   vec3 n = normalize(vN); if (!gl_FrontFacing && useMap < 0.5) n = -n;
   gl_FragColor = vec4(n * 0.5 + 0.5, 1.0);
 }`,
@@ -609,7 +702,7 @@ void main() {
   /** Every placed tree / rock: trunk (or rock) radius, canopy radius and height, in metres. */
   forEachObstacle(cb: (x: number, z: number, r: number, canopy: number, height: number, tree: boolean) => void): void {
     for (const rec of this.chunks.values()) for (const c of rec.cells) for (const [id, cs] of c.species) {
-      const sp = this.species.get(id)!; if (sp.def.kind === 'plant') continue;
+      const sp = this.species.get(id)!; if (sp.def.kind === 'plant' || sp.def.obstacle === false) continue;
       const tree = sp.def.kind === 'tree';
       for (let v = 0; v < cs.data.length; v++) {
         const data = cs.data[v]; const va = sp.variants[v]; if (!va) continue;
@@ -628,7 +721,7 @@ void main() {
     for (const rec of this.chunks.values()) {
       if (Math.abs(rec.cx - x) > 80 || Math.abs(rec.cz - z) > 80) continue;
       for (const c of rec.cells) for (const [id, cs] of c.species) {
-        const sp = this.species.get(id)!; if (sp.def.kind === 'plant') continue;
+        const sp = this.species.get(id)!; if (sp.def.kind === 'plant' || sp.def.obstacle === false) continue;
         for (let v = 0; v < cs.data.length; v++) {
           const data = cs.data[v]; const va = sp.variants[v]; if (!va) continue;
           const foot = sp.def.kind === 'tree' ? Math.min(1.2, va.width * 0.12) : va.width * 0.45;

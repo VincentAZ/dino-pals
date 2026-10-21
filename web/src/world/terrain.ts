@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { ktx2Loader } from './ktx2.ts';
 import { CHUNK_LOAD_RADIUS, CHUNK_LOD_DIST, CHUNK_SEGMENTS, CHUNK_SIZE, CHUNKS_PER_SIDE, quality } from '../config.ts';
-import { DETAIL_TEXTURE, GROUND_LAYERS, HALF, LAYER_COUNT, LAYER_DETAIL, LAYER_ROUGH, LAYER_TILE, LAYER_TINT, TEX_LAYERS } from './biomes.ts';
+import { DETAIL_TEXTURE, GROUND_LAYERS, HALF, L, LAYER_COUNT, LAYER_DETAIL, LAYER_ROUGH, LAYER_TILE, LAYER_TINT, TEX_LAYERS, texLayerOf } from './biomes.ts';
 import { heightAt } from './heightmap.ts';
 import type { ChunkRequest, FarRequest, SplatRequest } from './terrain.worker.ts';
 import { DRY_LIN, FIELD_GLSL, FIELD_RES, GRASS_COL_LIN, GRASS_COV, GRASS_DRY, STEEP_GLSL, type FieldSampler } from './field.ts';
@@ -160,6 +160,7 @@ export interface TerrainUniforms {
   uSplat1: { value: THREE.Texture | null };
   uSplat2: { value: THREE.Texture | null };
   uSplat3: { value: THREE.Texture | null };
+  uSplat4: { value: THREE.Texture | null };
   uNoise: { value: THREE.Texture };
   uTile: { value: number[] };
   uRough: { value: number[] };
@@ -180,7 +181,7 @@ const SPLAT_GLSL = /* glsl */ `
 varying vec3 vWPos; varying vec3 vWNormal; varying float vAO;
 uniform sampler2DArray uAlb; uniform sampler2DArray uNrm;
 uniform sampler2D uDetA; uniform sampler2D uDetB; uniform vec3 uDetAvg;
-uniform sampler2D uSplat0; uniform sampler2D uSplat1; uniform sampler2D uSplat2; uniform sampler2D uSplat3;
+uniform sampler2D uSplat0; uniform sampler2D uSplat1; uniform sampler2D uSplat2; uniform sampler2D uSplat3; uniform sampler2D uSplat4;
 uniform float uTile[${LAYER_COUNT}]; uniform float uRough[${LAYER_COUNT}]; uniform vec3 uTint[${LAYER_COUNT}]; uniform float uDetail[${LAYER_COUNT}];
 uniform float uLayerLum[${LAYER_COUNT}];
 uniform float uWorldHalf; uniform float uTime; uniform float uLavaGlow;
@@ -190,10 +191,11 @@ vec3 gCol; vec3 gN; float gRough; float gAO; vec3 gEmit;
 float lum3(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 void splat() {
   vec2 suv = vWPos.xz / (2.0 * uWorldHalf) + 0.5;
-  vec4 s0 = texture(uSplat0, suv), s1 = texture(uSplat1, suv), s2 = texture(uSplat2, suv), s3 = texture(uSplat3, suv);
+  vec4 s0 = texture(uSplat0, suv), s1 = texture(uSplat1, suv), s2 = texture(uSplat2, suv), s3 = texture(uSplat3, suv), s4 = texture(uSplat4, suv);
   float w[${LAYER_COUNT}];
   w[0]=s0.r; w[1]=s0.g; w[2]=s0.b; w[3]=s0.a; w[4]=s1.r; w[5]=s1.g; w[6]=s1.b; w[7]=s1.a;
   w[8]=s2.r; w[9]=s2.g; w[10]=s2.b; w[11]=s2.a; w[12]=s3.r; w[13]=s3.g; w[14]=s3.b; w[15]=s3.a;
+  w[16]=s4.r; w[17]=s4.g;
   vec3 Nv = normalize(vWNormal);
   applySteep(w, 1.0 - Nv.y);
   float dCam = distance(vWPos, cameraPosition);
@@ -218,7 +220,7 @@ void splat() {
   for (int k = 0; k < 4; k++) {
     A[k] = vec4(0.4, 0.4, 0.4, 0.5); B[k] = vec4(0.9, 0.5, 1.0, 0.5);
     if (ws[k] < 0.01) continue;
-    int L = ids[k]; float layer = float(L == 15 ? 8 : L);
+    int L = ids[k]; float layer = float(L == ${L.lava} ? ${L.lavaRock} : (L > ${L.lava} ? L - 1 : L)); // lava has no texture of its own
     float tile = uTile[L];
     vec2 uvT = vWPos.xz / tile;
     vec4 a = texture(uAlb, vec3(uvT, layer)); vec4 b = texture(uNrm, vec3(uvT, layer));
@@ -250,12 +252,12 @@ void splat() {
   // macro variation against tiling
   float macro = (0.84 + 0.3 * mA.a) * (0.92 + 0.16 * mB.r);
   col *= macro;
-  // volcanic ground: oxidised rusty-brown scoria patches and lighter ash drifts
-  float volc = clamp(w[8] + w[12], 0.0, 1.0);
+  // volcanic ground: oxidised rusty-red scoria patches (strongest on the cinders), lighter ash drifts
+  float volc = clamp(w[${L.lavaRock}] + w[${L.ash}] + w[${L.cinder}] + w[${L.aa}], 0.0, 1.0);
   if (volc > 0.01) {
-    float rust = smoothstep(0.55, 0.8, mA.r * 0.6 + mB.b * 0.4) * volc;
+    float rust = smoothstep(0.55, 0.8, mA.r * 0.6 + mB.b * 0.4) * clamp(volc + w[${L.cinder}] * 0.8, 0.0, 1.0);
     col = mix(col, col * vec3(1.75, 1.08, 0.72), rust * 0.55);
-    col = mix(col, col * 1.45, smoothstep(0.6, 0.85, mB.g) * w[12] * 0.5);
+    col = mix(col, col * 1.45, smoothstep(0.6, 0.85, mB.g) * w[${L.ash}] * 0.5);
   }
   // grass-covered ground takes the colour of its grass (same field function as the blades),
   // keeping the texture's luminance detail; darker near the camera where it is the shade between blades
@@ -274,6 +276,17 @@ void splat() {
     col *= mix(vec3(1.0), clamp(da.rgb / uDetAvg, 0.0, 2.2), dK * 0.75);
     nd += (vec2(db.a, db.g) * 2.0 - 1.0) * dK * 0.8;
     ao *= mix(1.0, db.b, dK);
+  }
+  // volcanic near field: fine scoria lapilli between the larger clasts, in patches (cinder texture at a finer scale)
+  float vNear = clamp(w[${L.ash}] + w[${L.cinder}] * 0.8 + w[${L.aa}] * 0.2 + w[${L.lavaRock}] * 0.25, 0.0, 1.0) * (1.0 - smoothstep(5.0, 22.0, dCam));
+  if (vNear > 0.01) {
+    vec2 vuv = mat2(0.83, -0.56, 0.56, 0.83) * vWPos.xz / 0.62 + 0.13;
+    vec4 va = texture(uAlb, vec3(vuv, ${texLayerOf(L.cinder)}.0)); vec4 vb = texture(uNrm, vec3(vuv, ${texLayerOf(L.cinder)}.0));
+    float lapilli = vNear * smoothstep(0.42, 0.62, va.a * 0.7 + texture(uField, vWPos.xz / 4.3 + 0.41).g * 0.6 - 0.05);
+    float vl = lum3(va.rgb) / max(uLayerLum[${L.cinder}], 1e-3);
+    col = mix(col, col * clamp(vl, 0.35, 1.9) * vec3(1.06, 0.96, 0.9), lapilli * 0.75);
+    nd += (vec2(vb.a, vb.g) * 2.0 - 1.0) * lapilli * 0.9;
+    ao *= mix(1.0, vb.b, lapilli * 0.8);
   }
   vec3 Nw = normalize(Nv + (Tt * nd.x + Bt * nd.y) * (1.0 - farK * 0.75) * 1.15);
   // wet mud and damp sand: darker and glossy; standing water in the low parts of the swamp mud
@@ -302,6 +315,16 @@ void splat() {
     gEmit = hot * (heat * 5.5 + 0.4 * smoothstep(0.0, 0.45, lv)) * uLavaGlow;
     col = mix(col, vec3(0.022, 0.018, 0.017), smoothstep(0.15, 0.55, lv));
     rough = mix(rough, 0.55, lv);
+    // banks: freshly cooled glassy crust, still glowing in its cracks
+    float bank = smoothstep(0.05, 0.18, lv) * (1.0 - smoothstep(0.26, 0.5, lv));
+    if (bank > 0.01) {
+      float n1 = texture(uField, vWPos.xz / 3.1 + 0.17).g, n2 = texture(uField, vWPos.xz / 1.3 + 0.53).r;
+      float cracks = (1.0 - smoothstep(0.0, 0.016, abs(n1 - 0.5))) * 0.8 + (1.0 - smoothstep(0.0, 0.02, abs(n2 - 0.5))) * 0.35 * smoothstep(0.12, 0.3, lv);
+      float pulse = 0.75 + 0.25 * sin(uTime * 0.8 + n1 * 11.0);
+      gEmit += vec3(1.0, 0.22, 0.02) * cracks * bank * bank * 1.3 * pulse * uLavaGlow;
+      col = mix(col, col * 0.55, bank);
+      rough = mix(rough, 0.34, bank * 0.8);
+    }
   }
   gCol = col; gN = Nw; gRough = clamp(rough, 0.04, 1.0); gAO = mix(1.0, ao, 0.85);
 }`;
@@ -321,7 +344,7 @@ export function createTerrainMaterial(u: TerrainUniforms): THREE.MeshStandardMat
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\ntotalEmissiveRadiance += gEmit;`)
       .replace('#include <aomap_fragment>', `reflectedLight.indirectDiffuse *= gAO * vAO;\nreflectedLight.indirectSpecular *= mix(1.0, gAO * vAO, 0.75);`);
   };
-  mat.customProgramCacheKey = () => 'dino-terrain-v2';
+  mat.customProgramCacheKey = () => 'dino-terrain-v3';
   return mat;
 }
 
@@ -356,7 +379,7 @@ export class Terrain {
     this.vegDensity = quality.vegDensity;
     this.uniforms = {
       uAlb: { value: null }, uNrm: { value: null }, uDetA: { value: null }, uDetB: { value: null }, uDetAvg: { value: new THREE.Vector3(0.3, 0.3, 0.3) },
-      uSplat0: { value: null }, uSplat1: { value: null }, uSplat2: { value: null }, uSplat3: { value: null },
+      uSplat0: { value: null }, uSplat1: { value: null }, uSplat2: { value: null }, uSplat3: { value: null }, uSplat4: { value: null },
       uNoise: { value: makeNoiseTexture() }, uTile: { value: [...LAYER_TILE] }, uRough: { value: [...LAYER_ROUGH] }, uTint: { value: LAYER_TINT.map((t) => new THREE.Vector3(t[0], t[1], t[2])) },
       uDetail: { value: [...LAYER_DETAIL] },
       uWorldHalf: { value: HALF }, uTime: { value: 0 }, uLavaGlow: { value: 1 },
@@ -387,9 +410,8 @@ export class Terrain {
     this.uniforms.uAlb.value = alb; this.uniforms.uNrm.value = nrm;
     this.uniforms.uDetA.value = detA; this.uniforms.uDetB.value = detB;
     this.uniforms.uDetAvg.value.set(...detAvg);
-    const lum = lums.map((c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]);
-    while (lum.length < LAYER_COUNT) lum.push(lum[8] ?? 0.1);
-    this.uniforms.uLayerLum.value = lum;
+    const lumTex = lums.map((c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]);
+    this.uniforms.uLayerLum.value = Array.from({ length: LAYER_COUNT }, (_, ch) => lumTex[texLayerOf(ch)] ?? 0.1);
     const res = 512;
     groundData.splat = splat.data; groundData.splatRes = res;
     groundData.field = { noise: splat.field, res: FIELD_RES };
@@ -397,7 +419,7 @@ export class Terrain {
     ft.wrapS = ft.wrapT = THREE.RepeatWrapping; ft.minFilter = THREE.LinearMipmapLinearFilter; ft.magFilter = THREE.LinearFilter;
     ft.generateMipmaps = true; ft.needsUpdate = true;
     groundData.fieldTex = ft; this.uniforms.uField.value = ft;
-    const keys = ['uSplat0', 'uSplat1', 'uSplat2', 'uSplat3'] as const;
+    const keys = ['uSplat0', 'uSplat1', 'uSplat2', 'uSplat3', 'uSplat4'] as const;
     for (let p = 0; p < splat.planes; p++) {
       const t = new THREE.DataTexture(splat.data.subarray(p * res * res * 4, (p + 1) * res * res * 4), res, res);
       t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true;

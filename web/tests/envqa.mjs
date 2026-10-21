@@ -15,7 +15,7 @@ const opt = (k, d) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i
 const TAG = opt('tag', 'after');
 const TIERS = opt('tiers', 'high,low').split(',');
 const ONLY = opt('only', null)?.split(',') ?? null;
-const OUT = path.join(ROOT, 'tests', 'shots', 'env', TAG);
+const OUT = opt('out', null) ? path.resolve(opt('out', null)) : path.join(ROOT, 'tests', 'shots', 'env', TAG);
 await fs.mkdir(OUT, { recursive: true });
 const PORT = 5200 + Math.floor(Math.random() * 600);
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
