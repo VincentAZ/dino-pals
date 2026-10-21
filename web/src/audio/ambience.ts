@@ -1,5 +1,6 @@
 // Per-biome ambient beds crossfaded by player position + time of day.
 import type { AudioEngine } from './context.ts';
+import { samples } from './samples.ts';
 import { BIOME_IDS } from '../world/biomes.ts';
 
 interface Bed { gain: GainNode; tick?: (dt: number, level: number, night: number) => void }
@@ -50,7 +51,7 @@ export class Ambience {
     bed('swamp', (out) => { wind(out, 250, 0.5, 0.05); return (dt, level, night) => { this.frogs(dt, level * (0.4 + 0.6 * night), out); this.crickets(dt, level * night, out); }; });
     bed('snow', (out) => { wind(out, 650, 1.2, 0.15); const g = ctx.createGain(); g.gain.value = 1.4; return undefined; });
     bed('canyon', (out) => { wind(out, 520, 2.5, 0.2); return undefined; });
-    bed('lake', (out) => { wind(out, 380, 0.7, 0.1); return (dt, level, night) => { this.birds(dt, level * 0.5 * (1 - night), out, 'meadow'); this.crickets(dt, level * night * 0.5, out); }; });
+    bed('lake', (out) => { wind(out, 380, 0.7, 0.1); return (dt, level, night) => { this.birds(dt, level * 0.5 * (1 - night * 0.3), out, 'lake'); this.crickets(dt, level * night * 0.5, out); }; });
   }
 
   private every(key: string, dt: number, meanInterval: number, fn: () => void): void {
@@ -59,6 +60,15 @@ export class Ambience {
   }
   private birds(dt: number, level: number, out: GainNode, kind: string): void {
     if (level < 0.05) return;
+    const rec = kind === 'gull' ? 'beach_bird' : kind === 'jungle' ? 'jungle_bird' : kind === 'lake' ? 'lake_bird' : 'meadow_bird';
+    if (samples.has(rec)) {
+      // recorded birds, scattered around the listener at random distances
+      this.every(`rec-${kind}`, dt, kind === 'gull' ? 6 : kind === 'lake' ? 9 : kind === 'jungle' ? 5 : 3.2, () => {
+        const far = 0.35 + Math.random() * 0.65;
+        samples.play(this.a, rec, out, 0.55 * level * far, Math.random() * 1.6 - 0.8, 0.96 + Math.random() * 0.08);
+      });
+      return;
+    }
     this.every(`bird-${kind}`, dt, kind === 'gull' ? 5 : 2.4, () => {
       const ctx = this.a.ctx; const base = ctx.currentTime;
       const n = kind === 'gull' ? 2 : 3 + Math.floor(Math.random() * 4);

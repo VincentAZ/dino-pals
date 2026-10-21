@@ -1,6 +1,7 @@
 // Synthesized dinosaur calls per voice class. All friendly "hellos".
 import type { AudioEngine } from './context.ts';
 import type { Voice } from '../dinos/manifest.ts';
+import { samples } from './samples.ts';
 
 function distortionCurve(amount: number): Float32Array<ArrayBuffer> {
   const n = 2048, c = new Float32Array(new ArrayBuffer(n * 4));
@@ -8,8 +9,25 @@ function distortionCurve(amount: number): Float32Array<ArrayBuffer> {
   return c;
 }
 
+/** Typical body length (m) each recorded voice was tuned for; bigger animals play it lower. */
+const VOICE_SIZE: Record<string, number> = { bigTheropod: 11, sauropod: 20, ceratopsian: 8, raptor: 2.6, chirp: 4.5, pterosaur: 5, marine: 10 };
+
 export function playVoice(a: AudioEngine, voice: Voice, gain: number, pan: number, sizeM = 6): void {
   if (!a.unlocked || gain <= 0.01) return;
+  if (samples.has(voice)) {
+    // recorded call, pitched for this individual's size, with natural variation between calls
+    const rate = Math.min(1.2, Math.max(0.8, Math.pow((VOICE_SIZE[voice] ?? sizeM) / Math.max(1, sizeM), 0.3))) * (0.94 + Math.random() * 0.12);
+    const dur = samples.play(a, voice, a.voices, gain * 0.9, pan, rate);
+    if (dur > 0 && (voice === 'bigTheropod' || voice === 'sauropod')) {
+      // a soft sub-bass swell under the big voices gives them weight (felt more than heard)
+      const ctx = a.ctx, t0 = ctx.currentTime + 0.05;
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(voice === 'sauropod' ? 34 : 46, t0); o.frequency.linearRampToValueAtTime(voice === 'sauropod' ? 30 : 38, t0 + dur);
+      const e = ctx.createGain(); e.gain.setValueAtTime(0, t0); e.gain.linearRampToValueAtTime(0.35 * gain, t0 + 0.3); e.gain.linearRampToValueAtTime(0, t0 + dur);
+      const p = ctx.createStereoPanner(); p.pan.value = pan;
+      o.connect(e); e.connect(p); p.connect(a.voices); o.start(t0); o.stop(t0 + dur + 0.1);
+    }
+    return;
+  }
   const ctx = a.ctx, t0 = ctx.currentTime + 0.02;
   const out = ctx.createGain(); out.gain.value = gain;
   const panner = ctx.createStereoPanner(); panner.pan.value = pan;

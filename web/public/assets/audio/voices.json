@@ -1,0 +1,373 @@
+{
+ "voices": {
+  "bigTheropod": [
+   {
+    "file": "bigTheropod_0.mp3",
+    "dur": 3.22,
+    "src": "Alligatorbellow1.ogg"
+   },
+   {
+    "file": "bigTheropod_1.mp3",
+    "dur": 3.49,
+    "src": "Alligatorbellow1.ogg"
+   },
+   {
+    "file": "bigTheropod_2.mp3",
+    "dur": 3.49,
+    "src": "Alligatorbellow1.ogg"
+   },
+   {
+    "file": "bigTheropod_3.mp3",
+    "dur": 3.49,
+    "src": "Alligatorbellowedit.ogg"
+   },
+   {
+    "file": "bigTheropod_4.mp3",
+    "dur": 3.78,
+    "src": "Alligatorbellowedit.ogg"
+   },
+   {
+    "file": "bigTheropod_5.mp3",
+    "dur": 1.84,
+    "src": "27alligator2bellow.ogg"
+   },
+   {
+    "file": "bigTheropod_6.mp3",
+    "dur": 1.81,
+    "src": "27alligator2bellow.ogg"
+   },
+   {
+    "file": "bigTheropod_7.mp3",
+    "dur": 1.75,
+    "src": "27alligator2bellow.ogg"
+   }
+  ],
+  "sauropod": [
+   {
+    "file": "sauropod_0.mp3",
+    "dur": 3.0,
+    "src": "Elephant voice - trumpeting.ogg"
+   },
+   {
+    "file": "sauropod_1.mp3",
+    "dur": 2.5,
+    "src": "Elephant voice - trumpeting.ogg"
+   }
+  ],
+  "ceratopsian": [
+   {
+    "file": "ceratopsian_0.mp3",
+    "dur": 2.66,
+    "src": "Bison.wav"
+   },
+   {
+    "file": "ceratopsian_1.mp3",
+    "dur": 0.8,
+    "src": "Bison.wav"
+   },
+   {
+    "file": "ceratopsian_2.mp3",
+    "dur": 0.76,
+    "src": "Cow in Antefasy.wav"
+   }
+  ],
+  "raptor": [
+   {
+    "file": "raptor_0.mp3",
+    "dur": 0.74,
+    "src": "Great Blue Heron.ogg"
+   },
+   {
+    "file": "raptor_1.mp3",
+    "dur": 0.71,
+    "src": "Great Blue Heron.ogg"
+   },
+   {
+    "file": "raptor_2.mp3",
+    "dur": 0.91,
+    "src": "Pavo cristatus (call).ogg"
+   },
+   {
+    "file": "raptor_3.mp3",
+    "dur": 0.9,
+    "src": "Pavo cristatus (call).ogg"
+   }
+  ],
+  "chirp": [
+   {
+    "file": "chirp_0.mp3",
+    "dur": 1.08,
+    "src": "Gobbler.ogg"
+   },
+   {
+    "file": "chirp_1.mp3",
+    "dur": 0.94,
+    "src": "Gobbler.ogg"
+   },
+   {
+    "file": "chirp_2.mp3",
+    "dur": 0.93,
+    "src": "Gobbler.ogg"
+   }
+  ],
+  "pterosaur": [
+   {
+    "file": "pterosaur_0.mp3",
+    "dur": 1.08,
+    "src": "Yellowstone sound library - Sandhill Crane - 001.mp3"
+   },
+   {
+    "file": "pterosaur_1.mp3",
+    "dur": 1.28,
+    "src": "Yellowstone sound library - Sandhill Crane - 001.mp3"
+   },
+   {
+    "file": "pterosaur_2.mp3",
+    "dur": 0.8,
+    "src": "Yellowstone sound library - Sandhill Crane - 001.mp3"
+   },
+   {
+    "file": "pterosaur_3.mp3",
+    "dur": 1.72,
+    "src": "Gull 2.ogg"
+   },
+   {
+    "file": "pterosaur_4.mp3",
+    "dur": 1.16,
+    "src": "Gull 2.ogg"
+   }
+  ],
+  "marine": [
+   {
+    "file": "marine_0.mp3",
+    "dur": 2.38,
+    "src": "Humpback whale wheezeblow.ogg"
+   },
+   {
+    "file": "marine_1.mp3",
+    "dur": 1.05,
+    "src": "Humpback whale wheezeblow.ogg"
+   },
+   {
+    "file": "marine_2.mp3",
+    "dur": 0.96,
+    "src": "Humpback whale wheezeblow.ogg"
+   }
+  ],
+  "meadow_bird": [
+   {
+    "file": "meadow_bird_0.mp3",
+    "dur": 0.42,
+    "src": "Yellowstone sound library - Mountain Bluebird - 001.mp3"
+   },
+   {
+    "file": "meadow_bird_1.mp3",
+    "dur": 0.42,
+    "src": "Yellowstone sound library - Mountain Bluebird - 001.mp3"
+   },
+   {
+    "file": "meadow_bird_2.mp3",
+    "dur": 0.54,
+    "src": "Yellowstone sound library - Mountain Bluebird - 001.mp3"
+   },
+   {
+    "file": "meadow_bird_3.mp3",
+    "dur": 0.79,
+    "src": "Yellowstone sound library - Mountain Bluebird - 001.mp3"
+   },
+   {
+    "file": "meadow_bird_4.mp3",
+    "dur": 0.93,
+    "src": "Yellowstone sound library - Red-Winged Blackbird - 001.mp3"
+   },
+   {
+    "file": "meadow_bird_5.mp3",
+    "dur": 0.73,
+    "src": "Yellowstone sound library - Red-Winged Blackbird - 001.mp3"
+   },
+   {
+    "file": "meadow_bird_6.mp3",
+    "dur": 0.62,
+    "src": "Yellowstone sound library - Red-Winged Blackbird - 001.mp3"
+   }
+  ],
+  "jungle_bird": [
+   {
+    "file": "jungle_bird_0.mp3",
+    "dur": 6.06,
+    "src": "LaughingKookaburra.ogg"
+   },
+   {
+    "file": "jungle_bird_1.mp3",
+    "dur": 1.05,
+    "src": "Yellow-tailed Black Cockatoos.ogg"
+   },
+   {
+    "file": "jungle_bird_2.mp3",
+    "dur": 1.17,
+    "src": "Yellow-tailed Black Cockatoos.ogg"
+   },
+   {
+    "file": "jungle_bird_3.mp3",
+    "dur": 2.59,
+    "src": "Yellow-tailed Black Cockatoos.ogg"
+   }
+  ],
+  "lake_bird": [
+   {
+    "file": "lake_bird_0.mp3",
+    "dur": 2.69,
+    "src": "Yellowstone sound library - Common Loon - 001.mp3"
+   },
+   {
+    "file": "lake_bird_1.mp3",
+    "dur": 2.89,
+    "src": "Yellowstone sound library - Common Loon - 001.mp3"
+   },
+   {
+    "file": "lake_bird_2.mp3",
+    "dur": 2.7,
+    "src": "Yellowstone sound library - Common Loon - 001.mp3"
+   },
+   {
+    "file": "lake_bird_3.mp3",
+    "dur": 1.02,
+    "src": "Yellowstone sound library - Canada Geese - 001.mp3"
+   }
+  ],
+  "beach_bird": [
+   {
+    "file": "beach_bird_0.mp3",
+    "dur": 1.29,
+    "src": "XC707075 - European Herring Gull - Larus argentatus.mp3"
+   },
+   {
+    "file": "beach_bird_1.mp3",
+    "dur": 0.76,
+    "src": "XC707075 - European Herring Gull - Larus argentatus.mp3"
+   },
+   {
+    "file": "beach_bird_2.mp3",
+    "dur": 0.9,
+    "src": "XC707075 - European Herring Gull - Larus argentatus.mp3"
+   },
+   {
+    "file": "beach_bird_3.mp3",
+    "dur": 1.5,
+    "src": "XC707075 - European Herring Gull - Larus argentatus.mp3"
+   },
+   {
+    "file": "beach_bird_4.mp3",
+    "dur": 2.22,
+    "src": "Gull 1.ogg"
+   },
+   {
+    "file": "beach_bird_5.mp3",
+    "dur": 2.69,
+    "src": "Gull 1.ogg"
+   }
+  ]
+ },
+ "credits": {
+  "Alligatorbellow1.ogg": {
+   "license": "Public domain",
+   "author": "",
+   "url": "https://commons.wikimedia.org/wiki/File:Alligatorbellow1.ogg"
+  },
+  "Alligatorbellowedit.ogg": {
+   "license": "Public domain",
+   "author": "Borisblue",
+   "url": "https://commons.wikimedia.org/wiki/File:Alligatorbellowedit.ogg"
+  },
+  "27alligator2bellow.ogg": {
+   "license": "Public domain",
+   "author": "",
+   "url": "https://commons.wikimedia.org/wiki/File:27alligator2bellow.ogg"
+  },
+  "Elephant voice - trumpeting.ogg": {
+   "license": "CC0",
+   "author": "\u0ba4\u0b95\u0bb5\u0bb2\u0bc1\u0bb4\u0bb5\u0ba9\u0bcd",
+   "url": "https://commons.wikimedia.org/wiki/File:Elephant_voice_-_trumpeting.ogg"
+  },
+  "Bison.wav": {
+   "license": "Public domain",
+   "author": "National Park Service",
+   "url": "https://commons.wikimedia.org/wiki/File:Bison.wav"
+  },
+  "Cow in Antefasy.wav": {
+   "license": "CC0",
+   "author": "Gasybeaugosse2020",
+   "url": "https://commons.wikimedia.org/wiki/File:Cow_in_Antefasy.wav"
+  },
+  "Great Blue Heron.ogg": {
+   "license": "Public domain",
+   "author": "Unknown authorUnknown author",
+   "url": "https://commons.wikimedia.org/wiki/File:Great_Blue_Heron.ogg"
+  },
+  "Pavo cristatus (call).ogg": {
+   "license": "Public domain",
+   "author": "Ke4roh",
+   "url": "https://commons.wikimedia.org/wiki/File:Pavo_cristatus_(call).ogg"
+  },
+  "Gobbler.ogg": {
+   "license": "Public domain",
+   "author": "bod",
+   "url": "https://commons.wikimedia.org/wiki/File:Gobbler.ogg"
+  },
+  "Yellowstone sound library - Sandhill Crane - 001.mp3": {
+   "license": "Public domain",
+   "author": "NPS &amp; MSU Acoustic Atlas / Jennifer Jerrett",
+   "url": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Sandhill_Crane_-_001.mp3"
+  },
+  "Gull 2.ogg": {
+   "license": "Public domain",
+   "author": "avphillips",
+   "url": "https://commons.wikimedia.org/wiki/File:Gull_2.ogg"
+  },
+  "Humpback whale wheezeblow.ogg": {
+   "license": "Public domain",
+   "author": "\"The recordings available here were made by the National Park Service, using a hydrophone that is anchored near the mout",
+   "url": "https://commons.wikimedia.org/wiki/File:Humpback_whale_wheezeblow.ogg"
+  },
+  "Yellowstone sound library - Mountain Bluebird - 001.mp3": {
+   "license": "Public domain",
+   "author": "NPS &amp; MSU Acoustic Atlas/Jennifer Jerrett",
+   "url": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Mountain_Bluebird_-_001.mp3"
+  },
+  "Yellowstone sound library - Red-Winged Blackbird - 001.mp3": {
+   "license": "Public domain",
+   "author": "NPS &amp; MSU Acoustic Atlas / Jennifer Jerrett",
+   "url": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Red-Winged_Blackbird_-_001.mp3"
+  },
+  "LaughingKookaburra.ogg": {
+   "license": "Public domain",
+   "author": "Kuco",
+   "url": "https://commons.wikimedia.org/wiki/File:LaughingKookaburra.ogg"
+  },
+  "Yellow-tailed Black Cockatoos.ogg": {
+   "license": "Public domain",
+   "author": "Wardie44",
+   "url": "https://commons.wikimedia.org/wiki/File:Yellow-tailed_Black_Cockatoos.ogg"
+  },
+  "Yellowstone sound library - Common Loon - 001.mp3": {
+   "license": "Public domain",
+   "author": "NPS &amp; MSU Acoustic Atlas/Jennifer Jerrett",
+   "url": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Common_Loon_-_001.mp3"
+  },
+  "Yellowstone sound library - Canada Geese - 001.mp3": {
+   "license": "Public domain",
+   "author": "NPS &amp; MSU Acoustic Atlas / Jennifer Jerrett",
+   "url": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Canada_Geese_-_001.mp3"
+  },
+  "XC707075 - European Herring Gull - Larus argentatus.mp3": {
+   "license": "CC0",
+   "author": "Sonoth\u00e8que ADVL",
+   "url": "https://commons.wikimedia.org/wiki/File:XC707075_-_European_Herring_Gull_-_Larus_argentatus.mp3"
+  },
+  "Gull 1.ogg": {
+   "license": "Public domain",
+   "author": "avphillips",
+   "url": "https://commons.wikimedia.org/wiki/File:Gull_1.ogg"
+  }
+ }
+}

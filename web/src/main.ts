@@ -28,6 +28,7 @@ import { playVoice } from './audio/voices.ts';
 import { eatCrunch, footstep, pop, sniff, sparkle, splash, thump, wingFlap } from './audio/sfx.ts';
 import { Ambience } from './audio/ambience.ts';
 import { Music } from './audio/music.ts';
+import { samples } from './audio/samples.ts';
 import { showSplash } from './ui/splash.ts';
 import { Hud } from './ui/hud.ts';
 import { showCredits } from './ui/credits.ts';
@@ -64,6 +65,7 @@ interface DinoApi {
   probeDino: (id: string) => Record<string, unknown> | null;
   probeVis: (id: string) => Record<string, unknown> | null;
   biteLog: () => { dino: string; dist: number; t: number }[];
+  audioStats: () => Record<string, unknown>;
   foods: () => unknown[];
 }
 
@@ -131,6 +133,7 @@ async function main(): Promise<void> {
   scene.add(water.group);
   await splashP;
   await audio.unlock();
+  void samples.load(audio);
   ambience.start(); music.start();
   requestWakeLock();
   try { await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch { /* not available on iOS */ }
@@ -338,6 +341,7 @@ async function main(): Promise<void> {
       return out;
     },
     biteLog: () => biteLog,
+    audioStats: () => ({ ready: samples.ready, loaded: samples.loaded, plays: samples.plays, state: audio.ctx.state }),
     foods: () => foods.map((f) => ({ x: +f.pos.x.toFixed(1), z: +f.pos.z.toFixed(1), amount: +f.amount.toFixed(2), items: f.items.length, eaters: [...f.eaters.keys()] })),
   };
   (window as unknown as { __dino: DinoApi }).__dino = api;
