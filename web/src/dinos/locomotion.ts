@@ -262,7 +262,7 @@ export class Locomotion {
     const v = Math.hypot(this.vel.x, this.vel.z);
     const turnSpeed = Math.abs(this.yawRate) * this.footRadiusMax;
     this.speedEff = Math.max(v, turnSpeed);
-    const moving = this.speedEff > 0.04 && !busy;
+    const moving = this.speedEff > 0.04 && (!busy || turnSpeed > 0.05);   // a busy animal still steps when it turns
     const sf = THREE.MathUtils.clamp(this.speedEff / Math.max(0.3, this.vRef), 0, 2.2);
     const ve = Math.max(0.05, this.speedEff), h = this.legLen;
     const stride = 2.3 * h * Math.pow((ve * ve) / (9.81 * h), 0.3);
