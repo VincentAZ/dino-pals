@@ -76,6 +76,7 @@ interface DinoApi {
   simulateSlow: (ms: number) => void;
   setJawClose: (species: string, deg: number) => void;
   clearFx: () => void;
+  ground: (x: number, z: number) => { h: number; water: number; kind: string };
   headPos: (id: string) => [number, number, number, number] | null;
   motionSample: () => (string | number)[][];
   director: (cam: [number, number, number] | null, targetId?: string | null, lookAt?: [number, number, number], height?: number) => void;
@@ -195,7 +196,12 @@ async function main(): Promise<void> {
       const s = spatial(p, big ? 120 : 50);
       footstep(audio, big, s.gain * (big ? 0.8 : 0.3) * (heavy ? 1.4 : 1), s.pan);
       if (heavy) thump(audio, s.gain * 0.8, s.pan);
-      if (big || heavy) {
+      const wet = waterAt(p.x, p.z);
+      if (wet.kind !== 'none' && wet.level > heightAt(p.x, p.z) + 0.03) {
+        // wading: every step throws a splash (and makes one)
+        weather.puffs.spawn('splash', p.x, wet.level, p.z, big || heavy ? 18 : 8, Math.min(2.2, 0.4 + d.sizeM / 8));
+        if (Math.hypot(p.x - player.pos.x, p.z - player.pos.z) < 60) splash(audio, s.gain * (big ? 0.7 : 0.35), s.pan, big);
+      } else if (big || heavy) {
         const w = biomeWeights(p.x, p.z);
         weather.puffs.spawn(w.dominant === 'snow' ? 'snowkick' : 'dust', p.x, p.y, p.z, heavy ? 22 : 7, Math.min(1.6, d.sizeM / 9));
       }
@@ -385,6 +391,7 @@ async function main(): Promise<void> {
       return out;
     },
     headPos: (id) => { const d = dinos.dinos.find((x) => x.root.name === id); if (!d) return null; const v = d.snoutPos(new THREE.Vector3()); return [v.x, v.y, v.z, d.heading]; },
+    ground: (x, z) => { const w = waterAt(x, z); return { h: heightAt(x, z), water: w.kind === 'none' ? -1 : w.level, kind: w.kind }; },
     clearFx: () => { weather.sparkles.clear(); weather.puffs.clear(); },
     setJawClose: (species, deg) => { for (const d of dinos.dinos) if (d.species.id === species && d.loco) d.loco.jawClose = THREE.MathUtils.degToRad(deg); },
     setDinoCulling: (on) => { Dino.cullDinos = on; for (const d of dinos.dinos) d.root.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) o.frustumCulled = on; }); },

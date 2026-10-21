@@ -79,7 +79,8 @@ export function prewarmLand(px: number, pz: number, budgetMs = 0.6, radius = 170
 function landOkAt(x: number, z: number): boolean {
   const h = heightAt(x, z);
   if (h < 0.4) return false;
-  if (waterAt(x, z).kind !== 'none') return false;
+  const w = waterAt(x, z);
+  if (w.kind !== 'none' && w.level - h > 0.35) return false;   // shallows are wadeable; deeper water is not
   return slopeAt(x, z, 2) < 0.55;
 }
 
