@@ -96,7 +96,7 @@ async function main(): Promise<void> {
 
   // world
   const workers = new TerrainWorkers(2);
-  const terrain = new Terrain(workers);
+  const terrain = new Terrain(workers, renderer);
   scene.add(terrain.group);
   const terrainReady = terrain.init();
   const sky = new Sky(renderer, scene, terrain.uniforms.uNoise.value);

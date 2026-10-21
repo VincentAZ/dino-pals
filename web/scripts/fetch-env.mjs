@@ -15,6 +15,7 @@ import {
 import { MeshoptSimplifier, MeshoptEncoder } from 'meshoptimizer';
 import draco3d from 'draco3dgltf';
 import { buildCardTexture, canopyCards } from './canopy.mjs';
+import { extractLeaves, crownOf, pickLeaves, writeLeafQuads, keepLimbs } from './foliage.mjs';
 import { EXTTextureWebP } from '@gltf-transform/extensions';
 
 function mulberry(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -29,11 +30,11 @@ const ONLY = (() => { const i = args.indexOf('--only'); return i >= 0 ? args[i +
 const MODELS = {
   fir_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 1024, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 8, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.3, tint: [0.85, 0.9, 0.8] } },
   pine_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 1024, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 14, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.36, tint: [0.85, 0.9, 0.8] } },
-  island_tree_01: { kind: 'tree', tris: 3800, lod1: 900, tex: 512, leafTex: 1024, canopy: { key: 'leaves', cards0: 380, cards1: 90, copies: 30, copyScale: [0.26, 0.4], tint: [0.78, 0.98, 0.6] } },
-  island_tree_02: { kind: 'tree', tris: 3800, lod1: 900, tex: 512, leafTex: 1024, canopy: { key: 'leaves', cards0: 380, cards1: 90, copies: 30, copyScale: [0.26, 0.4], tint: [0.78, 0.98, 0.6] } },
-  island_tree_03: { kind: 'tree', tris: 3800, lod1: 900, tex: 512, leafTex: 1024, canopy: { key: 'leaves', cards0: 380, cards1: 90, copies: 30, copyScale: [0.26, 0.4], tint: [0.78, 0.98, 0.6] } },
-  jacaranda_tree: { kind: 'tree', tris: 6000, lod1: 900, tex: 512, leafTex: 1024, canopy: { key: 'leaves', cards0: 900, cards1: 220, copies: 16, copyScale: [0.4, 0.6], maxSprites: 8, sizeMul: 0.7, tint: [0.62, 0.74, 0.5] } },
-  tree_small_02: { kind: 'tree', tris: 3600, lod1: 800, tex: 512, leafTex: 1024, canopy: { key: 'leaves', cards0: 360, cards1: 90, copies: 10, copyScale: [0.45, 0.65], maxSprites: 8, tint: [0.8, 0.98, 0.62] } },
+  island_tree_01: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
+  island_tree_02: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
+  island_tree_03: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
+  jacaranda_tree: { kind: 'tree', tris: 22000, lod1: 3600, tex: 512, leafTex: 512, foliage: { leaves0: 8000, leaves1: 1500, limbs: 60000, cover: 0.55 } },
+  tree_small_02: { kind: 'tree', tris: 5800, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 1900, leaves1: 480, limbs: 20000, cover: 0.9 } },
   dead_tree_trunk: { kind: 'tree', tris: 5000, lod1: 900, tex: 512 },
   dead_tree_trunk_02: { kind: 'tree', tris: 5000, lod1: 900, tex: 512 },
   quiver_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 1024 },
@@ -42,10 +43,10 @@ const MODELS = {
   pine_sapling_medium: { kind: 'plant', tris: 2500, lod1: 600, tex: 512, leafTex: 1024, canopy: { key: 'twig', cards0: 160, cards1: 50, copies: 12, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.85, tint: [0.85, 0.9, 0.8] } },
   searsia_lucida: { kind: 'plant', tris: 2000, lod1: 500, tex: 512, leafTex: 1024 },
   fern_02: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  shrub_01: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  shrub_02: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
+  shrub_01: { kind: 'plant', tris: 2400, lod1: 600, tex: 512, leafTex: 512, foliage: { leaves0: 1100, leaves1: 260, limbs: 0, cover: 0.85, leafMat: 'shrub' } },
+  shrub_02: { kind: 'plant', tris: 1400, lod1: 500, tex: 512, leafTex: 512, foliage: { leaves0: 260, leaves1: 90, limbs: 0, cover: 0.9, leafMat: 'shrub' } },
   shrub_03: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  shrub_04: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
+  shrub_04: { kind: 'plant', tris: 1000, lod1: 300, tex: 512, leafTex: 512, foliage: { leaves0: 420, leaves1: 120, limbs: 0, cover: 0.9, leafMat: 'shrub' } },
   grass_medium_01: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
   grass_bermuda_01: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
   nettle_plant: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
@@ -63,9 +64,11 @@ const MODELS = {
   rock_face_01: { kind: 'rock', tris: 3000, lod1: 600, tex: 1024 },
 };
 
+// Ground layers (order = GROUND_LAYERS in src/world/biomes.ts) + the near-camera detail texture.
 const TEXTURES = [
-  'grass_ground', 'aerial_grass_rock', 'forest_floor', 'forest_leaves_02', 'coast_sand_01', 'damp_beach_sand',
-  'brown_mud', 'cracked_red_ground', 'dark_rock', 'dry_riverbed_rock', 'snow_02', 'aerial_rocks_02',
+  'grass_ground', 'aerial_grass_rock', 'forest_floor', 'forest_leaves_02', 'aerial_sand', 'damp_beach_sand',
+  'brown_mud_03', 'cracked_red_ground', 'dark_rock', 'dry_riverbed_rock', 'snow_02', 'aerial_rocks_02',
+  'rock_ground_02', 'cliff_side', 'brown_mud_leaves_01', 'floor_pebbles_01',
 ];
 
 async function fetchJson(url) {
@@ -240,6 +243,32 @@ async function processModel(name, cfg, io, credits) {
   const nvar = Math.max(1, lod0Nodes.length * 0.6);
   const rnd0 = mulberry(1234);
   let canopyMat = null, cardCount = 0;
+  // real-leaf foliage: one fitted quad per modelled leaf, outer-weighted subset, bent normals + crown AO
+  const leafSets = [];
+  const leafRx = new RegExp(cfg.foliage?.leafMat ?? 'leaf|leaves|frond', 'i');
+  const isLeafMat = (mat) => mat && (mat.getAlphaMode() !== 'OPAQUE' || /^canopy_/.test(mat.getName()) === false && cfg.foliage?.leafMat) && leafRx.test(mat.getName());
+  if (cfg.foliage) {
+    const f = cfg.foliage;
+    const sets = [];
+    for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
+      const mat = prim.getMaterial();
+      if (isLeafMat(mat)) { const leaves = extractLeaves(prim); if (leaves.length > 8) sets.push({ prim, leaves, crown: crownOf(leaves) }); }
+      else if (mat && mat.getAlphaMode() === 'OPAQUE' && /branch|twig/i.test(mat.getName())) keepLimbs(prim, f.limbs);
+    }
+    const maxLeaves = Math.max(1, ...sets.map((x) => x.leaves.length));
+    for (const set of sets) {
+      const share = Math.sqrt(set.leaves.length / maxLeaves);
+      set.n0 = Math.min(set.leaves.length, Math.round(f.leaves0 * share)); set.n1 = Math.min(set.leaves.length, Math.round(f.leaves1 * share));
+      set.s0 = Math.min(5, Math.max(1, Math.sqrt(set.leaves.length / set.n0) * f.cover));
+      set.s1 = Math.min(9, Math.max(1, Math.sqrt(set.leaves.length / set.n1) * f.cover * 1.08));
+      cardCount += writeLeafQuads(doc, set.prim, pickLeaves(set.leaves, set.crown, set.n0, rnd0), set.crown, set.s0);
+      leafSets.push(set);
+    }
+    for (const mat of doc.getRoot().listMaterials()) if (isLeafMat(mat)) { mat.setNormalTexture(null).setOcclusionTexture(null).setMetallicRoughnessTexture(null).setDoubleSided(true).setAlphaMode('MASK').setAlphaCutoff(0.5).setRoughnessFactor(0.85).setMetallicFactor(0); }
+    for (const mat of doc.getRoot().listMaterials()) if (!isLeafMat(mat)) { mat.setOcclusionTexture(null).setMetallicRoughnessTexture(null).setRoughnessFactor(0.9).setMetallicFactor(0); }
+    await doc.transform(prune());
+    console.log(`${name}: foliage ${sets.map((x) => `${x.leaves.length}->${x.n0}/${x.n1} x${x.s0.toFixed(1)}/${x.s1.toFixed(1)}`).join(' ')}`);
+  }
   if (cfg.canopy) {
     // download the alpha map, compose a cluster texture, swap leaf geometry for cards
     const alphaUrl = info[`${cfg.canopy.key}_alpha`]?.['1k']?.jpg?.url;
@@ -260,7 +289,7 @@ async function processModel(name, cfg, io, credits) {
       await doc.transform(prune());
     }
   }
-  if (!canopyMat) thinCards(doc, cfg.tris * nvar * 0.75, 1.6, rnd0);
+  if (!canopyMat && !cfg.foliage) thinCards(doc, cfg.tris * nvar * 0.75, 1.6, rnd0);
   await simplifyTo(doc, cfg.tris * nvar);
   const lod0Tris = countTris(doc);
   const lodDoc = cloneDocument(doc);
@@ -269,6 +298,14 @@ async function processModel(name, cfg, io, credits) {
     const lodMat = lodDoc.getRoot().listMaterials().find((m) => m.getName() === `canopy_${name}`);
     for (const mesh of lodDoc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
       if (prim.getMaterial() === lodMat) canopyCards(lodDoc, prim, cfg.canopy.cards1, lodMat, rnd1, 1.7 * (cfg.canopy.sizeMul ?? 1.0));
+    }
+    await lodDoc.transform(prune());
+  } else if (cfg.foliage) {
+    const rnd1 = mulberry(99); let k = 0;
+    for (const mesh of lodDoc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
+      if (!isLeafMat(prim.getMaterial()) || k >= leafSets.length) continue;
+      const set = leafSets[k++];
+      writeLeafQuads(lodDoc, prim, pickLeaves(set.leaves, set.crown, set.n1, rnd1, 1.6), set.crown, set.s1);
     }
     await lodDoc.transform(prune());
   } else thinCards(lodDoc, cfg.lod1 * nvar * 0.8, 1.9, mulberry(99));
@@ -312,24 +349,41 @@ async function processModel(name, cfg, io, credits) {
   console.log(`${name}: ${before}→${lod0Tris}/${lod1Tris} tris, ${lod0Nodes.length} variants, ${cardCount} cards, ${(bin.byteLength / 1024).toFixed(0)} KB`);
 }
 
+/** Packs a Poly Haven texture set into two maps per ground layer:
+ *  A (sRGB): albedo RGB + height in alpha, at 1024 (high tier) and 512 (low tier);
+ *  B (linear, 512): R roughness, G normal.y, B ambient occlusion, A normal.x
+ *  (normal components in G and A survive WebP's chroma subsampling). */
 async function processTexture(name, credits) {
   const outDir = path.join(OUT, 'ground');
   await fs.mkdir(outDir, { recursive: true });
-  const done = path.join(outDir, `${name}_diff_1024.webp`);
+  const done = path.join(outDir, `${name}_b_512.webp`);
   if (!FORCE) { try { await fs.stat(done); console.log(`skip ${name}`); return; } catch {} }
   const info = await fetchJson(`https://api.polyhaven.com/files/${name}`);
   const meta = await fetchJson(`https://api.polyhaven.com/info/${name}`).catch(() => ({}));
   credits[name] = { type: 'texture', name: meta.name || name, authors: meta.authors || {}, license: 'CC0', url: `https://polyhaven.com/a/${name}` };
-  const dir = path.join(TMP, 'tex', name);
-  const maps = { diff: info.Diffuse, nor: info.nor_gl, arm: info.arm };
-  for (const [k, m] of Object.entries(maps)) {
-    const url = m?.['1k']?.jpg?.url; if (!url) { console.warn(`${name}: no ${k}`); continue; }
-    const src = path.join(dir, `${k}.jpg`);
-    await download(url, src);
-    const sizes = k === 'diff' ? [1024, 512] : [512];
-    for (const s of sizes) {
-      await sharp(src).resize(s, s).webp({ quality: k === 'nor' ? 90 : 82 }).toFile(path.join(outDir, `${name}_${k}_${s}.webp`));
+  const dir = path.join(TMP, 'tex2', name);
+  const get = async (key, res) => { const url = info[key]?.[res]?.jpg?.url ?? info[key]?.['1k']?.jpg?.url; if (!url) return null; const f = path.join(dir, `${key}_${res}.jpg`); await download(url, f); return f; };
+  const diff = await get('Diffuse', '2k'), nor = await get('nor_gl', '1k'), arm = await get('arm', '1k'), disp = await get('Displacement', '1k');
+  if (!diff || !nor) throw new Error(`${name}: missing maps`);
+  const raw = async (f, size, channels) => { const { data } = await sharp(f).resize(size, size, { kernel: 'lanczos3' }).removeAlpha().raw().toBuffer({ resolveWithObject: true }); const out = Buffer.alloc(size * size * channels); const c = data.length / (size * size); for (let i = 0; i < size * size; i++) for (let k = 0; k < channels; k++) out[i * channels + k] = data[i * c + Math.min(k, c - 1)]; return out; };
+  for (const size of [1024, 512]) {
+    const rgb = await raw(diff, size, 3);
+    let h = disp ? await raw(disp, size, 1) : Buffer.alloc(size * size, 128);
+    // stretch the height to the full 0..255 range (per texture) for height-blending
+    let lo = 255, hi = 0; for (const v of h) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    const span = Math.max(1, hi - lo);
+    const rgba = Buffer.alloc(size * size * 4);
+    for (let i = 0; i < size * size; i++) { rgba[i * 4] = rgb[i * 3]; rgba[i * 4 + 1] = rgb[i * 3 + 1]; rgba[i * 4 + 2] = rgb[i * 3 + 2]; rgba[i * 4 + 3] = Math.round(((h[i] - lo) / span) * 255); }
+    await sharp(rgba, { raw: { width: size, height: size, channels: 4 } }).webp({ quality: size > 512 ? 80 : 84, alphaQuality: 45, effort: 6 }).toFile(path.join(outDir, `${name}_a_${size}.webp`));
+  }
+  {
+    const size = 512;
+    const n = await raw(nor, size, 3); const a = arm ? await raw(arm, size, 3) : null;
+    const rgba = Buffer.alloc(size * size * 4);
+    for (let i = 0; i < size * size; i++) {
+      rgba[i * 4] = a ? a[i * 3 + 1] : 230; rgba[i * 4 + 1] = n[i * 3 + 1]; rgba[i * 4 + 2] = a ? a[i * 3] : 255; rgba[i * 4 + 3] = n[i * 3];
     }
+    await sharp(rgba, { raw: { width: size, height: size, channels: 4 } }).webp({ quality: 78, alphaQuality: 70, smartSubsample: true, effort: 6 }).toFile(done);
   }
   console.log(`texture ${name} ok`);
 }

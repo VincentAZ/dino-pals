@@ -51,6 +51,58 @@ function islandMask(x: number, z: number): number {
 
 const tmpW = new Float32Array(BIOME_IDS.length);
 
+// ---------- volcano ----------
+/** Lava channels: bearing (rad, atan2(z, x) around the crater) and length down the slope (m). */
+const LAVA_CHANNELS: { a: number; len: number }[] = [
+  { a: 1.43, len: 292 }, { a: 1.96, len: 252 }, { a: 3.72, len: 262 }, { a: 5.3, len: 238 }, { a: 0.42, len: 222 },
+];
+export interface VolcanoInfo { h: number; lava: number; flow: number; dv: number }
+const sq = (v: number) => v * v;
+/** Shape of the volcano at (x,z): relief (m), molten lava mask, old basalt-flow mask. */
+export function volcanoAt(x: number, z: number, out: VolcanoInfo = { h: 0, lava: 0, flow: 0, dv: 0 }): VolcanoInfo {
+  const dx = x - VOLCANO_CENTER[0], dz = z - VOLCANO_CENTER[1];
+  const dv = Math.hypot(dx, dz); out.dv = dv;
+  if (dv > 390) { out.h = 0; out.lava = 0; out.flow = 0; return out; }
+  const ang = Math.atan2(dz, dx);
+  let h = Math.pow(smoothstep(340, 22, dv), 1.35) * 176;
+  // crater bowl with a raised, broken rim
+  h -= smoothstep(58, 15, dv) * 50;
+  h += Math.exp(-sq((dv - 55) / 9)) * (5 + 3 * n3.noise(ang * 3, 1.7));
+  // radial gullies and spurs, warped so they wander like real erosion
+  const warp = n2.noise(x * 0.0045, z * 0.0045) * 0.9 + n3.noise(x * 0.013, z * 0.013) * 0.25;
+  const env = smoothstep(48, 115, dv) * smoothstep(350, 190, dv);
+  const g1 = Math.abs(Math.sin(ang * 11 + warp * 3.4 + dv * 0.006));
+  const g3 = Math.abs(Math.sin(ang * 17.3 + warp * 4.1 - dv * 0.004 + 1.3));
+  const g2 = Math.abs(Math.sin(ang * 37 + warp * 6 - dv * 0.011));
+  const a1 = 0.35 + 0.9 * smoothstep(-0.4, 0.5, n1.noise(ang * 2.3 + 4, dv * 0.006));
+  const a3 = 0.3 + 0.8 * smoothstep(-0.3, 0.6, n2.noise(ang * 3.1, dv * 0.008 + 7));
+  h += ((Math.pow(Math.min(g1, g3 + 0.25), 0.5) - 0.62) * 9 * a1 + (Math.pow(g3, 0.55) - 0.6) * 5 * a3 + (Math.pow(g2, 0.6) - 0.6) * 3.2) * env;
+  // rugged rock at two scales
+  const rough = smoothstep(390, 120, dv);
+  h += ((n2.ridged(x * 0.022 + 5, z * 0.022, 3) - 0.35) * 7 + (n1.ridged(x * 0.07, z * 0.07, 2) - 0.35) * 1.7) * rough;
+  // old lava-flow lobes (radial streaks) on the lower slopes
+  const flowN = n1.noise(ang * 5.5 + warp, dv * 0.0045 + 3.1) * 0.7 + n3.noise(ang * 13, dv * 0.012) * 0.3;
+  const flow = smoothstep(0.08, 0.32, flowN) * smoothstep(380, 150, dv);
+  h += flow * (2.2 + n2.noise(x * 0.04, z * 0.04) * 1.5) * smoothstep(60, 140, dv);
+  // lava channels running from the rim, with raised levees either side
+  let lava = 0;
+  for (const ch of LAVA_CHANNELS) {
+    let da = ang - ch.a; if (da > Math.PI) da -= Math.PI * 2; if (da < -Math.PI) da += Math.PI * 2;
+    if (Math.abs(da) > 0.7) continue;
+    const along = smoothstep(50, 74, dv) * smoothstep(ch.len, ch.len - 45, dv);
+    if (along <= 0) continue;
+    const meander = Math.sin(dv * 0.027 + ch.a * 3) * 9 + n3.noise(dv * 0.011, ch.a * 10) * 7;
+    const d = Math.abs(da * dv - meander);
+    const w = 4.2 + dv * 0.013;
+    h += (2.6 * Math.exp(-sq((d - w * 1.1) / 2.8)) - 3.4 * smoothstep(w * 1.2, w * 0.2, d)) * along;
+    lava = Math.max(lava, smoothstep(w * 0.95, w * 0.4, d) * along);
+  }
+  lava = Math.max(lava, smoothstep(27, 15, dv)); // crater lava lake
+  out.h = h; out.lava = lava; out.flow = flow;
+  return out;
+}
+const tmpV: VolcanoInfo = { h: 0, lava: 0, flow: 0, dv: 0 };
+
 /** Terrain height in metres at world (x,z). Sea level is 0. */
 export function heightAt(x: number, z: number): number {
   const mask = islandMask(x, z);
@@ -67,14 +119,8 @@ export function heightAt(x: number, z: number): number {
   relief += bw(0) * (4 + roll * 7 + detail * 0.8);
   // jungle: steeper hills
   relief += bw(1) * (9 + roll * 11 + n2.ridged(x * 0.007, z * 0.007, 2) * 9 + detail * 1.2);
-  // volcano cone
-  {
-    const dv = Math.hypot(x - VOLCANO_CENTER[0], z - VOLCANO_CENTER[1]);
-    const cone = Math.pow(smoothstep(330, 20, dv), 1.35) * 175;
-    const crater = smoothstep(52, 14, dv) * 42;
-    const ridges = n2.ridged(x * 0.02, z * 0.02, 3) * 9 * smoothstep(340, 100, dv);
-    relief += bw(2) * (6 + roll * 5 + detail) + cone - crater + ridges * bw(2);
-  }
+  // volcano: rugged cone with gullies, flow lobes and lava channels
+  relief += bw(2) * (6 + roll * 5 + detail) + volcanoAt(x, z, tmpV).h;
   // beach: flat sand, lagoon dip
   {
     const dl = Math.hypot(x - LAGOON_CENTER[0], z - LAGOON_CENTER[1]);
@@ -164,12 +210,14 @@ export function layerWeightsAt(x: number, z: number, out?: Float32Array): Float3
   o[L.grass] += w[1] * 0.12;
   o[L.sand] += w[3] * 0.85;
   o[L.wetSand] += w[3] * 0.15;
-  o[L.mud] += w[4] * 0.6 + w[7] * 0.2;
-  o[L.grass] += w[4] * 0.15;
+  o[L.mud] += w[4] * (0.38 + varn * 0.15) + w[7] * 0.2;
+  o[L.swampMoss] += w[4] * (0.42 - varn * 0.15);
+  o[L.grass] += w[4] * 0.1;
   o[L.redGround] += w[6] * (0.7 + varn * 0.2);
   o[L.riverbed] += w[6] * (0.3 - varn * 0.2);
-  o[L.lavaRock] += w[2] * 1.4;
-  o[L.cliff] += w[2] * 0.12;
+  const vol = volcanoAt(x, z, tmpV);
+  o[L.ash] += w[2] * 1.4 * (0.8 - vol.flow * 0.6);
+  o[L.lavaRock] += w[2] * 1.4 * (0.2 + vol.flow * 0.6);
   o[L.snow] += w[5] * 0.8;
   o[L.cliff] += w[5] * 0.2;
   // height rules: shoreline sand, snow caps, lava near crater
@@ -188,9 +236,11 @@ export function layerWeightsAt(x: number, z: number, out?: Float32Array): Float3
   o[L.riverbed] += bed * 0.7; o[L.wetSand] += bed * 0.3;
   // slope -> cliff rock (strong), volcano slopes stay dark rock
   const steep = smoothstep(0.42, 0.7, slope);
-  const cliffLayer = w[2] > 0.5 ? L.lavaRock : L.cliff;
+  const cliffLayer = w[2] > 0.45 ? L.lavaRock : w[6] > 0.4 ? L.redCliff : L.cliff;
   for (let i = 0; i < LAYER_COUNT; i++) o[i] *= 1 - steep;
   o[cliffLayer] += steep;
+  // molten lava in the channels and the crater
+  if (vol.lava > 0) { for (let i = 0; i < LAYER_COUNT; i++) o[i] *= 1 - vol.lava; o[L.lava] += vol.lava; }
   let s = 0;
   for (let i = 0; i < LAYER_COUNT; i++) s += o[i];
   for (let i = 0; i < LAYER_COUNT; i++) o[i] /= s || 1;

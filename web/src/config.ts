@@ -19,8 +19,10 @@ export interface Quality {
   particleMul: number;
   anisotropy: number;
   shadows: boolean;
+  /** grass clump coverage multiplier */
+  grassDensity: number;
 }
-export const QUALITY_HIGH: Quality = { tier: 'high', pixelRatio: 1.5, shadowMap: 2048, groundTex: 1024, vegDensity: 1, particleMul: 1, anisotropy: 4, shadows: true };
-export const QUALITY_LOW: Quality = { tier: 'low', pixelRatio: 1.0, shadowMap: 1024, groundTex: 512, vegDensity: 0.55, particleMul: 0.5, anisotropy: 2, shadows: true };
+export const QUALITY_HIGH: Quality = { tier: 'high', pixelRatio: 1.5, shadowMap: 2048, groundTex: 1024, vegDensity: 1, particleMul: 1, anisotropy: 4, shadows: true, grassDensity: 1 };
+export const QUALITY_LOW: Quality = { tier: 'low', pixelRatio: 1.0, shadowMap: 1024, groundTex: 512, vegDensity: 0.55, particleMul: 0.5, anisotropy: 2, shadows: true, grassDensity: 0.85 };
 export let quality: Quality = { ...QUALITY_HIGH };
 export function setQuality(q: Quality): void { quality = q; }

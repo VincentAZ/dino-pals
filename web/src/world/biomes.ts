@@ -39,22 +39,34 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
   lake: { id: 'lake', center: LAKE_CENTER, radius: LAKE_RADIUS + 60, anchor: [-102, -90], focus: LAKE_CENTER, fog: [1, 1, 1], fogDensityMul: 1 },
 };
 
-/** Ground texture layers (index = layer in the diffuse/normal texture arrays). */
+/** Ground texture layers (index = layer in the albedo/normal texture arrays). Splat channel 15 is
+ *  molten lava (shaded procedurally over the basalt texture), so the splat map has 16 channels. */
 export const GROUND_LAYERS = [
-  'grass_ground', 'aerial_grass_rock', 'forest_floor', 'forest_leaves_02', 'coast_sand_01', 'damp_beach_sand',
-  'brown_mud', 'cracked_red_ground', 'dark_rock', 'dry_riverbed_rock', 'snow_02', 'aerial_rocks_02',
+  'grass_ground', 'aerial_grass_rock', 'forest_floor', 'forest_leaves_02', 'aerial_sand', 'damp_beach_sand',
+  'brown_mud_03', 'cracked_red_ground', 'dark_rock', 'dry_riverbed_rock', 'snow_02', 'aerial_rocks_02',
+  'rock_ground_02', 'cliff_side', 'brown_mud_leaves_01',
 ] as const;
+/** near-camera detail texture (small stones / grit) */
+export const DETAIL_TEXTURE = 'floor_pebbles_01';
 export const L = {
   grass: 0, grassRock: 1, forestFloor: 2, leaves: 3, sand: 4, wetSand: 5, mud: 6, redGround: 7, lavaRock: 8,
-  riverbed: 9, snow: 10, cliff: 11,
+  riverbed: 9, snow: 10, cliff: 11, ash: 12, redCliff: 13, swampMoss: 14, lava: 15,
 } as const;
-export const LAYER_COUNT = GROUND_LAYERS.length;
-/** tiling period in metres for each layer */
-export const LAYER_TILE = [3.5, 5, 3, 3, 4, 4, 3.5, 5, 4, 4, 7, 8];
-/** roughness per layer */
-export const LAYER_ROUGH = [0.95, 0.92, 0.95, 0.95, 0.9, 0.65, 0.8, 0.92, 0.88, 0.88, 0.88, 0.95];
-/** colour tint per layer (greener grass, darker mossy forest floor, warmer sand...) */
-export const LAYER_TINT: [number, number, number][] = [[0.82, 1.0, 0.72], [0.85, 1.0, 0.8], [0.5, 0.64, 0.42], [0.62, 0.72, 0.48], [1.05, 1.0, 0.92], [0.95, 0.95, 0.9], [0.6, 0.6, 0.5], [1.08, 0.92, 0.82], [0.9, 0.9, 0.9], [0.95, 0.95, 0.92], [1.0, 1.0, 1.04], [0.95, 0.95, 0.95]];
+/** number of splat channels (texture layers + lava) */
+export const LAYER_COUNT = 16;
+export const TEX_LAYERS = GROUND_LAYERS.length;
+/** tiling period in metres for each layer (lava uses the basalt tiling) */
+export const LAYER_TILE = [3.2, 6, 3.4, 3, 9, 4, 3.6, 5, 6, 4, 7, 10, 3.6, 16, 3.6, 6];
+/** roughness multiplier per layer (the textures carry their own roughness) */
+export const LAYER_ROUGH = [1.0, 1.0, 1.0, 1.0, 1.0, 0.7, 0.75, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.85, 0.5];
+/** colour tint per layer */
+export const LAYER_TINT: [number, number, number][] = [
+  [0.9, 1.0, 0.82], [0.92, 1.0, 0.88], [0.62, 0.72, 0.52], [0.7, 0.76, 0.56], [1.25, 1.12, 0.95], [0.95, 0.93, 0.88],
+  [0.78, 0.74, 0.66], [1.06, 0.93, 0.84], [0.62, 0.6, 0.6], [0.95, 0.95, 0.92], [1.0, 1.0, 1.04], [0.92, 0.92, 0.92],
+  [0.5, 0.48, 0.48], [1.0, 0.9, 0.82], [0.85, 0.9, 0.75], [0.55, 0.52, 0.5],
+];
+/** how much near-camera grit detail each layer gets */
+export const LAYER_DETAIL = [0.35, 0.6, 0.45, 0.25, 0.15, 0.12, 0.2, 0.55, 0.35, 0.65, 0.0, 0.25, 0.6, 0.15, 0.25, 0.0];
 
 const bn = new Simplex2(4242);
 

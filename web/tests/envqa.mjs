@@ -119,6 +119,7 @@ for (const tier of TIERS) {
     await page.screenshot({ path: path.join(OUT, `${tier}-${v.name}.png`) });
     console.log(tier, v.name, JSON.stringify(summary[tier].views[v.name]));
     if (args.includes('--texlist')) console.log((await page.evaluate(() => window.__texList())).join('\n'));
+    if (args.includes('--by')) console.log(JSON.stringify(Object.entries(st.veg?.by ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 24)));
     if (v.name === 'start') { await page.evaluate(() => window.__dino.pause(false)); }
   }
   await page.evaluate(() => window.__dino.pause(false));
