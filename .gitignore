@@ -1,0 +1,12 @@
+node_modules/
+dist/
+web/dist/
+web/node_modules/
+web/tests/shots/
+blender/out/*.png
+blender/out/*.jpg
+blender/out/*.blend
+blender/out/*.blend1
+blender/out/*.log
+.vercel/
+.DS_Store
