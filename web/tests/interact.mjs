@@ -2,7 +2,7 @@
 import { chromium, devices } from 'playwright';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-const ROOT = '/home/vincent/Repos/dinos/web';
+const ROOT = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '');   // web/ (this script lives in web/tests or web/scripts)
 const OUT = ROOT + '/tests/shots/interact'; fs.mkdirSync(OUT, { recursive: true });
 const PORT = 4600 + Math.floor(Math.random() * 300);
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], detached: true });

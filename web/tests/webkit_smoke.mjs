@@ -1,7 +1,7 @@
 // WebKit (Safari engine) smoke: load, start, run 20 s, tap a dinosaur, drop food; report JS errors and GL info.
 import { webkit, devices } from 'playwright';
 import { spawn } from 'node:child_process';
-const ROOT = '/home/vincent/Repos/dinos/web';
+const ROOT = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '');   // web/ (this script lives in web/tests or web/scripts)
 const PORT = 4600 + Math.floor(Math.random() * 300);
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort', '--host', '127.0.0.1'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 await new Promise((res) => server.stdout.on('data', (d) => { if (String(d).includes('127.0.0.1')) res(); }));

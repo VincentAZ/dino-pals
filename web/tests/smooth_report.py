@@ -1,7 +1,7 @@
 # Top motion events from tests/shots/smooth.json (written by tests/smooth.mjs): jolts and side slides
 # with what pushed the body at that frame.
-import json, math, sys
-d = json.load(open('/home/vincent/Repos/dinos/web/tests/shots/smooth.json'))
+import json, math, os, sys
+d = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shots', 'smooth.json')))
 dt = 1 / 30
 ev = []
 for id, arr in d.items():

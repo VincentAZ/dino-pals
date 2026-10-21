@@ -4,7 +4,7 @@
 import { chromium, devices } from 'playwright';
 import fs from 'node:fs';
 const BASE = process.env.BASE || 'https://dino-pals-ai-learning-center.vercel.app';
-const OUT = '/home/vincent/Repos/dinos/web/tests/shots/prod'; fs.mkdirSync(OUT, { recursive: true });
+const OUT = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '') + '/tests/shots/prod'; fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: ['--use-gl=angle', '--use-angle=vulkan', '--ignore-gpu-blocklist', '--enable-features=Vulkan', '--autoplay-policy=no-user-gesture-required'] });
 const page = await (await browser.newContext({ ...devices['iPad Pro 11'], viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
 const errors = [], failed = [], ktx2 = [], bare = [];

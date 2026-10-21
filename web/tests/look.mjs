@@ -3,7 +3,7 @@
 import { chromium, devices } from 'playwright';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-const ROOT = '/home/vincent/Repos/dinos/web';
+const ROOT = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '');   // web/ (this script lives in web/tests or web/scripts)
 const OUT = ROOT + '/tests/shots/look'; fs.mkdirSync(OUT, { recursive: true });
 const scenarios = JSON.parse(process.argv[2]);
 const PORT = 4600 + Math.floor(Math.random() * 300);

@@ -2,7 +2,8 @@
 import { build } from 'vite';
 import path from 'node:path';
 const out = process.argv[2];
-await build({ root: '/home/vincent/Repos/dinos/web', logLevel: 'error', build: { lib: { entry: '/home/vincent/Repos/dinos/web/src/world/heightmap.ts', formats: ['es'], fileName: 'hm' }, outDir: out, emptyOutDir: true, minify: false } });
+const WEB = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '');
+await build({ root: WEB, logLevel: 'error', build: { lib: { entry: WEB + '/src/world/heightmap.ts', formats: ['es'], fileName: 'hm' }, outDir: out, emptyOutDir: true, minify: false } });
 const hm = await import(path.join(out, 'hm.js'));
 const N = 20000; let s = 0; const t0 = performance.now();
 for (let i = 0; i < N; i++) s += hm.heightAt((i * 7.3) % 900 - 450, (i * 3.1) % 900 - 450);

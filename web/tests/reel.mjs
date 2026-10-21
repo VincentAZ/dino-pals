@@ -4,8 +4,8 @@
 import { chromium, devices } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-const ROOT = '/home/vincent/Repos/dinos/web';
-const OUTMP4 = process.argv[2] || '/home/vincent/Repos/dinos/demo/dino-pals-reel.mp4';
+const ROOT = decodeURIComponent(new URL('..', import.meta.url).pathname).replace(/\/$/, '');   // web/ (this script lives in web/tests or web/scripts)
+const OUTMP4 = process.argv[2] || ROOT + '/../demo/dino-pals-reel.mp4';
 const FR = ROOT + '/tests/shots/reel'; fs.rmSync(FR, { recursive: true, force: true }); fs.mkdirSync(FR, { recursive: true });
 fs.mkdirSync(OUTMP4.replace(/\/[^/]*$/, ''), { recursive: true });
 const PORT = 4600 + Math.floor(Math.random() * 300);
