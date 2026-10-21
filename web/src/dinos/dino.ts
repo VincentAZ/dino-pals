@@ -1,7 +1,8 @@
 // A single dinosaur: GLB (skinned, animated) or procedural placeholder,
 // animation mixer + small state machine. Movement decisions live in ai.ts.
 import * as THREE from 'three';
-import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import type { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { ClipName, Species } from './manifest.ts';
 import { buildPlaceholder, type PlaceholderRig } from './placeholder.ts';
 import { heightAt, waterAt } from '../world/heightmap.ts';
@@ -27,15 +28,17 @@ export interface DinoContext {
   time: number;
   foods: Food[];
   onFootstep: (d: Dino, big: boolean, at?: THREE.Vector3, heavy?: boolean) => void;
-  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'chew' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap', item?: FoodItem) => void;
+  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'chew' | 'graze' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap', item?: FoodItem) => void;
 }
 
 export interface AIData {
   home: THREE.Vector3; target: THREE.Vector3 | null; waitUntil: number; followUntil: number; foodTarget: Food | null;
   angle: number; radius: number; altitude: number; glideUntil: number; actionUntil: number; lastStep: number; breachT: number; nextRoar: number; lastChew: number; breachAt: number;
   yawVel: number; avoidSide: number; blocked: number; bestDist: number; progressAt: number;
-  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null; approachUntil: number; followSide: number; sniffFood: Food | null; sniffed: WeakSet<Food>;
+  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null; echoAt: number; approachUntil: number; followSide: number; sniffFood: Food | null; sniffed: WeakSet<Food>;
 }
+
+const GLB_CACHE = new Map<string, Promise<GLTF>>();
 
 export class Dino {
   species: Species;
@@ -71,7 +74,7 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet() };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet() };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;
@@ -93,23 +96,31 @@ export class Dino {
     if (this.loaded || this.loading) return;
     this.loading = true;
     try {
-      const gltf = await loader.loadAsync(`/assets/dinos/${this.species.file}`);
-      const model = gltf.scene;
-      model.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (m.isMesh) {
-          m.castShadow = true; m.receiveShadow = false; m.frustumCulled = false;
-          const mat = m.material as THREE.MeshStandardMaterial;
-          if (mat && mat.isMeshStandardMaterial) { mat.envMapIntensity = 0.6; }
-        }
-      });
-      // normalise to manifest length if the file is wildly off scale
+      // one parse per species: every individual is a skeleton clone sharing geometry, materials and textures
+      const url = `/assets/dinos/${this.species.file}`;
+      let p = GLB_CACHE.get(url);
+      if (!p) {
+        p = loader.loadAsync(url).then((g) => {
+          g.scene.traverse((o) => {
+            const m = o as THREE.Mesh;
+            if (m.isMesh) { const mat = m.material as THREE.MeshStandardMaterial; if (mat && mat.isMeshStandardMaterial) mat.envMapIntensity = 0.6; }
+          });
+          applySkinDetail(g.scene, this.species.lengthM, this.species.uvPerM);
+          return g;
+        });
+        GLB_CACHE.set(url, p);
+      }
+      const gltf: GLTF = await p;
+      const model = cloneSkinned(gltf.scene);
+      model.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; m.frustumCulled = false; } });
+      // normalise to manifest length if the file is wildly off scale; individuals may be smaller (babies)
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const len = Math.max(size.x, size.z, 0.01);
       const ratio = this.species.lengthM / len;
-      if (ratio < 0.5 || ratio > 2) model.scale.setScalar(ratio);
-      model.position.y = -box.min.y * (ratio < 0.5 || ratio > 2 ? ratio : 1);
+      const k = (ratio < 0.5 || ratio > 2 ? ratio : 1) * this.scale;
+      model.scale.setScalar(k);
+      model.position.y = -box.min.y * k;
       this.mixer = new THREE.AnimationMixer(model);
       if (this.species.kind === 'land') {
         this.root.add(model); this.root.updateMatrixWorld(true);
@@ -126,14 +137,17 @@ export class Dino {
           this.actions.set(name, a);
         }
       }
-      applySkinDetail(model, this.species.lengthM, this.species.uvPerM);
       // level of detail: '<id>_lod1' meshes share the skeleton with the full mesh
       this.lodHi = []; this.lodLo = [];
       model.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh) return; (/_lod1/.test(m.name) || /_lod1/.test(m.parent?.name ?? '') ? this.lodLo : this.lodHi).push(m); });
       if (!this.lodLo.length) this.lodLo = this.lodHi;
       for (const m of this.lodLo) if (this.lodLo !== this.lodHi) m.visible = false;
       this.lod = 0;
-      if (this.model) this.root.remove(this.model);
+      if (this.model) {
+        this.root.remove(this.model);
+        // the placeholder's own geometry/materials (its canvas textures are shared via a cache)
+        if (this.placeholder) this.model.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh) return; m.geometry.dispose(); for (const mt of (Array.isArray(m.material) ? m.material : [m.material])) mt.dispose(); });
+      }
       this.model = model; this.root.add(model);
       this.placeholder = null; this.real = true;
       this.measureEat();
@@ -209,7 +223,7 @@ export class Dino {
       this.loco.captureClipPose();
       this.loco.stomp = this.state === 'stomp';
       this.loco.update(dt, this.heading, {
-        onPlant: (at, _leg, heavy) => ctx.onFootstep(this, sp.lengthM >= 6 || heavy, at, heavy),
+        onPlant: (at, _leg, heavy) => ctx.onFootstep(this, this.sizeM >= 6 || heavy, at, heavy),
       }, this.isBusy);
       return;
     }
@@ -241,17 +255,29 @@ export class Dino {
     if (this.placeholder) this.placeholder.update(dt, this.state, this.speed / Math.max(0.3, sp.speed), this.animTime);
     if (this.mixer) {
       const walk = this.actions.get('walk');
-      if (walk && this.current === walk) walk.timeScale = THREE.MathUtils.clamp(this.speed / Math.max(0.2, sp.speed * this.scale), 0.25, 2.4);
+      if (walk && this.current === walk) walk.timeScale = THREE.MathUtils.clamp(this.speed / Math.max(0.2, sp.speed * this.speedScale), 0.25, 2.4);
       this.mixer.update(dt);
       if (this.current && this.current.loop === THREE.LoopOnce && !this.current.isRunning() && !this.isBusy) this.play(this.clipFor(this.state));
     }
     // footsteps (placeholder / clip-driven only)
     if ((this.state === 'walk' || this.state === 'stomp') && sp.kind === 'land') {
-      const rate = Math.max(0.25, this.speed / Math.max(0.2, sp.speed * this.scale));
+      const rate = Math.max(0.25, this.speed / Math.max(0.2, sp.speed * this.speedScale));
       const stride = this.state === 'stomp' ? 0.45 : (sp.walkSeconds ? sp.walkSeconds / 2 : THREE.MathUtils.clamp(sp.lengthM * 0.09, 0.28, 1.1)) / rate;
       if (this.animTime - this.ai.lastStep > stride) { this.ai.lastStep = this.animTime; ctx.onFootstep(this, sp.lengthM >= 6); }
     }
   }
+
+  /** Make this individual smaller (babies) — call before the model loads. */
+  setScale(k: number): void {
+    this.scale = k;
+    this.radius = Math.max(0.8, this.species.lengthM * 0.45 * k);
+    if (this.placeholder) this.placeholder.root.scale.setScalar(k);
+    this.blob.scale.set(this.species.lengthM * 0.35 * k, this.species.lengthM * 0.25 * k, 1);
+  }
+  /** effective body length (m) */
+  get sizeM(): number { return this.species.lengthM * this.scale; }
+  /** a parent this baby stays close to */
+  parent: Dino | null = null;
 
   /** Progress (0..1) through the clip that is playing for the current one-shot state. */
   get clipPhase(): number {
@@ -293,9 +319,11 @@ export class Dino {
   }
 
   /** Top walking speed the legs can carry (m/s). */
-  get maxSpeed(): number { return this.loco ? Math.min(this.species.speed * this.scale, this.loco.maxSpeed) : this.species.speed * this.scale; }
+  get maxSpeed(): number { return this.loco ? Math.min(this.species.speed * this.speedScale, this.loco.maxSpeed) : this.species.speed * this.speedScale; }
   /** Fastest the legs can carry the body at a trot (m/s). */
-  get trotSpeed(): number { return this.loco ? this.loco.trotSpeed : this.species.speed * this.scale * 1.5; }
+  get trotSpeed(): number { return this.loco ? this.loco.trotSpeed : this.species.speed * this.speedScale * 1.5; }
+  /** speeds scale with √size (dynamic similarity), so babies can keep up with their parents */
+  get speedScale(): number { return Math.sqrt(this.scale); }
   /** Fastest yaw rate the feet can follow when pivoting (rad/s). */
   get maxTurnRate(): number { return this.loco ? this.loco.maxTurnRate : 1.2; }
 
@@ -324,7 +352,8 @@ export class Dino {
   }
 
   dispose(): void {
-    this.root.traverse((o) => {
+    // real models share geometry/materials/textures with every other individual of the species: keep them
+    if (!this.real) this.root.traverse((o) => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.geometry.dispose(); const mats = Array.isArray(m.material) ? m.material : [m.material]; for (const mat of mats) mat.dispose(); }
     });

@@ -191,7 +191,7 @@ function chooseVelocity(d: Dino, ctx: DinoContext, dx: number, dz: number, pref:
  */
 export function drive(d: Dino, ctx: DinoContext, tx: number, tz: number, dt: number, maxSpeed: number, stopDist: number, through = false): number {
   const ai = d.ai; const pos = d.root.position; const b = bodyOf(d);
-  maxSpeed = Math.min(maxSpeed, maxSpeed > d.species.speed * d.scale * 1.05 ? d.trotSpeed : d.maxSpeed);
+  maxSpeed = Math.min(maxSpeed, maxSpeed > d.species.speed * d.speedScale * 1.05 ? d.trotSpeed : d.maxSpeed);
   let dx = tx - pos.x, dz = tz - pos.z;
   const dist = Math.hypot(dx, dz);
   if (dist <= stopDist) { brake(d, dt); return dist; }

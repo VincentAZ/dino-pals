@@ -31,7 +31,8 @@ export function applySkinDetail(model: THREE.Object3D, lengthM: number, uvPerM: 
   model.traverse((o) => {
     const m = o as THREE.Mesh; if (!m.isMesh) return;
     for (const mat of (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshStandardMaterial[]) {
-      if (!mat || seen.has(mat) || !mat.isMeshStandardMaterial || SKIP.test(mat.name) || !mat.map) continue;
+      if (!mat || seen.has(mat) || !mat.isMeshStandardMaterial || SKIP.test(mat.name) || !mat.map || mat.userData.skinDetail) continue;
+      mat.userData.skinDetail = true;
       seen.add(mat);
       if (!mat.normalMap) { mat.normalMap = flat; mat.normalMapType = THREE.TangentSpaceNormalMap; }
       const boost = Number(new URLSearchParams(location.search).get('skin') ?? '1') || 1;

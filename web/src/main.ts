@@ -51,7 +51,7 @@ interface DinoApi {
   setView: (yaw: number, pitch: number, dist: number) => void;
   view: () => { yaw: number; pitch: number; dist: number };
   busy: () => boolean;
-  dinos: { id: string; species: string; state: DinoState; x: number; y: number; z: number; real: boolean; awake: boolean }[];
+  dinos: { id: string; species: string; state: DinoState; x: number; y: number; z: number; real: boolean; awake: boolean; baby: boolean }[];
   lastTapped: string | null;
   biomes: Record<string, [number, number]>;
   errors: string[];
@@ -65,6 +65,7 @@ interface DinoApi {
   overlaps: () => { dinoDino: number; dinoTree: number; worst: number };
   probeDino: (id: string) => Record<string, unknown> | null;
   probeVis: (id: string) => Record<string, unknown> | null;
+  probeMem: () => Record<string, unknown>;
   biteLog: () => { dino: string; dist: number; t: number }[];
   audioStats: () => Record<string, unknown>;
   foods: () => unknown[];
@@ -164,14 +165,14 @@ async function main(): Promise<void> {
       if (heavy) thump(audio, s.gain * 0.8, s.pan);
       if (big || heavy) {
         const w = biomeWeights(p.x, p.z);
-        weather.puffs.spawn(w.dominant === 'snow' ? 'snowkick' : 'dust', p.x, p.y, p.z, heavy ? 22 : 7, Math.min(1.6, d.species.lengthM / 9));
+        weather.puffs.spawn(w.dominant === 'snow' ? 'snowkick' : 'dust', p.x, p.y, p.z, heavy ? 22 : 7, Math.min(1.6, d.sizeM / 9));
       }
     },
     onEvent: (d, ev, item) => {
       const s = spatial(d.root.position, 220);
       const p = d.root.position;
       switch (ev) {
-        case 'roar': playVoice(audio, d.species.voice, s.gain, s.pan, d.species.lengthM); weather.sparkles.spawn('sparkle', p.x, p.y + d.species.heightM * 0.8, p.z, 18); break;
+        case 'roar': playVoice(audio, d.species.voice, s.gain, s.pan, d.sizeM); weather.sparkles.spawn('sparkle', p.x, p.y + d.species.heightM * 0.8, p.z, 18); break;
         case 'eat': break;
         case 'bite': {
           const sn = d.snoutPos(new THREE.Vector3());
@@ -184,7 +185,8 @@ async function main(): Promise<void> {
           weather.puffs.spawn('leaf', sn.x, sn.y, sn.z, 10);
           break;
         }
-        case 'chew': eatCrunch(audio, s.gain * 0.35, s.pan); break;
+        case 'chew': eatCrunch(audio, s.gain * 0.3, s.pan); break;
+        case 'graze': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('leaf', sn.x, Math.max(sn.y, p.y + 0.2), sn.z, 5); eatCrunch(audio, s.gain * 0.25, s.pan); break; }
         case 'finished': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('heart', sn.x, sn.y + 0.8, sn.z, 10); sparkle(audio); break; }
         case 'splash': splash(audio, s.gain, s.pan, d.species.lengthM > 8); weather.puffs.spawn('splash', p.x, Math.max(p.y, 0), p.z, 40, Math.min(3, d.species.lengthM / 5)); break;
         case 'stomp': thump(audio, s.gain, s.pan); break;
@@ -228,7 +230,7 @@ async function main(): Promise<void> {
     if (d.ai.foodTarget) { d.ai.foodTarget.eaters.delete(d.index); d.ai.foodTarget = null; }
     facePlayer(d, player.pos, clock.t);
     weather.sparkles.spawn('heart', d.root.position.x, d.root.position.y + d.species.heightM * 0.9, d.root.position.z, 14);
-    const s = spatial(d.root.position, 200); playVoice(audio, d.species.voice, s.gain * 0.6, s.pan, d.species.lengthM * 0.7);
+    const s = spatial(d.root.position, 200); playVoice(audio, d.species.voice, s.gain * 0.6, s.pan, d.sizeM * 0.85);
     sparkle(audio);
     return 'follow';
   };
@@ -302,7 +304,7 @@ async function main(): Promise<void> {
       return [((v.x + 1) / 2) * window.innerWidth, ((1 - v.y) / 2) * window.innerHeight];
     },
     busy: () => workers.inFlight > 0 || vegetation.loadedCount < vegetation.species.size || dinos.dinos.some((d) => d.loading),
-    get dinos() { return dinos.dinos.map((d) => ({ id: d.root.name, species: d.species.id, state: d.state, x: +d.root.position.x.toFixed(1), y: +d.root.position.y.toFixed(1), z: +d.root.position.z.toFixed(1), real: d.real, awake: d.awake })); },
+    get dinos() { return dinos.dinos.map((d) => ({ id: d.root.name, species: d.species.id, state: d.state, x: +d.root.position.x.toFixed(1), y: +d.root.position.y.toFixed(1), z: +d.root.position.z.toFixed(1), real: d.real, awake: d.awake, baby: !!d.parent })); },
     biomes: Object.fromEntries(BIOME_IDS.map((id) => [id, BIOMES[id].anchor])),
     pause: (on) => { paused = on; },
     step: (frames, dt = 1 / 30) => { for (let i = 0; i < frames; i++) tick(dt, dt); applyWatch(); renderer.render(scene, camera); },
@@ -322,6 +324,11 @@ async function main(): Promise<void> {
       return { ...d.loco.stats, legs: d.loco.legs.length, legLen: +d.loco.legLen.toFixed(2), maxSpeed: +d.loco.maxSpeed.toFixed(2), maxTurn: +d.loco.maxTurnRate.toFixed(2), speed: +d.speed.toFixed(2), gaitSpeed: +d.loco.gaitSpeed.toFixed(2), phase: +d.loco.phase.toFixed(2), cycle: +d.loco.lastCycle.toFixed(2), legsSw: d.loco.legs.map((l) => +l.t.toFixed(2) * (l.swinging ? 1 : -1)), state: d.state, eatReach: +d.eatReach.toFixed(2), heading: +d.heading.toFixed(3), pos: [+d.root.position.x.toFixed(2), +d.root.position.z.toFixed(2)], target: d.ai.target ? [+d.ai.target.x.toFixed(1), +d.ai.target.z.toFixed(1)] : null, detour: d.ai.detour ? [+d.ai.detour.x.toFixed(1), +d.ai.detour.z.toFixed(1)] : null, yawVel: +d.ai.yawVel.toFixed(2), scripted: d.ai.scripted, busy: d.isBusy, animated: d.animated, awake: d.awake, food: !!d.ai.foodTarget, steerSpeed: +d.ai.steerSpeed.toFixed(2), steerDir: +d.ai.steerDir.toFixed(2), route: d.ai.route ? d.ai.route.map((p) => [+p.x.toFixed(1), +p.z.toFixed(1)]) : null, routeIdx: d.ai.routeIdx, blocked: +d.ai.blocked.toFixed(1), real: d.real, follow: d.ai.followUntil > clock.t, face: !!d.ai.faceTarget, standAt: d.ai.standAt ? [+d.ai.standAt.x.toFixed(2), +d.ai.standAt.z.toFixed(2)] : null, standItem: d.ai.standItem ? [+d.ai.standItem.pos.x.toFixed(2), +d.ai.standItem.pos.z.toFixed(2), d.ai.standItem.eaten] : null, biteItem: d.ai.biteItem ? d.ai.biteItem.kind : null, repo: d.ai.repositions, trim: +d.eatTrim.toFixed(2), slot: d.ai.foodTarget?.eaters.get(d.index) ?? null, ph: +d.clipPhase.toFixed(2), progressAge: +(clock.t - d.ai.progressAt).toFixed(1), sniff: !!d.ai.sniffFood };
     },
     overlaps: () => overlapStats(),
+    probeMem: () => {
+      const tex = new Set<THREE.Texture>(), geo = new Set<THREE.BufferGeometry>(), mats = new Set<THREE.Material>();
+      for (const d of dinos.dinos) d.root.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh) return; geo.add(m.geometry); for (const mt of (Array.isArray(m.material) ? m.material : [m.material])) { mats.add(mt); for (const v of Object.values(mt)) if ((v as THREE.Texture)?.isTexture) tex.add(v as THREE.Texture); } });
+      return { dinoTextures: tex.size, dinoGeometries: geo.size, dinoMaterials: mats.size, placeholders: dinos.dinos.filter((d) => !d.real).length, info: renderer.info.memory };
+    },
     probeVis: (id: string) => {
       const d = dinos.dinos.find((x) => x.root.name === id); if (!d) return null;
       const box = new THREE.Box3(); let meshes = 0, visMeshes = 0;

@@ -31,6 +31,7 @@ export class DinoManager {
           const d = new Dino(sp, idx++, new THREE.Vector3(tab[0], 0, tab[1]), Math.atan2(-tab[0], -tab[1]));
           d.ai.waitUntil = 6 + rnd() * 6;
           this.dinos.push(d); this.group.add(d.root);
+          idx = this.addBaby(d, idx, rnd);
           continue;
         }
         const biome = BIOMES[sp.biomes[i % sp.biomes.length]] ?? BIOMES.meadow;
@@ -49,8 +50,24 @@ export class DinoManager {
         if (sp.kind === 'air') d.root.position.y = Math.max(heightAt(spot.x, spot.z), 0) + d.ai.altitude;
         d.root.visible = false;
         this.dinos.push(d); this.group.add(d.root);
+        if (i === 1 && sp.kind === 'land') idx = this.addBaby(d, idx, rnd);
       }
     }
+  }
+
+  /** Species that bring a little one along. */
+  private static BABIES = new Set(['triceratops', 'stegosaurus', 'paluxysaurus', 'trex', 'iguanodon', 'ankylosaurus', 'pachycephalosaurus']);
+  private addBaby(parent: Dino, idx: number, rnd: () => number): number {
+    if (!DinoManager.BABIES.has(parent.species.id)) return idx;
+    const p = parent.root.position, L = parent.species.lengthM;
+    const a = parent.heading + Math.PI * 0.5 + (rnd() - 0.5) * 0.6;
+    const b = new Dino(parent.species, idx, new THREE.Vector3(p.x + Math.sin(a) * L * 0.5, 0, p.z + Math.cos(a) * L * 0.5), parent.heading);
+    b.setScale(parent.species.id === 'paluxysaurus' ? 0.25 : 0.38);
+    b.parent = parent; b.ai.home.copy(parent.ai.home); b.ai.waitUntil = parent.ai.waitUntil;
+    b.root.visible = parent.root.visible;
+    if (parent.species.kind === 'air') b.root.position.y = p.y;
+    this.dinos.push(b); this.group.add(b.root);
+    return idx + 1;
   }
 
   private frustum = new THREE.Frustum();
@@ -63,7 +80,7 @@ export class DinoManager {
     for (const d of this.dinos) if (d.awake && d.species.kind === 'land' && Math.hypot(d.root.position.x - p.x, d.root.position.z - p.z) < 60) near++;
     if (near >= 3) return;
     const cands = this.dinos
-      .filter((d) => d.species.kind === 'land' && !d.isBusy && !d.ai.scripted && d.ai.followUntil < ctx.time && !d.ai.foodTarget)
+      .filter((d) => d.species.kind === 'land' && !d.parent && !d.isBusy && !d.ai.scripted && d.ai.followUntil < ctx.time && !d.ai.foodTarget)
       .map((d) => ({ d, dist: Math.hypot(d.root.position.x - p.x, d.root.position.z - p.z) }))
       .filter((c) => c.dist >= 60 && c.dist < 340)
       .sort((a, b) => a.dist - b.dist)
@@ -101,6 +118,11 @@ export class DinoManager {
       if (sp.kind === 'land') { d.root.position.y = heightAt(spot.x, spot.z); d.heading = Math.atan2(player.x - spot.x, player.z - spot.z); }
       d.ai.home.copy(spot); d.ai.target = null; d.ai.foodTarget = null; d.ai.waitUntil = time + 3 + rnd() * 4; d.speed = 0;
       if (sp.kind === 'land') d.setState('idle');
+      for (const b of this.dinos) if (b.parent === d) {
+        const a = d.heading + Math.PI * 0.5; const L = sp.lengthM;
+        b.root.position.set(spot.x + Math.sin(a) * L * 0.5, heightAt(spot.x + Math.sin(a) * L * 0.5, spot.z + Math.cos(a) * L * 0.5), spot.z + Math.cos(a) * L * 0.5);
+        b.heading = d.heading; b.ai.target = null; b.speed = 0; b.loco?.resetPlants();
+      }
     }
   }
 
@@ -144,7 +166,7 @@ export class DinoManager {
     let best: Dino | null = null, bestDist = Infinity;
     for (const d of this.dinos) {
       if (!d.awake || !d.root.visible) continue;
-      const sp = d.species; const L = sp.lengthM, H = sp.heightM, W = Math.max(L * 0.22, 0.6);
+      const sp = d.species; const L = sp.lengthM * d.scale, H = sp.heightM * d.scale, W = Math.max(L * 0.22, 0.6);
       const sinH = Math.sin(d.heading), cosH = Math.cos(d.heading);
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; let behind = false;
       for (const [lx, ly, lz] of [[-W, 0, -L / 2], [W, 0, -L / 2], [-W, 0, L / 2], [W, 0, L / 2], [-W, H, -L / 2], [W, H, -L / 2], [-W, H, L / 2], [W, H, L / 2]]) {

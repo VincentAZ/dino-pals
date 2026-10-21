@@ -85,7 +85,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       const gx = ctx.player.x + ctx.view.x * ahead + ctx.view.z * side, gz = ctx.player.z + ctx.view.z * ahead - ctx.view.x * side;
       ai.foodTarget = null;
       const dist = Math.hypot(gx - pos.x, gz - pos.z);
-      if (dist > 2.5) travel(d, ctx, gx, gz, dt, d.species.speed * d.scale * (dist > 10 ? 2.2 : 1.2), 1.5);
+      if (dist > 2.5) travel(d, ctx, gx, gz, dt, d.species.speed * d.speedScale * (dist > 10 ? 2.2 : 1.2), 1.5);
       else if (Math.abs(headingError(d, ctx.eye.x, ctx.eye.z)) > 0.7) { pivotToward(d, ctx.eye.x, ctx.eye.z, dt); d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); }
       else brake(d, dt);
       resolveOverlaps(d, ctx);
@@ -96,13 +96,40 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       const b = bodyOf(d); const R = 6 + b.front + b.r;
       let dx = pos.x - ctx.player.x, dz = pos.z - ctx.player.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
       const gx = ctx.player.x + dx * R, gz = ctx.player.z + dz * R;
-      if (L > R + 1.5) travel(d, ctx, gx, gz, dt, d.species.speed * d.scale * 1.3, 0.8);
+      if (L > R + 1.5) travel(d, ctx, gx, gz, dt, d.species.speed * d.speedScale * 1.3, 0.8);
       else {
         ai.approachUntil = 0; ai.faceTarget = ctx.eye.clone(); ai.faceUntil = ctx.time + 4; ai.waitUntil = ctx.time + 6 + Math.random() * 4;
         ai.target = null; brake(d, dt);
       }
       resolveOverlaps(d, ctx);
       return;
+    }
+    // babies stay at their parent's side (a little behind its shoulder); when the parent eats, so do they
+    const par = d.parent;
+    if (par && par.awake) {
+      const pp = par.root.position, L = par.sizeM, side = d.index % 2 ? 1 : -1;
+      const sx = Math.sin(par.heading), cx = Math.cos(par.heading);
+      const ox = -sx * L * 0.15 + cx * side * (L * 0.22 + 1.2), oz = -cx * L * 0.15 - sx * side * (L * 0.22 + 1.2);
+      // aim where the parent will be in a moment, so the baby sets off together with it
+      const lead = par.speed > 0.15 ? 1.5 : 0;
+      const gx = pp.x + ox + sx * par.speed * lead, gz = pp.z + oz + cx * par.speed * lead;
+      const dist = Math.hypot(gx - pos.x, gz - pos.z);
+      if (dist > (par.speed > 0.15 ? 0.6 : 2.2 + L * 0.05)) {
+        travel(d, ctx, gx, gz, dt, Math.max(par.speed * 1.15, sp.speed * d.speedScale * (dist > 6 ? 2.4 : 1.2)), 0.5);
+      } else if (par.state === 'eat' && Math.random() < dt * 0.6) {
+        ai.lastChew = -1; d.setState('eat'); ctx.onEvent(d, 'graze'); return;
+      } else if (Math.abs(headingError(d, pos.x + sx, pos.z + cx)) > 0.5 && par.speed < 0.1) {
+        pivotToward(d, pos.x + sx * 5, pos.z + cx * 5, dt); d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle');
+      } else brake(d, dt);
+      // a baby answers when its parent calls
+      if (par.state === 'roar' && par.stateTime < 0.1 && d.state !== 'roar') { ai.echoAt = ctx.time + 0.7 + Math.random() * 0.4; }
+      if (ai.echoAt > 0 && ctx.time > ai.echoAt) { ai.echoAt = 0; d.setState('roar'); ctx.onEvent(d, 'roar'); return; }
+      resolveOverlaps(d, ctx);
+      return;
+    }
+    // grown-up herbivores graze now and then while idling
+    if (sp.diet === 'herbivore' && !ai.target && !ai.foodTarget && d.speed < 0.05 && ctx.time > ai.waitUntil - 1 && Math.random() < dt * 0.05) {
+      ai.lastChew = -1; d.setState('eat'); ctx.onEvent(d, 'graze'); return;
     }
     // carnivores are curious about the pile: walk over, sniff it, lose interest, wander off
     if (sp.diet === 'carnivore') {
@@ -127,7 +154,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
             return;
           }
           if (d.loco) { d.loco.lookTarget = f.pos; d.loco.lookWeight = 1; }
-          travel(d, ctx, sx, sz, dt, d.species.speed * d.scale, 0.5);
+          travel(d, ctx, sx, sz, dt, d.species.speed * d.speedScale, 0.5);
           resolveOverlaps(d, ctx);
           return;
         }
@@ -204,7 +231,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
         }
         const far = Math.hypot(f.pos.x - pos.x, f.pos.z - pos.z);
         if (d.loco) { d.loco.lookTarget = f.pos; d.loco.lookWeight = 1; }
-        travel(d, ctx, ai.standAt.x, ai.standAt.z, dt, d.species.speed * d.scale * (ai.repositions ? 0.6 : far > 10 + bodyOf(d).front ? 2.2 : 1), 0.3);
+        travel(d, ctx, ai.standAt.x, ai.standAt.z, dt, d.species.speed * d.speedScale * (ai.repositions ? 0.6 : far > 10 + bodyOf(d).front ? 2.2 : 1), 0.3);
         if (ctx.time - ai.progressAt > 6) {   // can't get there: try another side / give up
           const taken = new Set(f.eaters.values()); const slot = f.eaters.get(d.index) ?? 0; let s2 = (slot + 1) % 3; let n = 0; while (taken.has(s2) && n++ < 3) s2 = (s2 + 1) % 3;
           if (n < 3) f.eaters.set(d.index, s2); else { f.eaters.delete(d.index); ai.foodTarget = null; }
@@ -233,11 +260,11 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
     // circle around home (or the player when following)
     const center = following ? ctx.player : ai.home;
     const r = following ? 18 : ai.radius;
-    const angSpeed = (sp.speed * d.scale) / r;
+    const angSpeed = (sp.speed * d.speedScale) / r;
     ai.angle += angSpeed * dt;
     const tx = center.x + Math.cos(ai.angle) * r, tz = center.z + Math.sin(ai.angle) * r;
     turnToward(d, tx, tz, dt, 3);
-    d.speed = sp.speed * d.scale;
+    d.speed = sp.speed * d.speedScale;
     pos.x += Math.sin(d.heading) * d.speed * dt; pos.z += Math.cos(d.heading) * d.speed * dt;
     const ground = Math.max(heightAt(pos.x, pos.z), 0);
     let targetY = ground + ai.altitude + Math.sin(ctx.time * 0.3 + d.index) * 6;
@@ -273,7 +300,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       if (dist < 3) { ai.target = null; ai.waitUntil = ctx.time + 1 + Math.random() * 3; d.speed *= 0.5; }
       else {
         turnToward(d, ai.target.x, ai.target.z, dt, 0.8);
-        d.speed += (sp.speed * d.scale - d.speed) * Math.min(1, dt);
+        d.speed += (sp.speed * d.speedScale - d.speed) * Math.min(1, dt);
         const nx = pos.x + Math.sin(d.heading) * d.speed * dt, nz = pos.z + Math.cos(d.heading) * d.speed * dt;
         if (waterOk(nx, nz, minDepth * 0.8)) { pos.x = nx; pos.z = nz; } else { ai.target = null; d.speed = 0; }
         if (d.state === 'idle') d.setState('swim');
@@ -312,7 +339,14 @@ function snoutLanding(d: Dino, out: THREE.Vector3): THREE.Vector3 {
 function eatTick(d: Dino, dt: number, ctx: DinoContext): void {
   const ai = d.ai; const f = ai.foodTarget;
   const loco = d.loco;
-  if (!f) { if (loco) loco.reachWeight = 0; return; }
+  if (!f) {
+    if (loco) loco.reachWeight = 0;
+    const ph = d.clipPhase;
+    if (ph < 0.05) ai.bitten = false;
+    if (!ai.bitten && ph >= 0.38) { ai.bitten = true; ctx.onEvent(d, 'graze'); }
+    if (ph > 0.62) { const chew = Math.floor((ph - 0.62) / 0.095); if (chew !== ai.lastChew && chew < 3) { ai.lastChew = chew; ctx.onEvent(d, 'chew'); } }
+    return;
+  }
   const ph = d.clipPhase;
   if (ph < 0.05 && ai.bitten) { ai.bitten = false; ai.lastChew = -1; }
   if (!ai.bitten && (!ai.biteItem || ai.biteItem.eaten)) {

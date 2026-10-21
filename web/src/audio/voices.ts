@@ -16,7 +16,7 @@ export function playVoice(a: AudioEngine, voice: Voice, gain: number, pan: numbe
   if (!a.unlocked || gain <= 0.01) return;
   if (samples.has(voice)) {
     // recorded call, pitched for this individual's size, with natural variation between calls
-    const rate = Math.min(1.2, Math.max(0.8, Math.pow((VOICE_SIZE[voice] ?? sizeM) / Math.max(1, sizeM), 0.3))) * (0.94 + Math.random() * 0.12);
+    const rate = Math.min(1.55, Math.max(0.8, Math.pow((VOICE_SIZE[voice] ?? sizeM) / Math.max(0.6, sizeM), 0.3))) * (0.94 + Math.random() * 0.12);
     const dur = samples.play(a, voice, a.voices, gain * 0.9, pan, rate);
     if (dur > 0 && (voice === 'bigTheropod' || voice === 'sauropod')) {
       // a soft sub-bass swell under the big voices gives them weight (felt more than heard)
