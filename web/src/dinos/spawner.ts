@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Dino, type DinoContext } from './dino.ts';
 import type { Species } from './manifest.ts';
-import { updateAI, findSpot, separate } from './ai.ts';
+import { updateAI, findSpot } from './ai.ts';
 import { BIOMES, type BiomeId } from '../world/biomes.ts';
 import { heightAt, slopeAt, waterAt } from '../world/heightmap.ts';
 import { DINO_SLEEP_DIST, MAX_ANIMATED_DINOS } from '../config.ts';
@@ -62,7 +62,7 @@ export class DinoManager {
     for (const d of this.dinos) if (d.awake && d.species.kind === 'land' && Math.hypot(d.root.position.x - p.x, d.root.position.z - p.z) < 60) near++;
     if (near >= 3) return;
     const cands = this.dinos
-      .filter((d) => d.species.kind === 'land' && !d.isBusy && d.ai.followUntil < ctx.time && !d.ai.foodTarget)
+      .filter((d) => d.species.kind === 'land' && !d.isBusy && !d.ai.scripted && d.ai.followUntil < ctx.time && !d.ai.foodTarget)
       .map((d) => ({ d, dist: Math.hypot(d.root.position.x - p.x, d.root.position.z - p.z) }))
       .filter((c) => c.dist >= 60 && c.dist < 340)
       .sort((a, b) => a.dist - b.dist)
@@ -111,7 +111,6 @@ export class DinoManager {
     this.frustum.setFromProjectionMatrix(this.projView);
     // distance sort for budgets
     const sorted = this.dinos.map((d) => ({ d, dist: Math.hypot(d.root.position.x - p.x, d.root.position.z - p.z) })).sort((a, b) => a.dist - b.dist);
-    separate(this.dinos);
     let animated = 0;
     for (const { d, dist } of sorted) {
       const awake = dist < DINO_SLEEP_DIST;
@@ -119,7 +118,8 @@ export class DinoManager {
       d.animated = awake && animated < MAX_ANIMATED_DINOS;
       if (d.animated) animated++;
       if (!awake) { if (d.ai.followUntil > ctx.time) d.ai.followUntil = 0; continue; }
-      updateAI(d, dt, ctx);
+      // only animated dinosaurs may move (an un-animated one would glide like a statue)
+      if (d.animated || d.species.kind !== 'land') updateAI(d, dt, ctx); else d.speed = 0;
       d.update(dt, ctx);
       // manual frustum culling (skinned meshes have unreliable bounds)
       this.sphere.center.copy(d.root.position); this.sphere.center.y += d.species.heightM * 0.5; this.sphere.radius = d.species.lengthM * 0.75 + 2;

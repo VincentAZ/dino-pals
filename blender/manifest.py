@@ -24,7 +24,7 @@ species = [
  dict(id="spinosaurus", name="Spinosaurus", sayName="Spinosaurus", kind="land", diet="piscivore", lengthM=14, speed=1.0, voice="bigTheropod", biomes=["swamp","beach"], count=2,
       attribution=dict(title="Spinosaurus", author="Julian Johnson-Mortimer", license="CC-BY-4.0", url=SK+"4f2332ee93874d59a55fb60ed2873ec2")),
  dict(id="carnotaurus", name="Carnotaurus", sayName="Carnotaurus", kind="land", diet="carnivore", lengthM=8, speed=1.8, voice="bigTheropod", biomes=["volcano","canyon"], count=2,
-      attribution=dict(title="CARNOTAURUS DINOSAUR", author="Cenker Turhan", license="CC-BY-4.0", url=SK+"548c9a0575b14deaae1f12ca9a6c31ca")),
+      attribution=dict(title="CARNOTAURUS", author="Cenker Turhan", license="CC-BY-4.0", url=SK+"ab2350d7cd7e4727ad6052edfceb35c9")),
  dict(id="allosaurus", name="Allosaurus", sayName="Allosaurus", kind="land", diet="carnivore", lengthM=9, speed=1.7, voice="bigTheropod", biomes=["jungle","volcano"], count=2,
       attribution=dict(title="Allosaurus", author="PAndras", license="CC-BY-4.0", url=SK+"6c5142e093a147bdb86e0eeb837b476c")),
  dict(id="pachycephalosaurus", name="Pachycephalosaurus", sayName="Pachycephalosaurus", kind="land", diet="herbivore", lengthM=4.5, speed=1.6, voice="chirp", biomes=["meadow","snow"], count=3,

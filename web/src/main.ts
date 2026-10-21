@@ -11,12 +11,15 @@ import { Water } from './world/water.ts';
 import { Vegetation } from './world/vegetation.ts';
 import { Weather } from './world/weather.ts';
 import { Grass } from './world/grass.ts';
+import { ObstacleGrid } from './world/obstacles.ts';
+import { FoodSystem } from './world/food.ts';
 import { BIOMES, BIOME_IDS, biomeWeights, type BiomeId } from './world/biomes.ts';
 import { heightAt, waterAt } from './world/heightmap.ts';
 import { loadManifest, type Species } from './dinos/manifest.ts';
 import { DinoManager } from './dinos/spawner.ts';
 import { facePlayer, secondAction, triggerAction } from './dinos/ai.ts';
 import type { Dino, DinoContext, DinoState, Food } from './dinos/dino.ts';
+import { bodyOf } from './dinos/ai_land.ts';
 import { Player } from './player/player.ts';
 import { TouchInput } from './input/touch.ts';
 import { AudioEngine } from './audio/context.ts';
@@ -49,6 +52,16 @@ interface DinoApi {
   lastTapped: string | null;
   biomes: Record<string, [number, number]>;
   errors: string[];
+  // ---- test hooks
+  pause: (on: boolean) => void;
+  step: (frames: number, dt?: number) => void;
+  watch: (id: string | null, az?: number, el?: number, dist?: number, height?: number) => void;
+  command: (id: string, cmd: { walkTo?: [number, number]; face?: [number, number]; stop?: boolean; release?: boolean; place?: [number, number, number] }) => void;
+  dropFoodAt: (x: number, z: number) => void;
+  loco: (id: string) => Record<string, unknown> | null;
+  overlaps: () => { dinoDino: number; dinoTree: number; worst: number };
+  biteLog: () => { dino: string; dist: number; t: number }[];
+  foods: () => unknown[];
 }
 
 const params = new URLSearchParams(location.search);
@@ -87,6 +100,7 @@ async function main(): Promise<void> {
   const terrainReady = terrain.init();
   const sky = new Sky(renderer, scene, terrain.uniforms.uNoise.value);
   const vegetation = new Vegetation(renderer, gltf);
+  const obstacles = new ObstacleGrid(vegetation);
   scene.add(vegetation.group);
   terrain.onVeg = (key, cx, cz, veg) => vegetation.addChunk(key, cx, cz, veg);
   terrain.onChunkRemoved = (key) => vegetation.removeChunk(key);
@@ -129,23 +143,39 @@ async function main(): Promise<void> {
     const pan = rel.length() > 0.01 ? THREE.MathUtils.clamp(rel.normalize().dot(camRight) * 0.8, -1, 1) : 0;
     return audio.spatial(d, pan, maxDist);
   };
+  const foodSystem = new FoodSystem(scene, gltf, foods);
+  void foodSystem.load();
+  const keepClear: [number, number, number][] = [[0, 0, 1.6], [0, 0, 1.4]];
+  const biteLog: { dino: string; dist: number; t: number }[] = [];
   const ctx: DinoContext = {
-    player: player.pos, time: 0, foods,
-    onFootstep: (d, big) => {
-      const s = spatial(d.root.position, big ? 120 : 50);
-      footstep(audio, big, s.gain * (big ? 0.8 : 0.35), s.pan);
-      if (big) {
-        const w = biomeWeights(d.root.position.x, d.root.position.z);
-        weather.puffs.spawn(w.dominant === 'snow' ? 'snowkick' : 'dust', d.root.position.x, d.root.position.y, d.root.position.z, d.state === 'stomp' ? 26 : 10, Math.min(2.2, d.species.lengthM / 6));
+    player: player.pos, eye: player.eye, time: 0, foods, obstacles, others: dinos.dinos, keepClear,
+    onFootstep: (d, big, at, heavy) => {
+      const p = at ?? d.root.position;
+      const s = spatial(p, big ? 120 : 50);
+      footstep(audio, big, s.gain * (big ? 0.8 : 0.3) * (heavy ? 1.4 : 1), s.pan);
+      if (heavy) thump(audio, s.gain * 0.8, s.pan);
+      if (big || heavy) {
+        const w = biomeWeights(p.x, p.z);
+        weather.puffs.spawn(w.dominant === 'snow' ? 'snowkick' : 'dust', p.x, p.y, p.z, heavy ? 22 : 7, Math.min(1.6, d.species.lengthM / 9));
       }
     },
-    onEvent: (d, ev) => {
+    onEvent: (d, ev, item) => {
       const s = spatial(d.root.position, 220);
       const p = d.root.position;
       switch (ev) {
         case 'roar': playVoice(audio, d.species.voice, s.gain, s.pan, d.species.lengthM); weather.sparkles.spawn('sparkle', p.x, p.y + d.species.heightM * 0.8, p.z, 18); break;
         case 'eat': break;
-        case 'bite': { eatCrunch(audio, s.gain * 0.8, s.pan); const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('leaf', sn.x, sn.y, sn.z, 14); break; }
+        case 'bite': {
+          const sn = d.snoutPos(new THREE.Vector3());
+          const f = d.ai.foodTarget;
+          if (f && f.items.length) {
+            const it = foodSystem.bite(d, f, item ?? null, sn);
+            if (it) biteLog.push({ dino: d.root.name, dist: +sn.distanceTo(it.pos).toFixed(3), t: +clock.t.toFixed(2) });
+          }
+          eatCrunch(audio, s.gain * 0.9, s.pan);
+          weather.puffs.spawn('leaf', sn.x, sn.y, sn.z, 10);
+          break;
+        }
         case 'finished': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('heart', sn.x, sn.y + 0.8, sn.z, 10); sparkle(audio); break; }
         case 'splash': splash(audio, s.gain, s.pan, d.species.lengthM > 8); weather.puffs.spawn('splash', p.x, Math.max(p.y, 0), p.z, 40, Math.min(3, d.species.lengthM / 5)); break;
         case 'stomp': thump(audio, s.gain, s.pan); break;
@@ -157,7 +187,7 @@ async function main(): Promise<void> {
 
   let lastTapped: Dino | null = null, lastTapAt = -99;
   const tapDino = (d: Dino): DinoState => {
-    facePlayer(d, player.pos);
+    facePlayer(d, player.pos, clock.t);
     const again = d === lastTapped && clock.t - lastTapAt < 10;
     lastTapped = d; lastTapAt = clock.t; api.lastTapped = d.root.name;
     const state = triggerAction(d, again ? secondAction(d) : 'roar', ctx);
@@ -185,56 +215,31 @@ async function main(): Promise<void> {
     const nx = (x / window.innerWidth) * 2 - 1, ny = -(y / window.innerHeight) * 2 + 1;
     const d = dinos.pick(camera, nx, ny, 44, window.innerWidth, window.innerHeight);
     if (!d) return null;
-    d.ai.followUntil = clock.t + 45; d.ai.target = null; d.ai.foodTarget = null;
-    facePlayer(d, player.pos);
+    d.ai.followUntil = clock.t + 45; d.ai.target = null;
+    if (d.ai.foodTarget) { d.ai.foodTarget.eaters.delete(d.index); d.ai.foodTarget = null; }
+    facePlayer(d, player.pos, clock.t);
     weather.sparkles.spawn('heart', d.root.position.x, d.root.position.y + d.species.heightM * 0.9, d.root.position.z, 14);
     const s = spatial(d.root.position, 200); playVoice(audio, d.species.voice, s.gain * 0.6, s.pan, d.species.lengthM * 0.7);
     sparkle(audio);
     return 'follow';
   };
 
-  const fruitMats = [0xe8383a, 0xf28c28, 0x8e44ad, 0xd6c13a].map((c) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.18, roughness: 0.45 }));
-  const leafMats = [0x3f8a3a, 0x5aa04a, 0x2f7030].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, side: THREE.DoubleSide }));
-  let foodProto: THREE.Object3D | null = null;
-  gltf.loadAsync('/assets/dinos/food.glb').then((g) => {
-    g.scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-    foodProto = g.scene;
-  }).catch(() => { foodProto = null; });
-  const dropFood = (): void => {
-    // 7 m ahead of the camera, on the ground
-    const dir = new THREE.Vector3().subVectors(player.eye, camera.position).setY(0).normalize();
-    let px = player.pos.x + dir.x * 7, pz = player.pos.z + dir.z * 7;
-    const ob = player.obstacleAt?.(px, pz);
-    if (ob) { const dx = px - ob.x, dz = pz - ob.z; const dd = Math.hypot(dx, dz) || 1; px = ob.x + (dx / dd) * (ob.r + 0.8); pz = ob.z + (dz / dd) * (ob.r + 0.8); }
+  const placeFood = (px: number, pz: number): void => {
+    // keep the pile clear of trunks / rocks so dinosaurs can stand all around it
+    for (let i = 0; i < 6; i++) {
+      const ob = player.obstacleAt?.(px, pz);
+      if (!ob) break;
+      const dx = px - ob.x, dz = pz - ob.z; const dd = Math.hypot(dx, dz) || 1; px = ob.x + (dx / dd) * (ob.r + 2); pz = ob.z + (dz / dd) * (ob.r + 2);
+    }
     const w = waterAt(px, pz); const y = w.kind !== 'none' ? Math.max(heightAt(px, pz), w.level) : heightAt(px, pz);
-    const g = new THREE.Group(); g.position.set(px, y, pz); g.rotation.y = Math.random() * Math.PI * 2;
-    if (foodProto) {
-      const pile = foodProto.clone(true); pile.scale.setScalar(2.4); g.add(pile);
-      const fruit: THREE.Object3D[] = []; pile.traverse((o) => { if (/^(fruit|stem)/.test(o.name)) fruit.push(o); });
-      g.userData.fruit = fruit;
-    } else {
-    // leaf pile: a low mound of overlapping leaves
-    const mound = new THREE.Mesh(new THREE.SphereGeometry(1.0, 18, 10), leafMats[0]); mound.scale.set(1, 0.38, 1); mound.position.y = -0.02; mound.castShadow = true; g.add(mound);
-    for (let i = 0; i < 26; i++) {
-      const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.3), leafMats[i % 3]);
-      const a = Math.random() * Math.PI * 2, r = Math.random() * 1.05;
-      leaf.position.set(Math.cos(a) * r, 0.02 + (1 - r) * 0.34 + Math.random() * 0.06, Math.sin(a) * r);
-      leaf.rotation.set(-0.9 + Math.random() * 0.5, a + Math.random(), (Math.random() - 0.5) * 0.6); g.add(leaf);
-    }
-    // fruit sitting on the pile
-    for (let i = 0; i < 14; i++) {
-      const rad = 0.13 + Math.random() * 0.09;
-      const m = new THREE.Mesh(new THREE.SphereGeometry(rad, 12, 10), fruitMats[i % fruitMats.length]);
-      const a = Math.random() * Math.PI * 2, r = Math.random() * 0.75;
-      m.position.set(Math.cos(a) * r, 0.36 * Math.sqrt(Math.max(0, 1 - r * r)) + rad * 0.6, Math.sin(a) * r); m.castShadow = true; g.add(m);
-    }
-    }
-    scene.add(g);
-    const food: Food = { pos: new THREE.Vector3(px, y, pz), amount: 1, mesh: g };
-    foods.push(food);
-    weather.sparkles.spawn('sparkle', px, y + 0.3, pz, 24);
+    foodSystem.drop(px, y, pz);
+    weather.sparkles.spawn('sparkle', px, y + 0.4, pz, 24);
     pop(audio); sparkle(audio);
-    if (foods.length > 4) { const old = foods.shift()!; old.amount = 0; scene.remove(old.mesh); }
+  };
+  const dropFood = (): void => {
+    // in front of the explorer, on the ground
+    const dir = new THREE.Vector3().subVectors(player.eye, camera.position).setY(0).normalize();
+    placeFood(player.pos.x + dir.x * 8, player.pos.z + dir.z * 8);
   };
 
   const MAGIC_TIMES = [6.3, 12, 19.7, 23.2];
@@ -290,8 +295,46 @@ async function main(): Promise<void> {
     busy: () => workers.inFlight > 0 || vegetation.loadedCount < vegetation.species.size || dinos.dinos.some((d) => d.loading),
     get dinos() { return dinos.dinos.map((d) => ({ id: d.root.name, species: d.species.id, state: d.state, x: +d.root.position.x.toFixed(1), y: +d.root.position.y.toFixed(1), z: +d.root.position.z.toFixed(1), real: d.real, awake: d.awake })); },
     biomes: Object.fromEntries(BIOME_IDS.map((id) => [id, BIOMES[id].anchor])),
+    pause: (on) => { paused = on; },
+    step: (frames, dt = 1 / 30) => { for (let i = 0; i < frames; i++) tick(dt, dt); applyWatch(); renderer.render(scene, camera); },
+    watch: (id, az = 1.57, el = 0.12, dist = 14, height = 0.5) => { watchId = id; Object.assign(watchCfg, { az, el, dist, height }); applyWatch(); },
+    command: (id, cmd) => {
+      const d = dinos.dinos.find((x) => x.root.name === id || x.species.id === id); if (!d) return;
+      d.ai.scripted = !cmd.release;
+      if (cmd.place) { d.root.position.set(cmd.place[0], heightAt(cmd.place[0], cmd.place[1]), cmd.place[1]); d.heading = cmd.place[2]; d.speed = 0; d.ai.yawVel = 0; d.loco?.resetPlants(); }
+      if (cmd.walkTo) { d.ai.target = new THREE.Vector3(cmd.walkTo[0], 0, cmd.walkTo[1]); d.ai.bestDist = Infinity; d.ai.progressAt = clock.t; d.ai.faceTarget = null; d.ai.detour = null; }
+      if (cmd.face) { d.ai.target = null; d.ai.faceTarget = new THREE.Vector3(cmd.face[0], 0, cmd.face[1]); d.ai.faceUntil = clock.t + 30; }
+      if (cmd.stop) { d.ai.target = null; d.ai.faceTarget = null; }
+      if (cmd.release) { d.ai.scripted = false; }
+    },
+    dropFoodAt: (x, z) => placeFood(x, z),
+    loco: (id) => {
+      const d = dinos.dinos.find((x) => x.root.name === id || x.species.id === id); if (!d || !d.loco) return null;
+      return { ...d.loco.stats, legs: d.loco.legs.length, legLen: +d.loco.legLen.toFixed(2), maxSpeed: +d.loco.maxSpeed.toFixed(2), maxTurn: +d.loco.maxTurnRate.toFixed(2), speed: +d.speed.toFixed(2), gait: +d.loco.gaitSpeed.toFixed(2), state: d.state, eatReach: +d.eatReach.toFixed(2), heading: +d.heading.toFixed(3), pos: [+d.root.position.x.toFixed(2), +d.root.position.z.toFixed(2)], target: d.ai.target ? [+d.ai.target.x.toFixed(1), +d.ai.target.z.toFixed(1)] : null, detour: d.ai.detour ? [+d.ai.detour.x.toFixed(1), +d.ai.detour.z.toFixed(1)] : null, yawVel: +d.ai.yawVel.toFixed(2), scripted: d.ai.scripted, busy: d.isBusy, animated: d.animated, awake: d.awake };
+    },
+    overlaps: () => overlapStats(),
+    biteLog: () => biteLog,
+    foods: () => foods.map((f) => ({ x: +f.pos.x.toFixed(1), z: +f.pos.z.toFixed(1), amount: +f.amount.toFixed(2), items: f.items.length, eaters: [...f.eaters.keys()] })),
   };
   (window as unknown as { __dino: DinoApi }).__dino = api;
+  const overlapStats = (): { dinoDino: number; dinoTree: number; worst: number } => {
+    let dd = 0, dt = 0, worst = 0;
+    const land = dinos.dinos.filter((d) => d.awake && d.species.kind === 'land');
+    const cap = (d: Dino): [number, number, number, number, number] => { const b = bodyOf(d); const s = Math.sin(d.heading), c = Math.cos(d.heading); const p = d.root.position; return [p.x - s * b.back, p.z - c * b.back, p.x + s * b.front, p.z + c * b.front, b.r]; };
+    const seg = (px: number, pz: number, ax: number, az: number, bx: number, bz: number): number => { const ex = bx - ax, ez = bz - az; const l2 = ex * ex + ez * ez; const t = l2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * ex + (pz - az) * ez) / l2)) : 0; return Math.hypot(px - ax - ex * t, pz - az - ez * t); };
+    for (let i = 0; i < land.length; i++) {
+      const A = cap(land[i]);
+      for (let j = i + 1; j < land.length; j++) {
+        const B = cap(land[j]);
+        const dist = Math.min(seg(A[0], A[1], B[0], B[1], B[2], B[3]), seg(A[2], A[3], B[0], B[1], B[2], B[3]), seg(B[0], B[1], A[0], A[1], A[2], A[3]), seg(B[2], B[3], A[0], A[1], A[2], A[3]));
+        const pen = A[4] + B[4] - dist; if (pen > 0.05) { dd++; worst = Math.max(worst, pen); }
+      }
+      for (const o of obstacles.near(land[i].root.position.x, land[i].root.position.z, 30, [])) {
+        const pen = o.r + A[4] - seg(o.x, o.z, A[0], A[1], A[2], A[3]); if (pen > 0.05) { dt++; worst = Math.max(worst, pen); }
+      }
+    }
+    return { dinoDino: dd, dinoTree: dt, worst: +worst.toFixed(2) };
+  };
 
   const applyQuality = (q: Quality): void => {
     setQuality(q);
@@ -308,13 +351,28 @@ async function main(): Promise<void> {
   const camDir = new THREE.Vector3();
   const shadowCenter = new THREE.Vector3();
 
+  let paused = false;
+  let watchId: string | null = null; const watchCfg = { az: 1.57, el: 0.12, dist: 14, height: 0.5 };
   const frame = (): void => {
     if (!running) return;
     raf = requestAnimationFrame(frame);
     const now = performance.now();
     const rawDt = (now - last) / 1000; last = now;
-    const dt = Math.min(rawDt, 0.05);
     frameMs += (rawDt * 1000 - frameMs) * 0.05; fps = 1000 / Math.max(frameMs, 1);
+    if (!paused) tick(Math.min(rawDt, 0.05), rawDt);
+    applyWatch();
+    renderer.render(scene, camera);
+  };
+  const applyWatch = (): void => {
+    if (!watchId) return;
+    const d = dinos.dinos.find((x) => x.root.name === watchId);
+    if (!d) return;
+    const p = d.root.position; const a = d.heading + watchCfg.az;
+    const tx = p.x, ty = p.y + d.species.heightM * watchCfg.height, tz = p.z;
+    camera.position.set(tx + Math.sin(a) * Math.cos(watchCfg.el) * watchCfg.dist, ty + Math.sin(watchCfg.el) * watchCfg.dist, tz + Math.cos(a) * Math.cos(watchCfg.el) * watchCfg.dist);
+    camera.lookAt(tx, ty, tz);
+  };
+  const tick = (dt: number, rawDt: number): void => {
     clock.t += dt; ctx.time = clock.t;
     // quality probe during the first seconds
     if (!probed && api.ready) {
@@ -339,19 +397,14 @@ async function main(): Promise<void> {
     vegetation.update(dt, light, player.pos);
     grass.update(dt, player.pos.x, player.pos.z, light, sky.state.night > 0.5 ? sky.state.moonDir : sky.state.sunDir);
     weather.update(dt, camera.position, player.pos, biomeW, sky.state, renderer.getPixelRatio());
+    obstacles.update(clock.t);
+    keepClear[0][0] = player.pos.x; keepClear[0][1] = player.pos.z;
+    keepClear[1][0] = camera.position.x; keepClear[1][1] = camera.position.z;
     dinos.update(dt, ctx, shadowCenter, camera);
-    for (let i = foods.length - 1; i >= 0; i--) {
-      const f = foods[i];
-      if (f.amount <= 0) { scene.remove(f.mesh); foods.splice(i, 1); continue; }
-      // the pile visibly shrinks and fruit disappears as it is eaten
-      const k = 0.3 + 0.7 * f.amount; f.mesh.scale.set(k, 0.45 + 0.55 * f.amount, k);
-      const fruit = f.mesh.userData.fruit as THREE.Object3D[] | undefined;
-      if (fruit) { const keep = Math.ceil(f.amount * fruit.length); fruit.forEach((o, j) => { o.visible = j < keep; }); }
-    }
+    foodSystem.update(dt);
     ambience.update(dt, biomeW, sky.state.night, weather.rainAmount);
     music.update(sky.state.night);
     hud.setLoading(vegetation.loadedCount < vegetation.species.size || dinos.stats.real + dinos.dinos.filter((d) => d.loaded).length < dinos.dinos.length);
-    renderer.render(scene, camera);
   };
 
   const onResize = (): void => {

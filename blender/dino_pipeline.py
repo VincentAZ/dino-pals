@@ -20,21 +20,21 @@ FPS = 30
 # ---------------------------------------------------------------- species table
 # length = nose-to-tail length in metres (for flyers: wingspan). flip = force head direction override.
 SPECIES = {
-    "trex":              dict(length=12.0, walk_speed=1.3, kind="land", gait="biped",  tris=48000, remove=[]),
-    "triceratops":       dict(length=8.5, walk_speed=1.2,  kind="land", gait="quad",   tris=45000, remove=["Object_14"], fix_normals=True, clear_normals=True),
-    "stegosaurus":       dict(length=8.0, walk_speed=0.9,  kind="land", gait="quad",   tris=40000, remove=[]),
-    "paluxysaurus":      dict(length=20.0, walk_speed=1.0, amp=0.4, kind="land", gait="quad",   tris=50000, remove=[]),
-    "velociraptor":      dict(length=2.6, walk_speed=1.2, amp=1.3,  kind="land", gait="biped",  tris=30000, remove=[]),
-    "sauropelta":        dict(length=5.5, walk_speed=0.8,  kind="land", gait="quad",   tris=40000, remove=[]),
-    "ankylosaurus":      dict(length=7.0, walk_speed=0.8, amp=0.6,  kind="land", gait="quad",   tris=40000, remove=[], no_smooth=True),
-    "iguanodon":         dict(length=9.0, walk_speed=1.0,  kind="land", gait="quad",   tris=40000, remove=["Object_4"]),
-    "ornithocheirus":    dict(length=5.0,  kind="air",  gait="wing",   tris=30000, remove=[]),
-    "spinosaurus":       dict(length=14.0, walk_speed=1.1, kind="land", gait="biped",  tris=50000, remove=[]),
-    "carnotaurus":       dict(length=8.0, walk_speed=1.4,  kind="land", gait="biped",  tris=40000, remove=["Object_11", "Object_4"]),
-    "allosaurus":        dict(length=9.0, walk_speed=1.3,  kind="land", gait="biped",  tris=40000, remove=["Object_6", "Object_8"]),
-    "pachycephalosaurus":dict(length=4.5, walk_speed=1.2, amp=1.15,  kind="land", gait="biped",  tris=35000, remove=[]),
-    "pistosaurus":       dict(length=3.5,  kind="water",gait="swim",   tris=20000, remove=[]),
-    "mosasaurus":        dict(length=13.0, kind="water",gait="swim",   tris=35000, remove=[]),
+    "trex":              dict(head=0.12, neck=0.07, length=12.0, walk_speed=1.3, kind="land", gait="biped",  tris=48000, remove=[]),
+    "triceratops":       dict(head=0.26, neck=0.03, jaw=0.5, length=8.5, walk_speed=1.2,  kind="land", gait="quad",   tris=45000, remove=["Object_14", "Object_8", "Cube"], fix_normals=True, clear_normals=True),
+    "stegosaurus":       dict(head=0.06, neck=0.08, jaw=0.85, length=8.0, walk_speed=0.9,  kind="land", gait="quad",   tris=40000, remove=[]),
+    "paluxysaurus":      dict(head=0.04, neck=0.28, jaw=0.8, length=20.0, walk_speed=1.0, amp=0.4, kind="land", gait="quad",   tris=50000, remove=[]),
+    "velociraptor":      dict(head=0.10, neck=0.09, length=2.6, walk_speed=1.2, amp=1.3,  kind="land", gait="biped",  tris=30000, remove=[]),
+    "sauropelta":        dict(head=0.08, neck=0.07, jaw=0.8, length=5.5, walk_speed=0.8,  kind="land", gait="quad",   tris=40000, remove=[]),
+    "ankylosaurus":      dict(head=0.08, neck=0.05, jaw=0.8, length=7.0, walk_speed=0.8, amp=0.6,  kind="land", gait="quad",   tris=40000, remove=[], no_smooth=True),
+    "iguanodon":         dict(head=0.09, neck=0.08, jaw=0.85, length=9.0, walk_speed=1.0,  kind="land", gait="quad",   tris=40000, remove=["Object_4"]),
+    "ornithocheirus":    dict(head=0.30, neck=0.12, length=5.0,  kind="air",  gait="wing",   tris=30000, remove=[]),
+    "spinosaurus":       dict(head=0.12, neck=0.09, length=14.0, walk_speed=1.1, kind="land", gait="biped",  tris=50000, remove=[]),
+    "carnotaurus":       dict(head=0.09, neck=0.08, length=8.0, walk_speed=1.4,  kind="land", gait="biped",  tris=40000, remove=["BODY_BODY_0.001"]),
+    "allosaurus":        dict(head=0.11, neck=0.08, length=9.0, walk_speed=1.3,  kind="land", gait="biped",  tris=40000, remove=["Object_6", "Object_8"]),
+    "pachycephalosaurus":dict(head=0.10, neck=0.08, length=4.5, walk_speed=1.2, amp=1.15,  kind="land", gait="biped",  tris=35000, remove=[]),
+    "pistosaurus":       dict(head=0.07, neck=0.26, hip=0.62, length=3.5,  kind="water",gait="swim",   tris=20000, remove=[]),
+    "mosasaurus":        dict(head=0.12, neck=0.05, hip=0.55, length=13.0, kind="water",gait="swim",   tris=35000, remove=[]),
 }
 CFG = SPECIES[SPECIES_ID]
 KIND, GAIT = CFG["kind"], CFG["gait"]
@@ -54,7 +54,7 @@ def all_meshes(): return [o for o in bpy.data.objects if o.type == 'MESH']
 # junk: Sketchfab icospheres, named removals, degenerate meshes
 for o in list(bpy.data.objects):
     if o.type == 'MESH':
-        junk = (o.name in CFG["remove"]) or (o.name.startswith("Icosphere") and len(o.data.materials) == 0) or len(o.data.polygons) < 3
+        junk = (o.name in CFG["remove"]) or (o.name.startswith("Icosphere") and len(o.data.materials) == 0) or len(o.data.polygons) < 40
         if junk:
             log("remove", o.name); bpy.data.objects.remove(o)
 
@@ -163,260 +163,272 @@ body.data.calc_loop_triangles()
 log("tris after decimate", len(body.data.loop_triangles))
 V = verts_np(body)
 
-# ---------------------------------------------------------------- analyse body: spine curve
-NS = 40
-ys = np.linspace(mn[1], mx[1], NS + 1)
-spine = []  # (y, x, z) along +Y from head(-Y) to tail(+Y)
-for i in range(NS):
-    m = (V[:, 1] >= ys[i]) & (V[:, 1] < ys[i + 1] + (1e-6 if i == NS - 1 else 0))
-    if m.sum() < 5:
-        spine.append(None); continue
-    sl = V[m]
-    # vertical centre of the slice: midpoint between the 15th and 85th percentile of z — robust to legs
-    z = 0.5 * (np.percentile(sl[:, 2], 20) + np.percentile(sl[:, 2], 90))
-    x = np.median(sl[:, 0])
-    spine.append((0.5 * (ys[i] + ys[i + 1]), x, z))
-# fill gaps + smooth
-last = None
-for i in range(NS):
-    if spine[i] is None: spine[i] = last if last else (0.5 * (ys[i] + ys[i + 1]), 0.0, H * 0.5)
-    last = spine[i]
-sp = np.array(spine)
-for _ in range(2):
-    sp[1:-1, 1:] = 0.25 * sp[:-2, 1:] + 0.5 * sp[1:-1, 1:] + 0.25 * sp[2:, 1:]
+# ---------------------------------------------------------------- volumetric analysis (rig v2)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rig_v2 as R2
+me = body.data; me.calc_loop_triangles()
+TRI = np.empty(len(me.loop_triangles) * 3, np.int32); me.loop_triangles.foreach_get("vertices", TRI); TRI = TRI.reshape(-1, 3)
+V = verts_np(body)
+VOX = max(L, size[0]) / CFG.get("vox_div", 170)
+G, SOLID, SURF = R2.voxelize(V, TRI, VOX)
+if SOLID.sum() < 1.6 * SURF.sum():
+    log("hollow voxelisation → closing harder")
+    G, SOLID, SURF = R2.voxelize(V, TRI, VOX, close=2)
+log("voxels", G.shape, "vox", round(VOX, 4), "solid", int(SOLID.sum()), "fill", round(SOLID.sum() / max(1, SURF.sum()), 2))
+DT = R2.slice_dt(SOLID)
+CURVE, RAD = R2.spine_curve(G, SOLID, DT)
+log("spine curve samples", len(CURVE), "y range", round(CURVE[0, 1], 2), round(CURVE[-1, 1], 2))
+def rad_at(y): return float(np.interp(y, CURVE[:, 1], RAD))
+def sp_at(y): return R2.curve_at(CURVE, y)
 
-# ---------------------------------------------------------------- analyse legs (clusters of low vertices)
-def find_legs_at(frac):
-    zcut = mn[2] + frac * H
-    low = V[V[:, 2] < zcut]
-    if len(low) < 50: return []
-    cell = max(L, size[0]) / 70.0
-    gx = np.floor((low[:, 0] - mn[0]) / cell).astype(int); gy = np.floor((low[:, 1] - mn[1]) / cell).astype(int)
-    W_, Hh = gx.max() + 1, gy.max() + 1
-    occ = np.zeros((W_ + 2, Hh + 2), dtype=np.int32); np.add.at(occ, (gx + 1, gy + 1), 1)
-    occ = occ > 0
-    d = occ.copy()
-    d[1:, :] |= occ[:-1, :]; d[:-1, :] |= occ[1:, :]; d[:, 1:] |= occ[:, :-1]; d[:, :-1] |= occ[:, 1:]
-    lab = np.zeros_like(d, dtype=np.int32); nl = 0; stack = []
-    for i in range(d.shape[0]):
-        for j in range(d.shape[1]):
-            if d[i, j] and lab[i, j] == 0:
-                nl += 1; lab[i, j] = nl; stack.append((i, j))
-                while stack:
-                    a, b = stack.pop()
-                    for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                        na, nb = a + da, b + db
-                        if 0 <= na < d.shape[0] and 0 <= nb < d.shape[1] and d[na, nb] and lab[na, nb] == 0:
-                            lab[na, nb] = nl; stack.append((na, nb))
-    vl = lab[gx + 1, gy + 1]
-    legs = []
-    for k in range(1, nl + 1):
-        pts = low[vl == k]
-        if len(pts) < 30: continue
-        zext = pts[:, 2].max() - pts[:, 2].min()
-        if zext < 0.5 * (zcut - mn[2]): continue
-        if pts[:, 2].min() > mn[2] + 0.3 * (zcut - mn[2]): continue
-        legs.append(leg_from_pts(pts, zcut))
-    legs.sort(key=lambda l: -l["n"])
-    return legs
+y_snout, y_tail = float(mn[1]), float(mx[1])
+HEAD_F = CFG.get("head", 0.11); NECK_F = CFG.get("neck", 0.09)
+y_hb = y_snout + HEAD_F * L          # head base (skull/neck junction)
+y_nb = y_hb + NECK_F * L             # neck base (neck/chest junction)
 
-def leg_from_pts(pts, zcut):
-    foot = pts[pts[:, 2] < pts[:, 2].min() + 0.12 * (zcut - mn[2])]
-    return dict(x=float(foot[:, 0].mean()), y=float(foot[:, 1].mean()), n=len(pts), pts=pts, zcut=zcut,
-                xmin=float(pts[:, 0].min()), xmax=float(pts[:, 0].max()), ymin=float(pts[:, 1].min()), ymax=float(pts[:, 1].max()))
-
-def split_bimodal(l):
-    xs = l["pts"][:, 0]; cx = 0.5 * (xs.min() + xs.max()); w = xs.max() - xs.min()
-    if w < 0.04 * L: return [l]
-    mid = np.abs(xs - cx) < 0.10 * w
-    if mid.mean() < 0.10:
-        a, b = l["pts"][xs < cx], l["pts"][xs >= cx]
-        if len(a) > 30 and len(b) > 30: return [leg_from_pts(a, l["zcut"]), leg_from_pts(b, l["zcut"])]
-    return [l]
-
-def find_legs():
-    if GAIT in ("wing", "swim"): return []
+# ---------------------------------------------------------------- legs (traced through the solid)
+leg_defs = []      # dicts: tag, hip, knee, ankle, toe, front
+if GAIT in ("biped", "quad"):
     want = 4 if GAIT == "quad" else 2
-    fracs = [0.30, 0.24, 0.18, 0.13, 0.09] if GAIT == "quad" else [0.42, 0.34, 0.26, 0.18, 0.12]
-    best = []
-    for fr in fracs:
-        legs = find_legs_at(fr)
-        log("  leg scan", fr, len(legs))
-        if len(legs) >= want: best = legs; break
-        if len(legs) > len(best): best = legs
-    # post-pass: split blobs that are clearly two legs side by side
-    out = []
-    for l in best: out.extend(split_bimodal(l))
-    if len(out) < want and out:
-        # force-split the widest blob down the middle (legs side by side)
-        out.sort(key=lambda l: -(l["xmax"] - l["xmin"]))
-        l = out.pop(0); xs = l["pts"][:, 0]; cx = np.median(xs)
-        a, b = l["pts"][xs < cx], l["pts"][xs >= cx]
-        if len(a) > 30 and len(b) > 30: out += [leg_from_pts(a, l["zcut"]), leg_from_pts(b, l["zcut"])]; log("  forced split")
-        else: out.append(l)
-    out.sort(key=lambda l: -l["n"]); out = out[:want]
-    out.sort(key=lambda l: (l["y"], l["x"]))
-    return out
-legs = find_legs()
-log("legs", [(round(l["x"], 2), round(l["y"], 2), l["n"]) for l in legs])
+    kg, feet = R2.find_feet(G, SOLID, mn[2], H)
+    feet.sort(key=lambda c: -len(c))
+    # merged blobs (two feet touching) → split by x about the blob's median
+    cand = []
+    for c in feet:
+        xs = c[:, 0]
+        if len(feet) < want and (xs.max() - xs.min()) * VOX > 0.35 * size[0] and abs(G.pos(np.array([np.median(xs), 0, 0]))[0]) < 0.12 * size[0]:
+            med = np.median(xs); cand += [c[xs < med], c[xs >= med]]; log("  split merged foot blob")
+        else:
+            cand.append(c)
+    cand.sort(key=lambda c: -len(c))
+    # blobs of the same foot (separate toes) → merge when close together
+    merged = []
+    for c in cand:
+        cpos = c.mean(0)
+        for m in merged:
+            same_side = np.sign(G.pos(np.array([m["c"].mean(0)[0], 0, 0]))[0] - float(np.median(CURVE[:, 0]))) == np.sign(G.pos(np.array([cpos[0], 0, 0]))[0] - float(np.median(CURVE[:, 0])))
+            if same_side and np.linalg.norm(m["c"].mean(0) - cpos) * VOX < 0.09 * L:
+                m["c"] = np.vstack([m["c"], c]); break
+        else:
+            merged.append({"c": c, "k": kg})
+    merged.sort(key=lambda m: -len(m["c"])); merged = merged[:want]
+    xc_body = float(np.median(CURVE[:, 0]))
+    if GAIT == "biped":
+        sides = {int(np.sign(G.pos(np.array([m["c"].mean(0)[0], 0, 0]))[0] - xc_body)) for m in merged}
+        for side in (-1, 1):
+            if side in sides or len(merged) >= 2 and len(sides) == 2: continue
+            ref_y = float(G.pos(np.array([0, merged[0]["c"].mean(0)[1], 0]))[1]) if merged else y_snout + 0.55 * L
+            k2, c2 = R2.find_raised_foot(G, SOLID, side, xc_body, ref_y - 0.2 * L, ref_y + 0.2 * L, mn[2] + 0.55 * H)
+            if c2 is not None:
+                merged.append({"c": c2, "k": k2, "raised": True}); log(f"  raised foot found on side {side} at z={G.pos(np.array([0,0,k2]))[2]:.2f}")
+        merged = merged[:want]
+    log("feet found", len(feet), "→ using", len(merged), [(len(m["c"]), m["k"]) for m in merged])
+    k_top = int(G.idx(np.array([0, 0, mn[2] + 0.95 * H]))[2])
+    traced = []
+    for m in merged:
+        P, areas = R2.trace_leg(G, SOLID, m["k"], m["c"], k_top)
+        traced.append((m["c"], P, m["k"], m.get("raised", False)))
+    ys_tops = [P[-1][1] for _, P, _, _ in traced]
+    order = np.argsort(ys_tops)
+    front_ids = set(order[:2].tolist()) if (GAIT == "quad" and len(traced) == 4) else set()
+    for i, (c, P, kfoot, raised) in enumerate(traced):
+        front = i in front_ids
+        foot_z = float(G.pos(np.array([0, 0, kfoot]))[2]) - (0 if kfoot == kg else 0.0)
+        ground = mn[2] if kfoot == kg else foot_z - 1.5 * VOX
+        top = P[-1]
+        y_leg = float(np.mean(P[-max(2, len(P) // 4):, 1]))
+        spz = sp_at(y_leg)[2]; rr = rad_at(y_leg)
+        hip = np.array([top[0] * 0.8, y_leg, max(top[2] + 0.03 * H, spz - 0.38 * rr)])
+        ankle, knee = R2.fit_leg(P, hip, ground)
+        # anatomical sanity: hind knees point forward (−Y), front elbows backward (+Y)
+        AB = ankle - hip; t = np.clip(((knee - hip) @ AB) / (AB @ AB), 0, 1); off = knee - (hip + t * AB)
+        legH = hip[2] - ground
+        if not front and off[1] > 0.01 * legH: knee = hip + t * AB + np.array([0, -0.05 * legH, 0]); log("  knee flipped forward")
+        if front and off[1] < -0.01 * legH: knee = hip + t * AB + np.array([0, 0.04 * legH, 0]); log("  elbow flipped backward")
+        ball, toe = R2.toe_tip(G, SOLID, kfoot, c, ankle, hip[2] - ground, ground)
+        if toe is None or toe[1] > ankle[1] - 0.02 * legH:
+            toe = np.array([ankle[0], ankle[1] - 0.12 * legH, ground + 0.4 * VOX])
+            ball = np.array([ankle[0], ankle[1] - 0.05 * legH, ground + 0.4 * VOX])
+        side = "L" if top[0] < 0 else "R"
+        tag = (("F" if front else "B") + side) if GAIT == "quad" else side
+        leg_defs.append(dict(tag=tag, hip=hip, knee=knee, ankle=ankle, ball=ball, toe=toe, front=front, P=P, raised=raised))
+        log(f"  leg {tag}: hip {np.round(hip,2)} knee {np.round(knee,2)} ankle {np.round(ankle,2)} ball {np.round(ball,2)} toe {np.round(toe,2)} traced {len(P)} slices")
+    # one pelvis / one shoulder girdle: hips of a girdle share y and z, and sit symmetric in x
+    for grp in ([d for d in leg_defs if d["front"]], [d for d in leg_defs if not d["front"]]):
+        if len(grp) < 2: continue
+        yh = float(np.mean([d["hip"][1] for d in grp])); zh = float(np.mean([d["hip"][2] for d in grp]))
+        xh = max(float(np.mean([abs(d["hip"][0]) for d in grp])), 0.12 * size[0])
+        xc = float(sp_at(yh)[0])
+        for d in grp:
+            old_hip = d["hip"].copy()
+            d["hip"] = np.array([xc + (xh if d["hip"][0] > xc else -xh), yh, zh])
+            # keep the fitted knee/ankle; re-check the knee sits between hip and ankle in height
+            if d["knee"][2] > d["hip"][2] - 0.05 * (d["hip"][2] - mn[2]):
+                d["knee"] = d["hip"] + (d["ankle"] - d["hip"]) * 0.5 + np.array([0, -0.04 * (d["hip"][2] - mn[2]), 0])
+    tags = [d["tag"] for d in leg_defs]
+    if len(set(tags)) != len(tags):   # duplicate sides (asymmetric pose) → re-tag by x order
+        for grp in ([d for d in leg_defs if d["front"]], [d for d in leg_defs if not d["front"]]):
+            grp.sort(key=lambda d: d["hip"][0])
+            for k, d in enumerate(grp): d["tag"] = (("F" if d["front"] else "B") if GAIT == "quad" else "") + ("L" if k == 0 else "R")
+y_hip = float(np.mean([d["hip"][1] for d in leg_defs if not d["front"]])) if leg_defs else y_snout + CFG.get("hip", 0.6) * L
+y_sh = float(np.mean([d["hip"][1] for d in leg_defs if d["front"]])) if any(d["front"] for d in leg_defs) else None
+y_nb = min(y_nb, y_hip - 0.12 * L)
+if y_sh is not None: y_nb = min(y_nb, y_sh - 0.02 * L)
+log("landmarks y: snout", round(y_snout, 2), "head base", round(y_hb, 2), "neck base", round(y_nb, 2), "hip", round(y_hip, 2), "tail", round(y_tail, 2))
 
-# ---------------------------------------------------------------- build armature
+# ---------------------------------------------------------------- armature
 arm_data = bpy.data.armatures.new("Armature"); arm = bpy.data.objects.new("Armature", arm_data)
 sc.collection.objects.link(arm); bpy.context.view_layer.objects.active = arm
 bpy.ops.object.mode_set(mode='EDIT')
 EB = arm_data.edit_bones
-def spine_at(y):
-    return np.array([np.interp(y, sp[:, 0], sp[:, 1]), y, np.interp(y, sp[:, 0], sp[:, 2])])
-def add_bone(name, head, tail, parent=None, connect=False, roll=0.0):
-    b = EB.new(name); b.head = Vector(head); b.tail = Vector(tail); b.roll = roll
-    if parent: b.parent = parent; b.use_connect = connect
+def add_bone(name, head, tail, parent=None, connect=False, deform=True):
+    b = EB.new(name); b.head = Vector(tuple(head)); b.tail = Vector(tuple(tail)); b.roll = 0.0; b.use_deform = deform
+    if parent is not None: b.parent = parent; b.use_connect = connect
     return b
-
-y_head, y_tail = mn[1], mx[1]
-# segmentation along Y (head at -Y): head | neck | torso | tail
-if KIND == "air":
-    f_head, f_neck, f_hip = 0.10, 0.24, 0.62
-elif GAIT == "swim":
-    f_head, f_neck, f_hip = 0.14, 0.30, 0.62
-elif SPECIES_ID == "paluxysaurus":
-    f_head, f_neck, f_hip = 0.06, 0.40, 0.66
-else:
-    f_head, f_neck, f_hip = 0.14, 0.30, 0.60
-if legs and GAIT == "quad":
-    f_hip = (max(l["y"] for l in legs) - y_head) / L + 0.03
-elif legs and GAIT == "biped":
-    f_hip = (np.mean([l["y"] for l in legs]) - y_head) / L + 0.02
-yH, yN, yP = y_head + f_head * L, y_head + f_neck * L, y_head + f_hip * L
-root_pos = spine_at(yP)
-root = add_bone("root", root_pos, root_pos + np.array([0, -0.25 * L * 0.3, 0]))
-# torso chain from hips forward to neck base
 n_torso = 3
+n_neck = int(np.clip(round(NECK_F / 0.06), 2, 6))
+n_tail = CFG.get("tail_bones", 7)
+p_root = sp_at(y_hip)
+root = add_bone("root", p_root, sp_at(y_hip - 0.05 * L))
+SP = R2.curve_between(CURVE, y_hip - 0.05 * L, y_nb, n_torso)
 tor = []; prev = root
 for i in range(n_torso):
-    a = yP - (yP - yN) * i / n_torso; b = yP - (yP - yN) * (i + 1) / n_torso
-    bn = add_bone(f"spine{i+1}", spine_at(a), spine_at(b), prev, connect=(i > 0)); tor.append(bn); prev = bn
-n_neck = 4 if SPECIES_ID == "paluxysaurus" else 2
+    bn = add_bone(f"spine{i+1}", SP[i], SP[i + 1], prev, connect=True); tor.append(bn); prev = bn
+NK = R2.curve_between(CURVE, y_nb, y_hb, n_neck)
 neck = []
 for i in range(n_neck):
-    a = yN - (yN - yH) * i / n_neck; b = yN - (yN - yH) * (i + 1) / n_neck
-    bn = add_bone(f"neck{i+1}", spine_at(a), spine_at(b), prev, connect=True); neck.append(bn); prev = bn
-head_b = add_bone("head", spine_at(yH), spine_at(y_head) + np.array([0, 0.0, 0]), prev, connect=True)
-# jaw: from head-base low point to snout low point
-head_pts = V[V[:, 1] < yH]
-jaw_z = np.percentile(head_pts[:, 2], 35)
-jaw = add_bone("jaw", np.array([spine_at(yH)[0], yH, jaw_z]), np.array([spine_at(y_head)[0], y_head + 0.02 * L, jaw_z - 0.02 * H]), head_b)
-# tail chain
-n_tail = 5
+    bn = add_bone(f"neck{i+1}", NK[i], NK[i + 1], prev, connect=True); neck.append(bn); prev = bn
+snout_tip = sp_at(max(y_snout + 0.01 * L, CURVE[0, 1])); snout_tip[1] = y_snout
+head_b = add_bone("head", NK[-1], snout_tip, prev, connect=True)
+add_bone("snout", snout_tip, snout_tip + np.array([0, -0.02 * L, 0]), head_b, connect=True, deform=False)
+headL = y_hb - y_snout
+y_hinge = y_snout + CFG.get("jaw", 0.8) * headL
+MY, MZ, gapfrac = R2.mouth_line(G, SOLID, CURVE, y_hinge, y_snout + 0.02 * headL, CFG.get("jaw_h", 0.4))
+log("mouth line samples", len(MY), "open-mouth fraction", round(float(gapfrac), 2))
+def mouth_z(y): return float(np.interp(y, MY[::-1] if MY[0] > MY[-1] else MY, MZ[::-1] if MY[0] > MY[-1] else MZ)) if len(MY) else sp_at(y)[2] - 0.2 * rad_at(y)
+jaw_hinge = np.array([sp_at(y_hinge)[0], y_hinge, mouth_z(y_hinge)])
+jaw_tip = np.array([snout_tip[0], y_snout + 0.05 * headL, mouth_z(y_snout + 0.05 * headL) - 0.04 * headL])
+jaw = add_bone("jaw", jaw_hinge, jaw_tip, head_b)
+TL = R2.curve_between(CURVE, y_hip, y_tail, n_tail)
 tail = []; prev = root
 for i in range(n_tail):
-    a = yP + (y_tail - yP) * i / n_tail; b = yP + (y_tail - yP) * (i + 1) / n_tail
-    bn = add_bone(f"tail{i+1}", spine_at(a), spine_at(b), prev, connect=(i > 0)); tail.append(bn); prev = bn
-# legs
+    bn = add_bone(f"tail{i+1}", TL[i], TL[i + 1], prev, connect=False if i == 0 else True); tail.append(bn); prev = bn
 leg_bones = []
-# tags: quadrupeds → the two legs nearest the head are front; sides by x. bipeds → L/R.
-if GAIT == "quad" and len(legs) == 4:
-    by_y = sorted(legs, key=lambda l: l["y"]); front_set = {id(l) for l in by_y[:2]}
-else:
-    front_set = {id(l) for l in legs if l["y"] < yP - 0.05 * L} if GAIT == "quad" else set()
-used = set()
-for li, l in enumerate(legs):
-    side = "L" if l["x"] < 0 else "R"
-    front = id(l) in front_set
-    tag = ("F" if front else "B") + side if GAIT == "quad" else side
-    if tag in used: tag = tag + str(li)
-    used.add(tag)
-    spz = spine_at(l["y"])[2]
-    hip = np.array([l["x"] * 0.6, l["y"], spz * 0.9])
-    foot = np.array([l["x"], l["y"], mn[2] + 0.04 * H])
-    knee = np.array([l["x"] * 0.8, l["y"] + (-0.06 if front or GAIT == "biped" else 0.04) * L * 0.5, 0.5 * (hip[2] + foot[2]) + 0.02 * H])
-    ankle = np.array([l["x"], l["y"] + 0.03 * L * 0.5, foot[2] + 0.12 * (hip[2] - foot[2])])
-    toe = foot + np.array([0, -0.06 * L * 0.5, 0])
-    par = tor[0] if not front else tor[-1]
-    u = add_bone(f"thigh.{tag}", hip, knee, par)
-    lo = add_bone(f"shin.{tag}", knee, ankle, u, connect=True)
-    ft = add_bone(f"foot.{tag}", ankle, toe, lo, connect=True)
-    leg_bones.append((tag, u.name, lo.name, ft.name, l))
-# wings
+for d in leg_defs:
+    par = tor[-1] if d["front"] else root
+    tg = d["tag"]
+    u = add_bone(f"thigh.{tg}", d["hip"], d["knee"], par)
+    lo = add_bone(f"shin.{tg}", d["knee"], d["ankle"], u, connect=True)
+    ft = add_bone(f"foot.{tg}", d["ankle"], d["ball"], lo, connect=True)
+    tz = add_bone(f"toes.{tg}", d["ball"], d["toe"], ft, connect=True)
+    add_bone(f"toe.{tg}", d["toe"], d["toe"] + np.array([0, -0.04 * (d["hip"][2] - mn[2]), 0]), tz, connect=True, deform=False)
+    leg_bones.append((tg, u.name, lo.name, ft.name, d))
 wing_bones = []
 if KIND == "air":
-    shoulder_y = yN + 0.1 * L
+    span = SOLID.any(axis=2).sum(axis=0)          # x-extent per y slice
+    j_sh = int(np.argmax(span)); y_w = float(G.pos(np.array([0, j_sh, 0]))[1])
+    c = sp_at(y_w)
     for side, sgn in (("L", -1), ("R", 1)):
-        sh = np.array([sgn * 0.08 * size[0], spine_at(shoulder_y)[1], spine_at(shoulder_y)[2]])
-        mid = np.array([sgn * 0.45 * size[0], sh[1] + 0.03 * size[1], sh[2]])
-        tip = np.array([sgn * 0.5 * size[0], sh[1] + 0.05 * size[1], sh[2]])
+        sh = np.array([sgn * 0.06 * size[0], y_w, c[2]])
+        mid = np.array([sgn * 0.42 * size[0], y_w + 0.03 * size[1], c[2]])
+        tip = np.array([sgn * 0.5 * size[0], y_w + 0.06 * size[1], c[2]])
         w1 = add_bone(f"wing1.{side}", sh, mid, tor[-1]); w2 = add_bone(f"wing2.{side}", mid, tip, w1, connect=True)
         wing_bones.append((side, w1.name, w2.name))
-# flippers for swimmers: four paddles if the mesh is wide at the shoulders/hips
 flip_bones = []
 if KIND == "water":
-    for name, yy in (("F", yN + 0.08 * L), ("B", yP + 0.02 * L)):
+    width = SOLID.any(axis=2).sum(axis=0) * VOX
+    for name, yy in (("F", y_nb + 0.06 * L), ("B", y_hip + 0.02 * L)):
+        j = int(G.idx(np.array([0, yy, 0]))[1]); lo_j, hi_j = max(0, j - int(0.08 * L / VOX)), j + int(0.08 * L / VOX)
+        jj = lo_j + int(np.argmax(width[lo_j:hi_j])); yy = float(G.pos(np.array([0, jj, 0]))[1])
+        sl = V[(V[:, 1] > yy - 0.05 * L) & (V[:, 1] < yy + 0.05 * L)]
         for side, sgn in (("L", -1), ("R", 1)):
-            sl = V[(V[:, 1] > yy - 0.08 * L) & (V[:, 1] < yy + 0.08 * L)]
             xr = sl[:, 0].min() if sgn < 0 else sl[:, 0].max()
-            base = np.array([sgn * 0.25 * abs(xr), yy, spine_at(yy)[2] - 0.1 * H])
-            tip = np.array([xr, yy + 0.06 * L, spine_at(yy)[2] - 0.2 * H])
             if abs(xr) < 0.12 * L: continue
+            base = np.array([sgn * 0.25 * abs(xr), yy, sp_at(yy)[2] - 0.3 * rad_at(yy)])
+            tip = np.array([xr, yy + 0.06 * L, sp_at(yy)[2] - 0.5 * rad_at(yy)])
             fb = add_bone(f"flip{name}.{side}", base, tip, tor[-1] if name == "F" else tor[0]); flip_bones.append((name, side, fb.name))
 bpy.ops.object.mode_set(mode='OBJECT')
-log("bones", len(arm_data.bones))
+log("bones", len(arm_data.bones), "neck", n_neck, "tail", n_tail, "legs", [d["tag"] for d in leg_defs])
 
-# ---------------------------------------------------------------- skinning
-def bone_segments():
-    segs = {}
-    for b in arm_data.bones:
-        segs[b.name] = (np.array(b.head_local), np.array(b.tail_local))
-    return segs
-
-def distance_weights():
-    segs = bone_segments(); names = list(segs.keys())
-    n = len(V); D = np.full((n, len(names)), 1e9, dtype=np.float32)
-    for j, nm in enumerate(names):
-        a, b = segs[nm]; ab = b - a; l2 = float(ab @ ab) + 1e-9
-        t = np.clip(((V - a) @ ab) / l2, 0, 1)
-        p = a + t[:, None] * ab
-        d = np.linalg.norm(V - p, axis=1)
-        # eligibility masks
-        if nm.startswith(("thigh", "shin", "foot")):
-            tag = nm.split(".")[1]
-            l = [x for x in leg_bones if x[0] == tag][0][4]
-            rx = 0.5 * (l["xmax"] - l["xmin"]) + 0.03 * L; ry = 0.5 * (l["ymax"] - l["ymin"]) + 0.03 * L
-            inside = (np.abs(V[:, 0] - l["x"]) < rx * 1.2) & (np.abs(V[:, 1] - l["y"]) < ry * 1.2) & (V[:, 2] < segs[nm][0][2] + 0.05 * H if nm.startswith("thigh") else V[:, 2] < segs[nm][0][2] + 0.02 * H)
-            d = np.where(inside, d, 1e9)
-        if nm == "jaw":
-            inside = (V[:, 1] < yH + 0.02 * L) & (V[:, 2] < jaw_z + 0.02 * H)
-            d = np.where(inside, d * 0.6, 1e9)
-        if nm == "root": d = d + 1e9
-        D[:, j] = d
-    # gaussian blend over the 4 nearest bones
-    K = 4
-    order = np.argsort(D, axis=1)[:, :K]
-    dk = np.take_along_axis(D, order, axis=1)
-    d0 = dk[:, :1]
-    blend_r = 0.07 * L
-    w = np.exp(-((dk - d0) / blend_r) ** 2); w[dk > 1e8] = 0
-    w = w / np.maximum(w.sum(1, keepdims=True), 1e-9)
-    return names, order, w
-
-names, order, W = distance_weights()
+# ---------------------------------------------------------------- skin weights (geodesic through the solid)
+# leg bones are seeded only from the part of the limb that sticks out of the body (below where the
+# traced leg merged into the torso), so the torso around buried hips/shoulders stays on the spine
+leg_top = {d["tag"]: float(d["P"][-1][2]) for d in leg_defs}
+def seed_zmax(name):
+    if "." not in name: return None
+    kind, tag = name.split(".", 1)
+    if kind in ("thigh", "shin") and tag in leg_top: return leg_top[tag] + 0.5 * VOX
+    return None
+def blend_mul(name):
+    return 2.0 if name.startswith("thigh.") else 1.3 if name.startswith("shin.") else 1.0
+SKIN = [(b.name, np.array(b.head_local), np.array(b.tail_local), seed_zmax(b.name), blend_mul(b.name)) for b in arm_data.bones if b.use_deform and b.name != "jaw"]
+t_w = time.time()
+names, Wt = R2.skin_weights(G, SOLID, V, SKIN, blend_vox=CFG.get("blend", 0.028) * L / VOX, max_steps=int(0.7 * max(G.shape)))
+log("geodesic weights", round(time.time() - t_w, 1), "s")
+# jaw: everything below the mouth line, in front of the hinge, belongs to the jaw
+hi_idx = names.index("head")
+yv, zv = V[:, 1], V[:, 2]
+mz = np.array([mouth_z(y) for y in np.clip(yv, y_snout, y_hinge)])
+below = np.clip((mz - zv) / (1.2 * VOX) + 0.5, 0, 1)
+front = np.clip((y_hinge - yv) / (0.12 * headL), 0, 1)
+s_jaw = below * front * (yv < y_hinge + 0.02 * headL)
+jaw_w = Wt[:, hi_idx] * s_jaw
+Wt[:, hi_idx] -= jaw_w
+names.append("jaw"); Wt = np.hstack([Wt, jaw_w[:, None]])
+log("jaw vertices", int((jaw_w > 0.5).sum()))
 for nm in names: body.vertex_groups.new(name=nm)
-vg = {g.name: g for g in body.vertex_groups}
-for i in range(len(V)):
-    for k in range(order.shape[1]):
-        if W[i, k] > 0.01: vg[names[order[i, k]]].add([i], float(W[i, k]), 'REPLACE')
-# smooth weights along the mesh a little
+vg = [body.vertex_groups[nm] for nm in names]
+for bi in range(len(names)):
+    nz = np.nonzero(Wt[:, bi] > 0.003)[0]
+    g_ = vg[bi]
+    for i in nz: g_.add([int(i)], float(Wt[i, bi]), 'REPLACE')
 body.parent = arm
 mod = body.modifiers.new("Armature", 'ARMATURE'); mod.object = arm
 bpy.context.view_layer.objects.active = body
-bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); arm.select_set(True)
+bpy.ops.object.select_all(action='DESELECT'); body.select_set(True)
 try:
-    if CFG.get("no_smooth"): raise RuntimeError("smoothing disabled for this species")
     bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
-    bpy.ops.object.vertex_group_smooth(group_select_mode='ALL', factor=0.5, repeat=10, expand=0.0)
+    bpy.ops.object.vertex_group_smooth(group_select_mode='ALL', factor=0.5, repeat=2, expand=0.0)
     bpy.ops.object.mode_set(mode='OBJECT')
-    log("weights smoothed")
 except Exception as e:
     bpy.ops.object.mode_set(mode='OBJECT'); log("smooth failed", e)
 bpy.ops.object.vertex_group_normalize_all(lock_active=False)
+bpy.ops.object.vertex_group_limit_total(group_select_mode='ALL', limit=4)
+bpy.ops.object.vertex_group_normalize_all(lock_active=False)
+H_ = H
+
+# ---------------------------------------------------------------- re-pose a lifted leg (posed models)
+# A leg that was lifted in the source pose (e.g. a foot up on a rock) is rotated, joint by joint, into
+# the mirror image of its standing partner, and that pose is baked into mesh + skeleton as the new rest.
+raised_legs = [d for d in leg_defs if d.get("raised")]
+if raised_legs:
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.select_all(action='DESELECT'); arm.select_set(True)
+    bpy.ops.object.mode_set(mode='POSE')
+    for r in raised_legs:
+        mates = [g for g in leg_defs if not g.get("raised") and g["front"] == r["front"]]
+        if not mates: continue
+        g = mates[0]
+        xm = (r["hip"][0] + g["hip"][0]) / 2
+        mirror = lambda p: Vector((2 * xm - p[0], p[1], p[2]))
+        for bn, tgt in ((f"thigh.{r['tag']}", g["knee"]), (f"shin.{r['tag']}", g["ankle"]), (f"foot.{r['tag']}", g["ball"]), (f"toes.{r['tag']}", g["toe"])):
+            bpy.context.view_layer.update()
+            pb = arm.pose.bones[bn]
+            head, tail = pb.head.copy(), pb.tail.copy()
+            q = (tail - head).rotation_difference(mirror(tgt) - head)
+            pb.matrix = Matrix.Translation(head) @ q.to_matrix().to_4x4() @ Matrix.Translation(-head) @ pb.matrix
+        log(f"  re-posed lifted leg {r['tag']} to mirror {g['tag']}")
+    bpy.context.view_layer.update()
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.select_all(action='DESELECT'); body.select_set(True)
+    bpy.ops.object.modifier_apply(modifier="Armature")
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.select_all(action='DESELECT'); arm.select_set(True)
+    bpy.ops.object.mode_set(mode='POSE'); bpy.ops.pose.select_all(action='SELECT'); bpy.ops.pose.armature_apply(selected=False)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    mod = body.modifiers.new("Armature", 'ARMATURE'); mod.object = arm
+    V = verts_np(body); mn, mx = V.min(0), V.max(0)
 
 # ---------------------------------------------------------------- animation
 bpy.context.view_layer.objects.active = arm
@@ -532,6 +544,7 @@ def roar(t, s):
     tail_sway(t, 7 * amp, 0.0, 2.0)
     rootb.location.z = -0.01 * H * k
 
+EAT_REACH = None
 EAT_K = 1.0   # pitch multiplier solved below so the snout reaches the food
 def eat_pose(k):
     for nb in necks: rot_world(nb, 'X', EAT_K * 22 * k)
@@ -550,11 +563,14 @@ def solve_eat_reach(target_z):
     k = 0.2
     while k <= 3.0:
         EAT_K = k; reset_pose(); eat_pose(1.0); bpy.context.view_layer.update()
-        z = (arm.matrix_world @ head.tail).z
+        z = (arm.matrix_world @ PB["snout"].head).z
         if best is None or z < best[1]: best = (k, z)
         if z <= target_z: best = (k, z); break
         k += 0.1
     EAT_K = best[0]
+    global EAT_REACH
+    reset_pose(); eat_pose(1.0); bpy.context.view_layer.update()
+    sn = arm.matrix_world @ PB["snout"].head; EAT_REACH = (float(-sn.y), float(sn.z))
     reset_pose(); bpy.context.view_layer.update()
     log("eat reach: EAT_K", round(EAT_K, 2), "snout z at full pose", round(best[1], 2))
 if KIND == "land": solve_eat_reach(0.35 + 0.02 * H)
@@ -637,7 +653,18 @@ log("clips", {k: v[1] for k, v in CLIPS.items()})
 # ---------------------------------------------------------------- materials sanity (make sure alpha-less, double-sided off)
 for m in bpy.data.materials:
     if m.use_nodes:
-        m.use_backface_culling = True
+        # scanned/sculpted Sketchfab meshes often carry flipped faces: render both sides
+        m.use_backface_culling = False
+        transparent = any(k in m.name.lower() for k in ("cornea", "transparent"))
+        for n in m.node_tree.nodes:
+            if n.type == 'BSDF_PRINCIPLED' and not transparent:
+                al = n.inputs['Alpha']
+                for l in list(al.links): m.node_tree.links.remove(l)
+                al.default_value = 1.0
+        if not transparent:
+            m.surface_render_method = 'DITHERED'
+            try: m.blend_method = 'OPAQUE'
+            except Exception: pass
         # no dinosaur is metallic; broken metallic maps render as black patches without an environment
         for n in m.node_tree.nodes:
             if n.type == 'BSDF_PRINCIPLED':
@@ -710,6 +737,7 @@ if PREVIEW:
 
 json.dump(dict(species=SPECIES_ID, log=LOG, size=[float(x) for x in size], clips={k: v[1] for k, v in CLIPS.items()},
                snout=float(-mn[1]), headZ=float(arm_data.bones["head"].tail_local.z) if "head" in arm_data.bones else None,
+               eatReach=EAT_REACH,
                stride=STRIDE, walkSeconds=((CLIPS["walk"][1] - 1) / FPS) if "walk" in CLIPS else None,
                bones=[b.name for b in arm_data.bones]), open(os.path.join(OUT_DIR, f"{SPECIES_ID}.json"), "w"), indent=1)
 log("total", round(time.time() - t0, 1), "s")

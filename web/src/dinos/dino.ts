@@ -5,22 +5,33 @@ import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ClipName, Species } from './manifest.ts';
 import { buildPlaceholder, type PlaceholderRig } from './placeholder.ts';
 import { heightAt, waterAt } from '../world/heightmap.ts';
+import { Locomotion } from './locomotion.ts';
+import type { Obstacle } from '../world/obstacles.ts';
 
 export type DinoState = 'idle' | 'walk' | 'roar' | 'eat' | 'fly' | 'swim' | 'stomp' | 'sniff' | 'flap' | 'splash';
 
-export interface Food { pos: THREE.Vector3; amount: number; mesh: THREE.Object3D; eaters?: Map<number, number> }
+export interface FoodItem { obj: THREE.Object3D; pos: THREE.Vector3; r: number; kind: string; eaten: boolean; taken: number }
+export interface Food { pos: THREE.Vector3; amount: number; mesh: THREE.Object3D; eaters: Map<number, number>; radius: number; items: FoodItem[] }
 
 export interface DinoContext {
   player: THREE.Vector3;
+  /** the explorer's eye (what dinosaurs look at) */
+  eye: THREE.Vector3;
+  obstacles: { near: (x: number, z: number, r: number, out: Obstacle[]) => Obstacle[] };
+  others: Dino[];
+  /** extra round no-go zones [x, z, r] (the explorer, the camera) */
+  keepClear: [number, number, number][];
   time: number;
   foods: Food[];
-  onFootstep: (d: Dino, big: boolean) => void;
-  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap') => void;
+  onFootstep: (d: Dino, big: boolean, at?: THREE.Vector3, heavy?: boolean) => void;
+  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap', item?: FoodItem) => void;
 }
 
 export interface AIData {
   home: THREE.Vector3; target: THREE.Vector3 | null; waitUntil: number; followUntil: number; foodTarget: Food | null;
   angle: number; radius: number; altitude: number; glideUntil: number; actionUntil: number; lastStep: number; breachT: number; nextRoar: number; lastChew: number; breachAt: number;
+  yawVel: number; avoidSide: number; blocked: number; bestDist: number; progressAt: number;
+  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number;
 }
 
 export class Dino {
@@ -31,6 +42,8 @@ export class Dino {
   actions = new Map<ClipName, THREE.AnimationAction>();
   current: THREE.AnimationAction | null = null;
   placeholder: PlaceholderRig | null = null;
+  /** procedural legs (land dinosaurs with a leg rig) */
+  loco: Locomotion | null = null;
   state: DinoState = 'idle';
   stateTime = 0;
   speed = 0;
@@ -52,7 +65,7 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1 };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0 };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;
@@ -92,6 +105,11 @@ export class Dino {
       if (ratio < 0.5 || ratio > 2) model.scale.setScalar(ratio);
       model.position.y = -box.min.y * (ratio < 0.5 || ratio > 2 ? ratio : 1);
       this.mixer = new THREE.AnimationMixer(model);
+      if (this.species.kind === 'land') {
+        this.root.add(model); this.root.updateMatrixWorld(true);
+        this.loco = Locomotion.create(this.root, model);
+        this.root.remove(model);
+      }
       const wanted: ClipName[] = ['idle', 'walk', 'roar', 'eat', 'fly', 'swim'];
       for (const name of wanted) {
         const clipName = this.species.clips[name] ?? name;
@@ -105,6 +123,7 @@ export class Dino {
       if (this.model) this.root.remove(this.model);
       this.model = model; this.root.add(model);
       this.placeholder = null; this.real = true;
+      this.measureEat();
       this.play(this.clipFor(this.state), 0);
     } catch {
       // placeholder stays
@@ -114,7 +133,7 @@ export class Dino {
 
   private clipFor(s: DinoState): ClipName {
     switch (s) {
-      case 'walk': case 'stomp': return this.actions.has('walk') ? 'walk' : 'idle';
+      case 'walk': case 'stomp': return this.loco ? 'idle' : this.actions.has('walk') ? 'walk' : 'idle';
       case 'roar': case 'splash': return this.actions.has('roar') ? 'roar' : 'idle';
       case 'eat': case 'sniff': return this.actions.has('eat') ? 'eat' : 'idle';
       case 'fly': case 'flap': return this.actions.has('fly') ? 'fly' : 'idle';
@@ -152,6 +171,22 @@ export class Dino {
     this.stateTime += dt;
     const pos = this.root.position;
     const sp = this.species;
+    if (this.loco && this.real) {
+      // procedural legs: the body follows the planted feet, clips drive the upper body
+      this.loco.placeBody(dt, this.heading);
+      if (!this.animated) return;
+      this.animTime += dt;
+      this.loco.resetPose();
+      if (this.mixer) {
+        this.mixer.update(dt);
+        if (this.current && this.current.loop === THREE.LoopOnce && !this.current.isRunning() && !this.isBusy) this.play(this.clipFor(this.state));
+      }
+      this.loco.stomp = this.state === 'stomp';
+      this.loco.update(dt, this.heading, {
+        onPlant: (at, _leg, heavy) => ctx.onFootstep(this, sp.lengthM >= 6 || heavy, at, heavy),
+      }, this.isBusy);
+      return;
+    }
     // vertical placement
     if (sp.kind === 'land') {
       const h = heightAt(pos.x, pos.z);
@@ -179,22 +214,12 @@ export class Dino {
     this.animTime += dt;
     if (this.placeholder) this.placeholder.update(dt, this.state, this.speed / Math.max(0.3, sp.speed), this.animTime);
     if (this.mixer) {
-      const walk = this.actions.get('walk'), idle = this.actions.get('idle');
-      if (walk && this.current === walk && (this.state === 'walk' || this.state === 'stomp')) {
-        // feet must cover exactly the ground distance: rate = ground speed / clip's natural speed
-        const natural = Math.max(0.2, sp.speed * this.scale);
-        walk.timeScale = THREE.MathUtils.clamp(this.speed / natural, 0.25, 2.4);
-        // near-stationary → mostly idle, so starts/stops/turns don't moonwalk
-        const w = THREE.MathUtils.clamp(this.speed / (0.45 * natural), 0, 1);
-        if (idle && this.stateTime > 0.4) {
-          if (!idle.isRunning()) { idle.reset(); idle.enabled = true; idle.setEffectiveWeight(0); idle.play(); }
-          walk.setEffectiveWeight(Math.max(0.02, w)); idle.setEffectiveWeight(1 - w);
-        }
-      }
+      const walk = this.actions.get('walk');
+      if (walk && this.current === walk) walk.timeScale = THREE.MathUtils.clamp(this.speed / Math.max(0.2, sp.speed * this.scale), 0.25, 2.4);
       this.mixer.update(dt);
       if (this.current && this.current.loop === THREE.LoopOnce && !this.current.isRunning() && !this.isBusy) this.play(this.clipFor(this.state));
     }
-    // footsteps
+    // footsteps (placeholder / clip-driven only)
     if ((this.state === 'walk' || this.state === 'stomp') && sp.kind === 'land') {
       const rate = Math.max(0.25, this.speed / Math.max(0.2, sp.speed * this.scale));
       const stride = this.state === 'stomp' ? 0.45 : (sp.walkSeconds ? sp.walkSeconds / 2 : THREE.MathUtils.clamp(sp.lengthM * 0.09, 0.28, 1.1)) / rate;
@@ -202,8 +227,43 @@ export class Dino {
     }
   }
 
+  /** Progress (0..1) through the clip that is playing for the current one-shot state. */
+  get clipPhase(): number {
+    const a = this.current; if (!a) return Math.min(1, this.stateTime / Math.max(0.1, Dino.actionDuration(this.state)));
+    return Math.min(1, a.time / Math.max(0.01, a.getClip().duration));
+  }
+  /** Horizontal distance from the root to the snout at the bottom of the eat clip (m). */
+  eatReach = 0;
+  eatHeight = 0;
+  private measureEat(): void {
+    const sp = this.species;
+    this.eatReach = (sp.snoutM ?? sp.lengthM * 0.45) * 0.8 * this.scale;
+    const eat = this.actions.get('eat');
+    if (!this.loco || !eat || !this.mixer || !this.model) return;
+    const tmpQ = this.root.rotation.clone(); this.root.rotation.set(0, 0, 0); this.root.updateMatrixWorld(true);
+    this.loco.resetPose();
+    eat.reset(); eat.enabled = true; eat.setEffectiveWeight(1); eat.play();
+    let best = { y: Infinity, z: 0 };
+    const v = new THREE.Vector3();
+    for (let t = 0.3; t <= 0.72; t += 0.06) {
+      eat.time = t * eat.getClip().duration; this.mixer.update(0);
+      this.model.updateMatrixWorld(true);
+      if (this.loco.snoutWorld(v)) { this.root.worldToLocal(v); if (v.y < best.y) best = { y: v.y, z: v.z }; }
+    }
+    eat.stop(); this.loco.resetPose(); this.model.updateMatrixWorld(true);
+    this.root.rotation.copy(tmpQ); this.root.updateMatrixWorld(true);
+    if (best.y < Infinity) { this.eatReach = best.z; this.eatHeight = best.y; }
+    this.current = null;
+  }
+
+  /** Top walking speed the legs can carry (m/s). */
+  get maxSpeed(): number { return this.loco ? Math.min(this.species.speed * this.scale, this.loco.maxSpeed) : this.species.speed * this.scale; }
+  /** Fastest yaw rate the feet can follow when pivoting (rad/s). */
+  get maxTurnRate(): number { return this.loco ? this.loco.maxTurnRate : 1.2; }
+
   /** World position of the snout (near the ground when eating, else at head height). */
   snoutPos(out: THREE.Vector3): THREE.Vector3 {
+    if (this.loco && this.real && this.loco.snoutWorld(out)) return out;
     const sp = this.species; const snout = (sp.snoutM ?? sp.lengthM * 0.45) * this.scale;
     const h = this.state === 'eat' ? 0.5 : (sp.headM ?? sp.heightM * 0.8) * this.scale;
     return out.set(this.root.position.x + Math.sin(this.heading) * snout, this.root.position.y + h, this.root.position.z + Math.cos(this.heading) * snout);

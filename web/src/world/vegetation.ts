@@ -104,6 +104,8 @@ export class Vegetation {
   group = new THREE.Group();
   species = new Map<string, SpeciesAssets>();
   private chunks = new Map<string, ChunkRec>();
+  /** bumps whenever the set of placed trees / rocks changes (for the obstacle grid) */
+  version = 0;
   private loader: GLTFLoader;
   private renderer: THREE.WebGLRenderer;
   private impostorScene = new THREE.Scene();
@@ -147,6 +149,7 @@ export class Vegetation {
     }
     this.chunks.set(key, { cx: cx * CHUNK_SIZE - HALF + CHUNK_SIZE / 2, cz: cz * CHUNK_SIZE - HALF + CHUNK_SIZE / 2, cells, bb: null, bbSpecies: 0, l1: new Map() });
     for (const c of cells) this.resolvePending(c);
+    this.version++;
   }
 
   removeChunk(key: string): void {
@@ -156,6 +159,7 @@ export class Vegetation {
     if (rec.bb) { this.group.remove(rec.bb); rec.bb.geometry.dispose(); }
     for (const list of rec.l1.values()) if (list) for (const m of list) { this.group.remove(m); (m as THREE.InstancedMesh).dispose(); }
     this.chunks.delete(key);
+    this.version++;
   }
 
   private resolvePending(cell: Cell): void {
@@ -407,7 +411,7 @@ export class Vegetation {
       }
       sp.variants = variants;
       if (lod[2] > 0) this.renderImpostors(sp);
-      sp.loaded = true;
+      sp.loaded = true; this.version++;
     } catch (e) {
       console.warn(`vegetation ${id} failed to load`, e);
       sp.failed = true;
@@ -466,6 +470,22 @@ export class Vegetation {
     r.setViewport(prevViewport); r.setScissor(prevScissorBox);
     // species whose variants have no slot (atlas full) get no billboards
     if (sp.variants.some((v) => v.slot < 0)) sp.def.lod[2] = 0;
+  }
+
+  /** Every placed tree / rock: trunk (or rock) radius, canopy radius and height, in metres. */
+  forEachObstacle(cb: (x: number, z: number, r: number, canopy: number, height: number, tree: boolean) => void): void {
+    for (const rec of this.chunks.values()) for (const c of rec.cells) for (const [id, cs] of c.species) {
+      const sp = this.species.get(id)!; if (sp.def.kind === 'plant') continue;
+      const tree = sp.def.kind === 'tree';
+      for (let v = 0; v < cs.data.length; v++) {
+        const data = cs.data[v]; const va = sp.variants[v]; if (!va) continue;
+        for (let k = 0; k < data.length; k += 5) {
+          const sc = data[k + 4];
+          const r = (tree ? Math.min(1.2, va.width * 0.12) : va.width * 0.45) * sc + 0.3;
+          cb(data[k], data[k + 2], r, tree ? va.width * 0.5 * sc : r, va.height * sc, tree);
+        }
+      }
+    }
   }
 
   /** Blocking tree trunk / rock near (x,z), or null. */

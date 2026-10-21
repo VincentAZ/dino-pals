@@ -7,7 +7,7 @@ export const CHUNK_LOD_DIST = [160, 320]; // < [0] → LOD0, < [1] → LOD1, els
 export const CHUNK_SEGMENTS = [64, 32, 16];
 export const EYE_HEIGHT = 1.2;
 export const DAY_LENGTH_SEC = 8 * 60;
-export const MAX_ANIMATED_DINOS = 12;
+export const MAX_ANIMATED_DINOS = 16;
 export const DINO_SLEEP_DIST = 260;
 
 export interface Quality {
