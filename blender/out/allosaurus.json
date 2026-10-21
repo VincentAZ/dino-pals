@@ -1,0 +1,51 @@
+{
+ "species": "allosaurus",
+ "log": [
+  "remove Object_6",
+  "remove Object_8",
+  "joined tris 253864 mats 2",
+  "raw size [16.5  81.77 26.17]",
+  "density -Y: 44275 +Y: 21945 \u2192 head at -Y ",
+  "normalized size [1.82 9.   2.88] origin offset [-0.03, -0.83, 1.8]",
+  "tris after decimate 40000",
+  "  leg scan 0.42 2",
+  "legs [(0.56, -0.52, 3794), (-0.61, 0.5, 2296)]",
+  "bones 19",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
+  "exported blender/out/allosaurus.glb 2.69 MB",
+  "preview done"
+ ],
+ "size": [
+  1.8158175945281982,
+  9.0,
+  2.8807644844055176
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 55,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.R",
+  "shin.R",
+  "foot.R",
+  "thigh.L",
+  "shin.L",
+  "foot.L",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

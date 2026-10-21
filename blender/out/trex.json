@@ -1,0 +1,49 @@
+{
+ "species": "trex",
+ "log": [
+  "joined tris 84974 mats 6",
+  "raw size [ 6.09 25.6   8.26]",
+  "density -Y: 54785 +Y: 598 \u2192 head at -Y ",
+  "normalized size [ 2.85 12.    3.87] origin offset [0.05, -1.01, 0.01]",
+  "tris after decimate 47998",
+  "  leg scan 0.42 2",
+  "legs [(0.36, -1.27, 2869), (-0.38, 1.29, 2803)]",
+  "bones 19",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
+  "exported blender/out/trex.glb 2.64 MB",
+  "preview done"
+ ],
+ "size": [
+  2.8527069091796875,
+  12.0,
+  3.8740899562835693
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 55,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.R",
+  "shin.R",
+  "foot.R",
+  "thigh.L",
+  "shin.L",
+  "foot.L",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

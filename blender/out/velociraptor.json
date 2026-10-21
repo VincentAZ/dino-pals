@@ -1,0 +1,53 @@
+{
+ "species": "velociraptor",
+ "log": [
+  "joined tris 41722 mats 2",
+  "raw size [0.84 3.31 1.73]",
+  "density -Y: 30633 +Y: 500 \u2192 head at -Y ",
+  "normalized size [0.66 2.6  1.36] origin offset [-0.0, -0.26, 0.19]",
+  "tris after decimate 30000",
+  "  leg scan 0.42 1",
+  "  leg scan 0.34 1",
+  "  leg scan 0.26 1",
+  "  leg scan 0.18 1",
+  "  leg scan 0.12 1",
+  "legs [(0.17, -0.01, 1727), (-0.17, -0.01, 1719)]",
+  "bones 19",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 40, 'roar': 67, 'eat': 97}",
+  "exported blender/out/velociraptor.glb 1.78 MB",
+  "preview done"
+ ],
+ "size": [
+  0.6585156321525574,
+  2.5999999046325684,
+  1.357916235923767
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 40,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.R",
+  "shin.R",
+  "foot.R",
+  "thigh.L",
+  "shin.L",
+  "foot.L",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

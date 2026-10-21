@@ -1,0 +1,51 @@
+{
+ "species": "spinosaurus",
+ "log": [
+  "joined tris 651414 mats 6",
+  "raw size [3.37 8.44 4.07]",
+  "density -Y: 250490 +Y: 34512 \u2192 head at -Y ",
+  "normalized size [ 5.59 14.    6.75] origin offset [-0.36, -1.87, -3.74]",
+  "tris after decimate 49999",
+  "  leg scan 0.42 1",
+  "  leg scan 0.34 1",
+  "  leg scan 0.26 2",
+  "legs [(1.63, -0.98, 2294), (-0.48, 0.36, 3817)]",
+  "bones 19",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
+  "exported blender/out/spinosaurus.glb 3.45 MB",
+  "preview done"
+ ],
+ "size": [
+  5.592247009277344,
+  14.0,
+  6.752080917358398
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 55,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.R",
+  "shin.R",
+  "foot.R",
+  "thigh.L",
+  "shin.L",
+  "foot.L",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

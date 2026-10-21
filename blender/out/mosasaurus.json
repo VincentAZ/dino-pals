@@ -1,0 +1,46 @@
+{
+ "species": "mosasaurus",
+ "log": [
+  "remove Icosphere",
+  "applied armature on Object_63",
+  "applied armature on Object_66",
+  "joined tris 67434 mats 1",
+  "raw size [110.5  355.67  54.22]",
+  "density -Y: 25948 +Y: 4984 \u2192 head at -Y ",
+  "normalized size [ 4.04 13.    1.98] origin offset [0.04, 0.6, -0.18]",
+  "tris after decimate 34999",
+  "legs []",
+  "bones 15",
+  "weights smoothed",
+  "clips {'idle': 121, 'swim': 61, 'roar': 61}",
+  "exported blender/out/mosasaurus.glb 2.86 MB",
+  "preview done"
+ ],
+ "size": [
+  4.038875102996826,
+  13.0,
+  1.9818636178970337
+ ],
+ "clips": {
+  "idle": 121,
+  "swim": 61,
+  "roar": 61
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "flipF.L",
+  "flipF.R",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

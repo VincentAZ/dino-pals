@@ -1,0 +1,60 @@
+{
+ "species": "iguanodon",
+ "log": [
+  "remove Object_4",
+  "joined tris 284703 mats 4",
+  "raw size [0.73 4.16 1.48]",
+  "density -Y: 71585 +Y: 6445 \u2192 head at -Y ",
+  "normalized size [1.57 9.   3.2 ] origin offset [-4.9, 4.97, -0.01]",
+  "tris after decimate 39999",
+  "  leg scan 0.3 2",
+  "  leg scan 0.24 2",
+  "  leg scan 0.18 2",
+  "  leg scan 0.13 2",
+  "  leg scan 0.09 2",
+  "legs [(-0.43, -0.98, 2604), (0.44, -0.95, 1895), (0.45, 0.94, 3028), (-0.44, 0.94, 3075)]",
+  "bones 25",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
+  "exported blender/out/iguanodon.glb 1.91 MB",
+  "preview done"
+ ],
+ "size": [
+  1.571554183959961,
+  9.0,
+  3.1996235847473145
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 55,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.FL",
+  "shin.FL",
+  "foot.FL",
+  "thigh.FR",
+  "shin.FR",
+  "foot.FR",
+  "thigh.BR",
+  "shin.BR",
+  "foot.BR",
+  "thigh.BL",
+  "shin.BL",
+  "foot.BL",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

@@ -1,0 +1,55 @@
+{
+ "species": "sauropelta",
+ "log": [
+  "joined tris 337724 mats 2",
+  "raw size [2.   6.24 1.67]",
+  "density -Y: 18194 +Y: 142188 \u2192 head at +Y ",
+  "normalized size [1.76 5.5  1.47] origin offset [0.0, 3.57, 0.05]",
+  "tris after decimate 40000",
+  "  leg scan 0.3 4",
+  "legs [(-0.28, -0.54, 913), (0.29, -0.54, 913), (0.31, 0.49, 1011), (-0.29, 0.52, 1867)]",
+  "bones 25",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 40, 'roar': 67, 'eat': 97}",
+  "exported blender/out/sauropelta.glb 3.35 MB",
+  "preview done"
+ ],
+ "size": [
+  1.7600979804992676,
+  5.5,
+  1.4689762592315674
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 40,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.FL",
+  "shin.FL",
+  "foot.FL",
+  "thigh.FR",
+  "shin.FR",
+  "foot.FR",
+  "thigh.BR",
+  "shin.BR",
+  "foot.BR",
+  "thigh.BL",
+  "shin.BL",
+  "foot.BL",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

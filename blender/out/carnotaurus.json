@@ -1,0 +1,56 @@
+{
+ "species": "carnotaurus",
+ "log": [
+  "remove Object_11",
+  "remove Object_4",
+  "joined tris 116683 mats 7",
+  "raw size [3.39 7.85 3.42]",
+  "density -Y: 35541 +Y: 9325 \u2192 head at -Y ",
+  "normalized size [3.46 8.   3.49] origin offset [-0.82, -1.71, -0.02]",
+  "tris after decimate 40000",
+  "  leg scan 0.42 1",
+  "  leg scan 0.34 1",
+  "  leg scan 0.26 1",
+  "  leg scan 0.18 1",
+  "  leg scan 0.12 1",
+  "  forced split",
+  "legs [(0.18, -0.03, 871), (-0.19, -0.0, 870)]",
+  "bones 19",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
+  "exported blender/out/carnotaurus.glb 6.31 MB",
+  "preview done"
+ ],
+ "size": [
+  3.4567248821258545,
+  8.0,
+  3.490081548690796
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 55,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.R",
+  "shin.R",
+  "foot.R",
+  "thigh.L",
+  "shin.L",
+  "foot.L",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

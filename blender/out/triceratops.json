@@ -1,0 +1,62 @@
+{
+ "species": "triceratops",
+ "log": [
+  "remove Icosphere",
+  "remove Object_14",
+  "applied armature on Object_7",
+  "applied armature on Object_8",
+  "joined tris 121080 mats 1",
+  "custom normals cleared",
+  "normals recalculated",
+  "raw size [30.58 91.76 42.23]",
+  "density -Y: 10074 +Y: 29986 \u2192 head at +Y ",
+  "normalized size [2.83 8.5  3.91] origin offset [-1.1, 0.13, 0.09]",
+  "tris after decimate 44999",
+  "  leg scan 0.3 1",
+  "  leg scan 0.24 4",
+  "legs [(-0.98, -1.16, 1316), (0.89, -1.16, 1701), (-0.57, 0.66, 1773), (0.61, 1.11, 1897)]",
+  "bones 25",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
+  "exported blender/out/triceratops.glb 3.29 MB",
+  "preview done"
+ ],
+ "size": [
+  2.832481861114502,
+  8.5,
+  3.9120168685913086
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 55,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.FL",
+  "shin.FL",
+  "foot.FL",
+  "thigh.FR",
+  "shin.FR",
+  "foot.FR",
+  "thigh.FL.001",
+  "shin.FL.001",
+  "foot.FL.001",
+  "thigh.BR",
+  "shin.BR",
+  "foot.BR",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

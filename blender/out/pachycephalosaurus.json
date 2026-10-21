@@ -1,0 +1,56 @@
+{
+ "species": "pachycephalosaurus",
+ "log": [
+  "remove Icosphere",
+  "applied armature on Object_14",
+  "applied armature on Object_15",
+  "applied armature on Object_16",
+  "applied armature on Object_17",
+  "applied armature on Object_18",
+  "joined tris 489096 mats 1",
+  "raw size [0.74 3.11 1.52]",
+  "density -Y: 190618 +Y: 8938 \u2192 head at -Y ",
+  "normalized size [1.07 4.5  2.2 ] origin offset [-0.0, 0.16, 0.02]",
+  "tris after decimate 35000",
+  "  leg scan 0.42 1",
+  "  leg scan 0.34 2",
+  "legs [(-0.32, -0.03, 2701), (0.32, -0.02, 3766)]",
+  "bones 19",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 40, 'roar': 67, 'eat': 97}",
+  "exported blender/out/pachycephalosaurus.glb 2.81 MB",
+  "preview done"
+ ],
+ "size": [
+  1.065704107284546,
+  4.5,
+  2.196873426437378
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 40,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.L",
+  "shin.L",
+  "foot.L",
+  "thigh.R",
+  "shin.R",
+  "foot.R",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

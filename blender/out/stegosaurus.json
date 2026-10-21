@@ -1,0 +1,57 @@
+{
+ "species": "stegosaurus",
+ "log": [
+  "joined tris 50096 mats 1",
+  "raw size [1.57 7.21 3.14]",
+  "density -Y: 5022 +Y: 2908 \u2192 head at -Y ",
+  "normalized size [1.74 8.   3.48] origin offset [-4.26, 0.45, 0.4]",
+  "tris after decimate 39999",
+  "  leg scan 0.3 1",
+  "  leg scan 0.24 3",
+  "  leg scan 0.18 4",
+  "legs [(-0.59, -0.71, 732), (0.58, -0.71, 757), (0.63, 1.01, 653), (-0.65, 1.02, 641)]",
+  "bones 25",
+  "weights smoothed",
+  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
+  "exported blender/out/stegosaurus.glb 2.01 MB",
+  "preview done"
+ ],
+ "size": [
+  1.7428178787231445,
+  8.0,
+  3.4825868606567383
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 55,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.FL",
+  "shin.FL",
+  "foot.FL",
+  "thigh.FR",
+  "shin.FR",
+  "foot.FR",
+  "thigh.BR",
+  "shin.BR",
+  "foot.BR",
+  "thigh.BL",
+  "shin.BL",
+  "foot.BL",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

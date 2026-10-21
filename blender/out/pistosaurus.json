@@ -1,0 +1,48 @@
+{
+ "species": "pistosaurus",
+ "log": [
+  "remove Icosphere",
+  "applied armature on Object_7",
+  "applied armature on Object_9",
+  "joined tris 16664 mats 4",
+  "raw size [3.05 6.32 1.2 ]",
+  "density -Y: 10314 +Y: 1689 \u2192 head at -Y ",
+  "normalized size [1.69 3.5  0.66] origin offset [-0.03, -0.0, -0.0]",
+  "tris after decimate 16664",
+  "legs []",
+  "bones 17",
+  "weights smoothed",
+  "clips {'idle': 121, 'swim': 61, 'roar': 61}",
+  "exported blender/out/pistosaurus.glb 0.99 MB",
+  "preview done"
+ ],
+ "size": [
+  1.6864027976989746,
+  3.499999761581421,
+  0.6635414958000183
+ ],
+ "clips": {
+  "idle": 121,
+  "swim": 61,
+  "roar": 61
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "flipF.L",
+  "flipF.R",
+  "flipB.L",
+  "flipB.R",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

@@ -1,0 +1,55 @@
+{
+ "species": "ankylosaurus",
+ "log": [
+  "joined tris 100020 mats 3",
+  "raw size [ 4.14 15.46  6.09]",
+  "density -Y: 17792 +Y: 5936 \u2192 head at -Y ",
+  "normalized size [1.87 7.   2.76] origin offset [-0.0, 0.42, 1.82]",
+  "tris after decimate 40000",
+  "  leg scan 0.3 4",
+  "legs [(-0.46, -0.56, 1130), (0.46, -0.56, 1144), (-0.46, 0.53, 1156), (0.46, 0.54, 1148)]",
+  "bones 25",
+  "smooth failed smoothing disabled for this species",
+  "clips {'idle': 91, 'walk': 40, 'roar': 67, 'eat': 97}",
+  "exported blender/out/ankylosaurus.glb 3.86 MB",
+  "preview done"
+ ],
+ "size": [
+  1.874314308166504,
+  7.0,
+  2.7584471702575684
+ ],
+ "clips": {
+  "idle": 91,
+  "walk": 40,
+  "roar": 67,
+  "eat": 97
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "thigh.FL",
+  "shin.FL",
+  "foot.FL",
+  "thigh.FR",
+  "shin.FR",
+  "foot.FR",
+  "thigh.BL",
+  "shin.BL",
+  "foot.BL",
+  "thigh.BR",
+  "shin.BR",
+  "foot.BR",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}

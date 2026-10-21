@@ -1,0 +1,45 @@
+{
+ "species": "ornithocheirus",
+ "log": [
+  "joined tris 189360 mats 2",
+  "raw size [3.23 1.76 0.42]",
+  "density -Y: 63280 +Y: 21138 \u2192 head at -Y ",
+  "normalized size [5.   2.72 0.65] origin offset [-0.0, -0.39, -0.05]",
+  "tris after decimate 30000",
+  "legs []",
+  "bones 17",
+  "weights smoothed",
+  "clips {'idle': 73, 'fly': 31, 'roar': 61}",
+  "exported blender/out/ornithocheirus.glb 1.66 MB",
+  "preview done"
+ ],
+ "size": [
+  5.0,
+  2.7232706546783447,
+  0.6513252854347229
+ ],
+ "clips": {
+  "idle": 73,
+  "fly": 31,
+  "roar": 61
+ },
+ "bones": [
+  "root",
+  "spine1",
+  "spine2",
+  "spine3",
+  "neck1",
+  "neck2",
+  "head",
+  "jaw",
+  "wing1.L",
+  "wing2.L",
+  "wing1.R",
+  "wing2.R",
+  "tail1",
+  "tail2",
+  "tail3",
+  "tail4",
+  "tail5"
+ ]
+}
