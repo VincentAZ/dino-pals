@@ -3,11 +3,11 @@
 // capped, and only a couple of plans run per frame (callers fall back to local steering meanwhile).
 import * as THREE from 'three';
 import type { Dino, DinoContext } from './dino.ts';
-import { bodyOf, landOk, obstacleRadius } from './ai_land.ts';
+import { bodyOf, landCoarse, obstacleRadius } from './ai_land.ts';
 import type { Obstacle } from '../world/obstacles.ts';
 
 const near: Obstacle[] = [];
-export const routeStats = { calls: 0, ms: 0, maxMs: 0, deferred: 0 };
+export const routeStats = { calls: 0, ms: 0, maxMs: 0, deferred: 0, gridMs: 0, searchMs: 0, pullMs: 0, iters: 0, cells: 0 };
 let budget = 2;
 /** Called once per frame by the spawner. */
 export function resetRouteBudget(n = 2): void { budget = n; }
@@ -21,7 +21,7 @@ export function lineClear(d: Dino, ctx: DinoContext, ax: number, az: number, bx:
     if (Math.hypot(o.x - ax - ex * t, o.z - az - ez * t) < obstacleRadius(d, o) + margin) return false;
   }
   const steps = Math.ceil(Math.hypot(ex, ez) / 4);
-  for (let i = 1; i <= steps; i++) if (!landOk(ax + ex * i / steps, az + ez * i / steps)) return false;
+  for (let i = 1; i <= steps; i++) if (!landCoarse(ax + ex * i / steps, az + ez * i / steps)) return false;
   return true;
 }
 
@@ -63,14 +63,10 @@ function search(d: Dino, ctx: DinoContext, gx: number, gz: number): THREE.Vector
   const W = Math.ceil((Math.max(pos.x, gx) + pad - minX) / cell), H = Math.ceil((Math.max(pos.z, gz) + pad - minZ) / cell);
   if (W * H > 140 * 140) return null;
   const N = W * H;
+  const tg = performance.now(); routeStats.cells += N;
   const blocked = new Uint8Array(N);
-  // terrain (water / steep / out of bounds) on a coarse lattice — it varies slowly
-  const lat = Math.max(1, Math.round(4 / cell));
-  for (let j = 0; j < H; j += lat) for (let i = 0; i < W; i += lat) {
-    const x = minX + (i + lat * 0.5) * cell, z = minZ + (j + lat * 0.5) * cell;
-    if (landOk(x, z)) continue;
-    for (let jj = j; jj < Math.min(H, j + lat); jj++) for (let ii = i; ii < Math.min(W, i + lat); ii++) blocked[jj * W + ii] = 1;
-  }
+  // terrain (water / steep / out of bounds) from the cached, world-aligned 4 m walkability grid
+  for (let j = 0; j < H; j++) { const z = minZ + (j + 0.5) * cell; for (let i = 0; i < W; i++) if (!landCoarse(minX + (i + 0.5) * cell, z)) blocked[j * W + i] = 1; }
   const cx = minX + W * cell / 2, cz = minZ + H * cell / 2;
   for (const o of ctx.obstacles.near(cx, cz, Math.hypot(W, H) * cell / 2 + 10, near)) {
     const R = obstacleRadius(d, o) + 0.3;
@@ -94,6 +90,7 @@ function search(d: Dino, ctx: DinoContext, gx: number, gz: number): THREE.Vector
     ti = best % W; tj = Math.floor(best / W);
   }
   const goal = tj * W + ti;
+  const ts = performance.now(); routeStats.gridMs += ts - tg;
   const g = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
   if (fArr.length < N) fArr = new Float32Array(N);
   hn = 0;
@@ -114,6 +111,7 @@ function search(d: Dino, ctx: DinoContext, gx: number, gz: number): THREE.Vector
       if (ng < g[nk]) { g[nk] = ng; from[nk] = cur; fArr[nk] = ng + h(nk); hpush(nk); }
     }
   }
+  const tp = performance.now(); routeStats.searchMs += tp - ts; routeStats.iters += iter;
   if (!found) return null;
   const cells: number[] = []; for (let k = goal; k !== -1; k = from[k]) cells.push(k);
   cells.reverse();
@@ -127,5 +125,6 @@ function search(d: Dino, ctx: DinoContext, gx: number, gz: number): THREE.Vector
     out.push(pts[far]); ax = pts[far].x; az = pts[far].z; k = far;
   }
   if (!out.length || out[out.length - 1] !== pts[pts.length - 1]) out.push(pts[pts.length - 1]);
+  routeStats.pullMs += performance.now() - tp;
   return out;
 }

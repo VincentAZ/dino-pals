@@ -3,8 +3,9 @@ import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Dino, type DinoContext } from './dino.ts';
 import type { Species } from './manifest.ts';
-import { updateAI, findSpot } from './ai.ts';
+import { updateAI, findSpot, runQueuedTap } from './ai.ts';
 import { resetRouteBudget } from './path.ts';
+import { prewarmLand } from './ai_land.ts';
 import { BIOMES, type BiomeId } from '../world/biomes.ts';
 import { heightAt, slopeAt, waterAt } from '../world/heightmap.ts';
 import { DINO_SLEEP_DIST, MAX_ANIMATED_DINOS } from '../config.ts';
@@ -129,6 +130,7 @@ export class DinoManager {
   update(dt: number, ctx: DinoContext, shadowCenter: THREE.Vector3, camera: THREE.Camera): void {
     const p = ctx.player;
     resetRouteBudget(1);
+    prewarmLand(p.x, p.z, 0.6);   // walkability ahead of need, so route plans are lookups
     this.herdTimer -= dt;
     if (this.herdTimer <= 0) { this.herdTimer = 2.5; this.herd(ctx); }
     this.projView.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -143,7 +145,7 @@ export class DinoManager {
       if (d.animated) animated++;
       if (!awake) { if (d.ai.followUntil > ctx.time) d.ai.followUntil = 0; continue; }
       // only animated dinosaurs may move (an un-animated one would glide like a statue)
-      if (d.animated || d.species.kind !== 'land') updateAI(d, dt, ctx); else d.speed = 0;
+      if (d.animated || d.species.kind !== 'land') { updateAI(d, dt, ctx); runQueuedTap(d, ctx); } else d.speed = 0;
       d.animInterval = dist < 45 ? 0 : dist < 100 ? 1 / 31 : 1 / 16;
       const camD = d.root.position.distanceTo((camera as THREE.PerspectiveCamera).position);
       const lodFar = 30 + d.species.lengthM * 1.5;

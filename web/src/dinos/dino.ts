@@ -38,9 +38,42 @@ export interface AIData {
   angle: number; radius: number; altitude: number; glideUntil: number; actionUntil: number; lastStep: number; breachT: number; nextRoar: number; lastChew: number; breachAt: number;
   yawVel: number; avoidSide: number; blocked: number; bestDist: number; progressAt: number;
   faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null; echoAt: number; awakeUntil: number; snoreAt: number; approachUntil: number; followSide: number; sniffFood: Food | null; sniffed: WeakSet<Food>;
+  /** taps: alternation counter, last tap time, whether the current one-shot came from a tap, and the next tap action waiting for it to finish */
+  tapSeq: number; lastTapAt: number; tapAct: boolean; queued: DinoState | null;
 }
 
 const GLB_CACHE = new Map<string, Promise<GLTF>>();
+
+/**
+ * Some exported skins arrive as physical materials whose only "physical" data is Blender's Specular = 0
+ * (IOR 1000, specular colour 0 or a few %): no highlight at all, so skin looked chalky and eyes dead,
+ * and the physical shader is the heaviest one on an iPad. Plain PBR (F0 0.04, real skin) fixes both.
+ * Transmission is dropped too: one transmissive eye on screen made three.js re-render the whole
+ * opaque scene into an extra target every frame. At eye size a thin dark glossy coat reads the same.
+ */
+const RAW_MATS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('rawmats');   // A/B comparisons
+function plainSkin(mat: THREE.Material): THREE.Material {
+  const p = mat as THREE.MeshPhysicalMaterial;
+  if (!p.isMeshPhysicalMaterial) return mat;
+  const glassy = p.transmission > 0;
+  if (p.clearcoat > 0 || p.sheen > 0 || p.iridescence > 0 || p.anisotropy > 0) return mat;
+  const s = new THREE.MeshStandardMaterial();
+  THREE.MeshStandardMaterial.prototype.copy.call(s, p);
+  s.name = p.name;
+  if (glassy) { s.transparent = true; s.color.setRGB(0, 0, 0); s.opacity = 0.3; s.roughness = 0.04; s.depthWrite = false; }
+  p.dispose();
+  return s;
+}
+
+/** Shared soft contact-shadow blob: a radial falloff, not a hard-edged disc. */
+const BLOB = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d')!; const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, 'rgba(0,0,0,0.42)'); r.addColorStop(0.45, 'rgba(0,0,0,0.3)'); r.addColorStop(0.8, 'rgba(0,0,0,0.08)'); r.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  return { geo: new THREE.PlaneGeometry(2, 2), mat: new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, color: 0xffffff }) };
+})();
 
 export class Dino {
   species: Species;
@@ -76,15 +109,13 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, awakeUntil: 0, snoreAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet() };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, awakeUntil: 0, snoreAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet(), tapSeq: 0, lastTapAt: -99, tapAct: false, queued: null };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;
     this.root.add(this.model);
     // soft contact shadow blob (used for far/unshadowed dinos)
-    const blobGeo = new THREE.CircleGeometry(1, 20);
-    const blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false });
-    this.blob = new THREE.Mesh(blobGeo, blobMat);
+    this.blob = new THREE.Mesh(BLOB.geo, BLOB.mat);
     this.blob.rotation.x = -Math.PI / 2; this.blob.position.y = 0.08; this.blob.renderOrder = 1;
     this.blob.scale.set(species.lengthM * 0.35, species.lengthM * 0.25, 1);
     this.blob.visible = species.kind === 'land';
@@ -95,8 +126,9 @@ export class Dino {
 
   /** Try to load the real GLB; keep the placeholder on failure. */
   async load(loader: GLTFLoader): Promise<void> {
-    if (this.loaded || this.loading) return;
+    if (this.loaded || this.loading || performance.now() < this.retryAt) return;
     this.loading = true;
+    let failed = false;
     try {
       // one parse per species: every individual is a skeleton clone sharing geometry, materials and textures
       const url = `/assets/dinos/${this.species.file}`;
@@ -105,7 +137,14 @@ export class Dino {
         p = loader.loadAsync(url).then((g) => {
           g.scene.traverse((o) => {
             const m = o as THREE.Mesh;
-            if (m.isMesh) { const mat = m.material as THREE.MeshStandardMaterial; if (mat && mat.isMeshStandardMaterial) mat.envMapIntensity = 0.6; }
+            if (!m.isMesh) return;
+            if (!RAW_MATS) { if (Array.isArray(m.material)) m.material = m.material.map(plainSkin); else if (m.material) m.material = plainSkin(m.material); }
+            for (const mat of (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshPhysicalMaterial[]) {
+              if (!mat) continue;
+              if (mat.isMeshStandardMaterial) mat.envMapIntensity = 0.6;
+              if (mat.isMeshPhysicalMaterial && mat.transmission > 0) mat.transmission = 0;   // never trigger the transmission pass
+              if (mat.transparent) { mat.forceSinglePass = true; mat.depthWrite = false; }   // one draw, not back-then-front
+            }
           });
           applySkinDetail(g.scene, this.species.lengthM, this.species.uvPerM);
           return g;
@@ -114,7 +153,16 @@ export class Dino {
       }
       const gltf: GLTF = await p;
       const model = cloneSkinned(gltf.scene);
-      model.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; m.frustumCulled = false; } });
+      model.traverse((o) => {
+        const m = o as THREE.SkinnedMesh; if (!m.isMesh) return;
+        m.castShadow = true; m.receiveShadow = false;
+        // Cull off-screen dinosaurs with a padded rest-pose sphere (the default skinned-mesh sphere would be
+        // re-skinned on the CPU; no culling at all drew every dinosaur behind the camera too).
+        if (m.isSkinnedMesh) {
+          if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+          const sph = m.geometry.boundingSphere!.clone(); sph.radius *= 1.35; m.boundingSphere = sph; m.frustumCulled = Dino.cullDinos;
+        } else m.frustumCulled = false;
+      });
       // normalise to manifest length if the file is wildly off scale; individuals may be smaller (babies)
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
@@ -155,10 +203,15 @@ export class Dino {
       this.measureEat();
       this.play(this.clipFor(this.state), 0);
     } catch {
-      // placeholder stays
+      // placeholder stays for now; a flaky connection must not leave the species grey all session
+      failed = true; GLB_CACHE.delete(`/assets/dinos/${this.species.file}`);
+      this.retryAt = performance.now() + 12000 + Math.random() * 8000;
+      if (++this.attempts >= 3) failed = false;   // give up after three tries (keeps the placeholder)
     }
-    this.loaded = true; this.loading = false;
+    this.loaded = !failed; this.loading = false;
   }
+  private retryAt = 0;
+  private attempts = 0;
 
   clipFor(s: DinoState): ClipName {
     switch (s) {
@@ -190,6 +243,8 @@ export class Dino {
   }
 
   /** Duration of one-shot actions. */
+  /** Frustum-cull dinosaur meshes (tests flip this to compare against drawing everything). */
+  static cullDinos = true;
   static actionDuration(s: DinoState): number {
     return s === 'roar' ? 2.4 : s === 'eat' ? 4 : s === 'stomp' ? 2.4 : s === 'sniff' ? 2.6 : s === 'flap' ? 3 : s === 'splash' ? 2.2 : 0;
   }
@@ -359,7 +414,7 @@ export class Dino {
     // real models share geometry/materials/textures with every other individual of the species: keep them
     if (!this.real) this.root.traverse((o) => {
       const m = o as THREE.Mesh;
-      if (m.isMesh) { m.geometry.dispose(); const mats = Array.isArray(m.material) ? m.material : [m.material]; for (const mat of mats) mat.dispose(); }
+      if (m.isMesh && m !== this.blob) { m.geometry.dispose(); const mats = Array.isArray(m.material) ? m.material : [m.material]; for (const mat of mats) mat.dispose(); }
     });
     this.mixer?.stopAllAction();
   }

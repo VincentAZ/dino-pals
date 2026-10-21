@@ -7,6 +7,11 @@ No rules, no score, no reading: tap the ground to walk, tap a dinosaur to hear i
 - `blender/` — headless Blender 5 pipeline that cleans, rigs, animates and exports the dinosaurs.
 - `LOG.md` — build log with every decision.
 
+## For grown-ups (iPad)
+- **Full screen:** open the site in Safari, tap Share, then *Add to Home Screen*, and launch Dino Pals from its icon.
+- **Lock the iPad to the game:** Settings, Accessibility, *Guided Access* on; open Dino Pals and triple-click the top (or Home) button.
+- **Grown-up panel** (credits, reset position, these tips): hold the small *i* in the top-left corner for two seconds.
+
 ## Run
 ```bash
 cd web && npm install && npm run dev

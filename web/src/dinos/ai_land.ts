@@ -31,8 +31,52 @@ export function obstacleRadius(d: Dino, o: Obstacle): number {
   return (underCanopy ? Math.max(o.r, o.canopy * (b.tall ? 0.75 : 0.55)) : o.r) + b.r;
 }
 
+// Walkability is static (procedural terrain, fixed water levels) but each evaluation costs ~6 noise
+// heights, and route planning asks thousands of times: memoise it on a 1 m world grid (2.25 MB).
+const LAND_N = Math.ceil(HALF * 2);
+const landCache = new Uint8Array(LAND_N * LAND_N);   // 0 unknown, 1 walkable, 2 not
 export function landOk(x: number, z: number): boolean {
   if (Math.abs(x) > HALF - 20 || Math.abs(z) > HALF - 20) return false;
+  const i = Math.floor(x + HALF), j = Math.floor(z + HALF);
+  const k = j * LAND_N + i; const c = landCache[k];
+  if (c) return c === 1;
+  const ok = landOkAt(i - HALF + 0.5, j - HALF + 0.5);
+  landCache[k] = ok ? 1 : 2;
+  return ok;
+}
+// Route planning works on a world-aligned 4 m walkability grid, warmed ahead of need around the explorer
+// a little each frame, so planning a route is table lookups rather than thousands of noise evaluations.
+const COARSE = 4, COARSE_N = Math.ceil((HALF * 2) / COARSE);
+const coarseCache = new Uint8Array(COARSE_N * COARSE_N);
+export function landCoarse(x: number, z: number): boolean {
+  if (Math.abs(x) > HALF - 20 || Math.abs(z) > HALF - 20) return false;
+  const i = Math.floor((x + HALF) / COARSE), j = Math.floor((z + HALF) / COARSE);
+  const k = j * COARSE_N + i; const c = coarseCache[k];
+  if (c) return c === 1;
+  const ok = landOkAt(-HALF + (i + 0.5) * COARSE, -HALF + (j + 0.5) * COARSE);
+  coarseCache[k] = ok ? 1 : 2;
+  return ok;
+}
+const warm = { cx: NaN, cz: NaN, r: 0, a: 0, done: false };
+export const warmStats = { cells: 0 };
+/** Fill the coarse walkability grid outward from (px,pz) within a small time budget (call every frame). */
+export function prewarmLand(px: number, pz: number, budgetMs = 0.6, radius = 170): void {
+  if (!(Math.hypot(px - warm.cx, pz - warm.cz) < 40)) { warm.cx = px; warm.cz = pz; warm.r = 0; warm.a = 0; warm.done = false; }
+  if (warm.done) return;
+  const t0 = performance.now();
+  while (performance.now() - t0 < budgetMs) {
+    for (let n = 0; n < 16; n++) {
+      // rings of cells: radius r (m), stepping around by one cell of arc
+      const circ = Math.max(1, Math.ceil((2 * Math.PI * warm.r) / COARSE));
+      const ang = (warm.a / circ) * Math.PI * 2;
+      const x = warm.cx + Math.cos(ang) * warm.r, z = warm.cz + Math.sin(ang) * warm.r;
+      const i = Math.floor((x + HALF) / COARSE), j = Math.floor((z + HALF) / COARSE);
+      if (i >= 0 && j >= 0 && i < COARSE_N && j < COARSE_N && !coarseCache[j * COARSE_N + i]) { landCoarse(x, z); warmStats.cells++; }
+      if (++warm.a >= circ) { warm.a = 0; warm.r += COARSE * 0.7; if (warm.r > radius) { warm.done = true; return; } }
+    }
+  }
+}
+function landOkAt(x: number, z: number): boolean {
   const h = heightAt(x, z);
   if (h < 0.4) return false;
   if (waterAt(x, z).kind !== 'none') return false;

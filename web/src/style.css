@@ -40,7 +40,7 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #credits { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: calc(16px + var(--safe-t)) 16px calc(16px + var(--safe-b)); touch-action: pan-y; }
 #credits .panel { background: #fff; color: #233; border-radius: 18px; max-width: 640px; width: 100%; max-height: 100%; overflow: auto; padding: 20px 24px; font-size: 14px; line-height: 1.4; -webkit-user-select: text; user-select: text; touch-action: pan-y; }
 #credits h2 { margin: 0 0 6px; } #credits h3 { margin: 18px 0 6px; font-size: 15px; }
-#credits ul { padding-left: 18px; margin: 0; } #credits li { margin: 2px 0; }
+#credits ul { padding-left: 18px; margin: 0; } #credits li { margin: 2px 0; } #credits ul.tips li { margin: 5px 0; }
 #credits .row { display: flex; gap: 12px; margin: 12px 0; }
 #credits button { flex: 1; height: 48px; border: none; border-radius: 12px; background: #4caf50; color: #fff; font-size: 16px; font-weight: 600; }
 #credits #credits-close { background: #607d8b; }

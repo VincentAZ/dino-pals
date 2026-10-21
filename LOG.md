@@ -93,3 +93,32 @@ User asked for a great game, no shortcuts. Unreal was considered and rejected: U
 - **Audio interruptions** (phone call, Siri, another app): any touch now revives a non-running AudioContext.
 - **Screen wake lock** is re-acquired after the OS releases it on hide (the old code kept a stale handle and never asked again).
 - New test: `tests/lifecycle.mjs`.
+
+### Toddler-proofing taps (measured with `tests/spam.mjs`)
+- **Problem:** a toddler taps fast. Every tap restarted the action, so a Triceratops or raptor tapped 12 times in 3 s sat frozen on the first frame of its clip, and the first roar was cut off after 0.27 s. Taps on a T. rex fired a stomp thump per tap.
+- **Fix:** taps on a dinosaur now alternate roar and its second action (stomp, sniff, graze, swoop, splash). A tap that lands while a tapped action is still in its first 75% queues the next action instead of restarting, with a small twinkle at the head so the tap still registers. Each action now plays to the end, then the next begins. Tapped actions also push back the dinosaur's own unprompted roar, so it no longer roars twice in a row.
+- Credits panel closes when the dark backdrop is tapped.
+
+### Toddler monkey test (`tests/monkey.mjs`)
+- 5 minutes of real CDP touch input: random taps, taps and tap-spam on dinosaurs, drags, pinches, 3-6 finger palm mashes with partial lifts, long holds, food and magic button spam, info-button taps.
+- Result: 330 actions, 0 errors, all positions and camera values finite, 0 dinosaur-dinosaur or dinosaur-tree overlaps, fps never below 60 on the dev GPU, food piles capped at 4, GPU geometries 235 to 423 and textures 191 to 327 as new areas streamed in (bounded), and a dinosaur still roars on a tap at the end.
+
+### Rendering cost fixes (found with the new `probeTris` hook and `tests/tris.mjs`)
+- **Velociraptor cornea used glass transmission.** Whenever a raptor was on screen, three.js rendered the entire opaque scene a second time into a transmission target. With a crowd in view the frame went from 1.61M to 2.77M triangles and 530 to 985 draw calls. The cornea is now a thin dark glossy alpha coat. Transparent eye coats draw in a single pass.
+- **Dinosaur meshes skipped frustum culling.** Each skinned mesh now carries a padded rest-pose bounding sphere. `tests/cull.mjs` spins the camera through 16 views of a crowd with culling on and off: the only differing pixels are the animated loading dots, never a dinosaur.
+- **Contact-shadow blob** for distant dinosaurs is now a soft radial falloff instead of a hard-edged disc.
+- **Flat physical skins.** The T. rex, Paluxysaurus and Ankylosaurus exports carried Blender's "Specular = 0" as glTF IOR 1000 with a zero or tiny specular colour. That means no highlight at all: the skin looked chalky and the eyes had no glint, and the physical shader is the heaviest one on an iPad. These skins now load as standard PBR (F0 0.04, like real skin). An A/B film (`?rawmats` keeps the old materials) shows the same look with a little natural sheen.
+
+### Adaptive resolution governor
+- iPads differ a lot, and any iPad slows as it warms up over a long session. The startup probe only ran once.
+- Every 2 s the governor takes the **median** frame time (robust to garbage-collection and shader-compile spikes), ignoring tab switches and the first 3 s after streaming settles. Below about 45 fps it lowers render scale in 15% steps to 0.7, then drops to the low tier. When frames hold vsync for 10 s it sharpens again. If an upgrade causes slowdown within 10 s, upgrades lock out for 90 s, so it can't oscillate.
+- `tests/governor.mjs` emulates a slow device: it starts sharp on high, trades resolution, drops to low, then recovers scale 0.7 to 1.0 once the load goes away. Tests that force a tier with `?q=` keep it fixed unless they pass `&gov=1`.
+
+### Smaller fixes
+- **Loading dots** in the top-right stayed on forever in the meadow. The condition double-counted loaded dinosaurs and waited for 25 of 50, but only about 21 are ever in loading range. They now mean "something near you is still arriving".
+- **Flaky connections:** a failed dinosaur download used to stay cached as a failure, leaving that species grey all session. It now retries after 12 to 20 s, up to three times.
+- **Stale taps:** a queued tap action expires after 6 s, so it can never fire late after the dinosaur wanders off.
+- **Startup quality probe removed.** It averaged the first 3 s after the world appeared, which are full of streaming spikes. A fast iPad could be dropped to the low tier for the whole session, and nothing ever upgraded it back. The tests never caught this because they force the tier. The governor now handles startup too: if the very first steady-state reading is below 33 fps on high it goes straight to low. `tests/governor.mjs` also loads the real production URL and checks that a fast machine stays on high at full sharpness.
+- **Route planning hitches.** Profiling split the planner into grid, search and smoothing. Grid building was 94% of the time: every route sampled walkability, about 9 µs of procedural noise per sample (`scripts/bench-terrain.mjs`), on ground nobody had visited yet. Walkability is now memoised (1 m grid for steering, world-aligned 4 m grid for routes), and the 4 m grid is warmed outward from the explorer at 0.6 ms per frame. At six-times CPU throttle the worst route went from 29 ms to 2.7 ms, total route time from 149 ms to 25 ms, and the frame rate from 35 to 47 fps. Collision and feeding tests are unchanged (zero overlaps, median bite 3.9 cm).
+- **Deprecations:** DRACOLoader `setDecoderConfig` removed (WebAssembly is the default). Shadows use PCF explicitly (PCFSoft was removed in three r18x and already mapped to PCF). WebKit now loads with zero warnings from our code.
+- **Grown-up tips** in the info panel and README: Add to Home Screen for full screen, Guided Access to keep the child in the app.

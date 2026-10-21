@@ -17,7 +17,14 @@ export async function showCredits(species: Species[], onReset: () => void): Prom
   el.innerHTML = `
     <div class="panel">
       <h2>Dino Pals</h2>
-      <p class="hint">Tap the ground to walk. Drag to look around. Pinch to zoom. Tap a dinosaur to say hello; hold one to make it follow you.</p>
+      <p class="hint">Tap the ground to walk. Drag to look around. Pinch to zoom. Tap a dinosaur to say hello, tap again for more; hold one to make it follow you. The apple drops food, the sparkle button changes the time of day.</p>
+      <h3>For grown-ups</h3>
+      <ul class="tips">
+        <li><b>Full screen:</b> in Safari tap Share, then <i>Add to Home Screen</i>, and open Dino Pals from its icon. No browser bars, nothing to tap by accident.</li>
+        <li><b>Keep little hands in the game:</b> turn on <i>Guided Access</i> (Settings, Accessibility, Guided Access), open Dino Pals, then triple-click the top or Home button.</li>
+        <li><b>Sound:</b> the dinosaurs are real animal recordings; check the volume and that the silent switch is off.</li>
+        <li>This panel opens when the little <i>i</i> is held for two seconds.</li>
+      </ul>
       <div class="row">
         <button id="credits-reset">Reset position</button>
         <button id="credits-close">Close</button>
@@ -25,9 +32,10 @@ export async function showCredits(species: Species[], onReset: () => void): Prom
       <h3>Dinosaurs</h3><ul>${dinoRows}</ul>
       <h3>Animal sounds</h3><p>Real animal recordings from Wikimedia Commons (public domain / CC0), edited into dinosaur voices.</p><ul>${sndRows}</ul>
       <h3>Environment</h3><p>${env?.source ?? 'Poly Haven'} — ${env?.license ?? 'CC0'}</p><ul>${envRows}</ul>
-      <h3>Engine</h3><p>three.js (MIT). Sounds and music are synthesized in the browser. Made with love for one small explorer.</p>
+      <h3>Engine</h3><p>three.js (MIT). Music and sound effects are synthesized in the browser; the animal voices and birdsong are the recordings listed above. Made with love for one small explorer.</p>
     </div>`;
   document.body.appendChild(el);
   el.querySelector('#credits-close')!.addEventListener('click', () => el.remove());
+  el.addEventListener('click', (e) => { if (e.target === el) el.remove(); });   // tapping the dark backdrop closes it too
   el.querySelector('#credits-reset')!.addEventListener('click', () => { onReset(); el.remove(); });
 }

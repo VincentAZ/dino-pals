@@ -436,6 +436,34 @@ export function secondAction(d: Dino): DinoState {
   return 'eat';
 }
 
+/**
+ * A tap on a dinosaur. Taps alternate its two actions (roar, then stomp / sniff / graze / flap / splash).
+ * A tap that lands while a tapped action is still playing does not restart it (a toddler taps fast, and
+ * restarting froze the clip on its first frame); it queues the next action, which starts when this one ends.
+ */
+export function tapAction(d: Dino, ctx: DinoContext): DinoState | 'queued' {
+  const ai = d.ai;
+  if (ctx.time - ai.lastTapAt > 10) ai.tapSeq = 0;
+  ai.lastTapAt = ctx.time;
+  const next: DinoState = ai.tapSeq % 2 === 0 ? 'roar' : secondAction(d);
+  if (d.isBusy && ai.tapAct && d.stateTime < d.busyFor(d.state) * 0.75) { ai.queued = next; return 'queued'; }
+  return runTap(d, next, ctx);
+}
+function runTap(d: Dino, action: DinoState, ctx: DinoContext): DinoState {
+  d.ai.tapSeq++; d.ai.queued = null;
+  d.ai.nextRoar = Math.max(d.ai.nextRoar, ctx.time + 20 + Math.random() * 20);   // no unprompted roar right after a tapped one
+  const r = triggerAction(d, action, ctx);
+  d.ai.tapAct = true;
+  return r;
+}
+/** Every frame after updateAI: start a queued tap action once the current one has finished. */
+export function runQueuedTap(d: Dino, ctx: DinoContext): void {
+  if (d.isBusy) return;
+  d.ai.tapAct = false;
+  if (d.ai.queued && ctx.time - d.ai.lastTapAt > 6) d.ai.queued = null;   // a stale tap never fires late
+  if (d.ai.queued) runTap(d, d.ai.queued, ctx);
+}
+
 /** Trigger an action from a tap (returns the resulting state). */
 export function triggerAction(d: Dino, action: DinoState, ctx: DinoContext): DinoState {
   if (d.species.kind === 'water' && action === 'splash') { d.ai.breachT = 0; d.setState('roar'); ctx.onEvent(d, 'splash'); return 'splash'; }

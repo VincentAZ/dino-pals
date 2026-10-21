@@ -18,9 +18,10 @@ import { heightAt, waterAt } from './world/heightmap.ts';
 import { loadManifest, type Species } from './dinos/manifest.ts';
 import { DinoManager } from './dinos/spawner.ts';
 import { loadSkinDetail } from './dinos/skin.ts';
-import { facePlayer, secondAction, triggerAction } from './dinos/ai.ts';
-import type { Dino, DinoContext, DinoState, Food } from './dinos/dino.ts';
-import { bodyOf } from './dinos/ai_land.ts';
+import { facePlayer, tapAction } from './dinos/ai.ts';
+import { Dino } from './dinos/dino.ts';
+import type { DinoContext, DinoState, Food } from './dinos/dino.ts';
+import { bodyOf, warmStats } from './dinos/ai_land.ts';
 import { routeStats } from './dinos/path.ts';
 import { Player } from './player/player.ts';
 import { TouchInput } from './input/touch.ts';
@@ -67,6 +68,9 @@ interface DinoApi {
   probeDino: (id: string) => Record<string, unknown> | null;
   probeVis: (id: string) => Record<string, unknown> | null;
   probeMem: () => Record<string, unknown>;
+  probeTris: () => Record<string, number>;
+  setDinoCulling: (on: boolean) => void;
+  simulateSlow: (ms: number) => void;
   biteLog: () => { dino: string; dist: number; t: number }[];
   audioStats: () => Record<string, unknown>;
   foods: () => unknown[];
@@ -91,7 +95,7 @@ async function main(): Promise<void> {
   renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = quality.shadows;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;   // PCFSoft was removed in r18x (it mapped to PCF anyway)
   app.appendChild(renderer.domElement);
   // Safari drops WebGL contexts under memory pressure or after long backgrounding. three.js re-uploads
   // everything on restore; if the context does not come back, reload rather than leave a frozen screen.
@@ -106,7 +110,7 @@ async function main(): Promise<void> {
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.3, 4000);
 
   // loaders
-  const draco = new DRACOLoader(); draco.setDecoderPath('/draco/'); draco.setDecoderConfig({ type: 'wasm' });
+  const draco = new DRACOLoader(); draco.setDecoderPath('/draco/');   // WebAssembly decoder by default
   const gltf = new GLTFLoader(); gltf.setDRACOLoader(draco); gltf.setMeshoptDecoder(MeshoptDecoder);
 
   // world
@@ -218,13 +222,17 @@ async function main(): Promise<void> {
     },
   };
 
-  let lastTapped: Dino | null = null, lastTapAt = -99;
-  const tapDino = (d: Dino): DinoState => {
+  const tapDino = (d: Dino): DinoState | 'queued' => {
     facePlayer(d, player.pos, clock.t);
-    const again = d === lastTapped && clock.t - lastTapAt < 10;
-    lastTapped = d; lastTapAt = clock.t; api.lastTapped = d.root.name;
-    const state = triggerAction(d, again ? secondAction(d) : 'roar', ctx);
-    if (!again) say(d.species.sayName, 350);
+    api.lastTapped = d.root.name;
+    const fresh = clock.t - d.ai.lastTapAt > 10;
+    const state = tapAction(d, ctx);
+    if (fresh) say(d.species.sayName, 350);
+    if (state === 'queued') {
+      // the tap still lands: a little twinkle at the head while the current action plays out
+      const h = d.snoutPos(new THREE.Vector3());
+      weather.sparkles.spawn('sparkle', h.x, h.y + 0.3, h.z, 6);
+    }
     return state;
   };
   const ray = new THREE.Raycaster();
@@ -304,10 +312,10 @@ async function main(): Promise<void> {
   const api: DinoApi = {
     ready: false, version: VERSION, errors, lastTapped: null,
     stats: () => ({
-      fps: Math.round(fps), frameMs: +frameMs.toFixed(2), dinoMs: +dinoMs.toFixed(2), dinoMaxMs: +dinoMaxMs.toFixed(2), route: { ...routeStats }, triangles: renderer.info.render.triangles, calls: renderer.info.render.calls,
+      fps: Math.round(fps), frameMs: +frameMs.toFixed(2), dinoMs: +dinoMs.toFixed(2), dinoMaxMs: +dinoMaxMs.toFixed(2), route: { ...routeStats, warmed: warmStats.cells }, triangles: renderer.info.render.triangles, calls: renderer.info.render.calls,
       geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, terrain: terrain.stats, dinos: dinos.stats,
       vegLoaded: vegetation.loadedCount, veg: vegetation.stats, light: grass.material.uniforms.uLight.value.toArray().map((v: number) => +v.toFixed(2)), grassSample: Array.from(grass.sample()), hours: +sky.hours.toFixed(2), quality: quality.tier, pixelRatio: renderer.getPixelRatio(),
-      contextLosses, audioState: audio.ctx.state,
+      contextLosses, audioState: audio.ctx.state, renderScale: +renderScale.toFixed(2),
       player: { x: +player.pos.x.toFixed(1), y: +player.pos.y.toFixed(1), z: +player.pos.z.toFixed(1), biome: biomeWeights(player.pos.x, player.pos.z).dominant },
     }),
     teleport: (x, z) => player.teleport(x, z),
@@ -347,6 +355,43 @@ async function main(): Promise<void> {
       return { ...d.loco.stats, legs: d.loco.legs.length, legLen: +d.loco.legLen.toFixed(2), maxSpeed: +d.loco.maxSpeed.toFixed(2), maxTurn: +d.loco.maxTurnRate.toFixed(2), speed: +d.speed.toFixed(2), gaitSpeed: +d.loco.gaitSpeed.toFixed(2), phase: +d.loco.phase.toFixed(2), cycle: +d.loco.lastCycle.toFixed(2), legsSw: d.loco.legs.map((l) => +l.t.toFixed(2) * (l.swinging ? 1 : -1)), state: d.state, eatReach: +d.eatReach.toFixed(2), heading: +d.heading.toFixed(3), pos: [+d.root.position.x.toFixed(2), +d.root.position.z.toFixed(2)], target: d.ai.target ? [+d.ai.target.x.toFixed(1), +d.ai.target.z.toFixed(1)] : null, detour: d.ai.detour ? [+d.ai.detour.x.toFixed(1), +d.ai.detour.z.toFixed(1)] : null, yawVel: +d.ai.yawVel.toFixed(2), scripted: d.ai.scripted, busy: d.isBusy, animated: d.animated, awake: d.awake, food: !!d.ai.foodTarget, steerSpeed: +d.ai.steerSpeed.toFixed(2), steerDir: +d.ai.steerDir.toFixed(2), route: d.ai.route ? d.ai.route.map((p) => [+p.x.toFixed(1), +p.z.toFixed(1)]) : null, routeIdx: d.ai.routeIdx, blocked: +d.ai.blocked.toFixed(1), real: d.real, follow: d.ai.followUntil > clock.t, face: !!d.ai.faceTarget, standAt: d.ai.standAt ? [+d.ai.standAt.x.toFixed(2), +d.ai.standAt.z.toFixed(2)] : null, standItem: d.ai.standItem ? [+d.ai.standItem.pos.x.toFixed(2), +d.ai.standItem.pos.z.toFixed(2), d.ai.standItem.eaten] : null, biteItem: d.ai.biteItem ? d.ai.biteItem.kind : null, repo: d.ai.repositions, trim: +d.eatTrim.toFixed(2), slot: d.ai.foodTarget?.eaters.get(d.index) ?? null, ph: +d.clipPhase.toFixed(2), progressAge: +(clock.t - d.ai.progressAt).toFixed(1), sniff: !!d.ai.sniffFood };
     },
     overlaps: () => overlapStats(),
+    simulateSlow: (ms) => { slowSim = ms; },
+    setDinoCulling: (on) => { Dino.cullDinos = on; for (const d of dinos.dinos) d.root.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) o.frustumCulled = on; }); },
+    probeTris: () => {
+      // triangles drawn per top-level scene child (including its shadow-pass cost), by hiding each in turn
+      const total = (): number => { renderer.render(scene, camera); return renderer.info.render.triangles; };
+      const all = total(); const out: Record<string, number> = { all };
+      for (const c of scene.children) {
+        if (!c.visible) continue;
+        c.visible = false; const t = total(); c.visible = true;
+        const names = new Map<THREE.Object3D, string>([[terrain.group, 'terrain'], [vegetation.group, 'vegetation'], [weather.group, 'weather'], [grass.mesh, 'grass'], [dinos.group, 'dinos'], [zzz.group, 'zzz']]); if (water) names.set(water.group, 'water');
+        const key = names.get(c) ?? ((c.name || c.type) + '#' + c.id);
+        if (all - t > 2000) out[key] = all - t;
+      }
+      const lod = { lod0: 0, lod1: 0, lod0Tris: 0, lod1Tris: 0 };
+      for (const d of dinos.dinos) { if (!d.real || !d.root.visible) continue; d.root.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh || !m.visible) return; let vis = true; for (let q: THREE.Object3D | null = m; q; q = q.parent) if (!q.visible) vis = false; if (!vis) return; const n = (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; if (/_lod1/.test(m.name)) { lod.lod1++; lod.lod1Tris += n; } else { lod.lod0++; lod.lod0Tris += n; } }); }
+      const sm = renderer.shadowMap.enabled;
+      renderer.shadowMap.enabled = false; const noSh = total(); dinos.group.visible = false; const noShNoDino = total(); dinos.group.visible = true; renderer.shadowMap.enabled = sm;
+      out.noShadowAll = noSh; out.noShadowDinos = noSh - noShNoDino; out.calls = (renderer.render(scene, camera), renderer.info.render.calls);
+      // draws per dinosaur mesh in one main pass (shadows off)
+      const draws = new Map<string, number>(); const hooks: [THREE.Mesh, THREE.Mesh['onAfterRender']][] = [];
+      dinos.group.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh) return; hooks.push([m, m.onAfterRender]); const key = (m.parent?.parent?.parent?.name || '') + '/' + m.name + '/' + (m.geometry.index ? m.geometry.index.count / 3 : 0); m.onAfterRender = () => { draws.set(key, (draws.get(key) ?? 0) + 1); }; });
+      renderer.shadowMap.enabled = false; total(); renderer.shadowMap.enabled = sm;
+      for (const [m, f] of hooks) m.onAfterRender = f;
+      let drawTris = 0; for (const [k, n] of draws) drawTris += +k.split('/').pop()! * n;
+      (out as Record<string, unknown>).draws = [...draws.entries()].filter(([k]) => +k.split('/').pop()! > 1000).map(([k, n]) => k + ' x' + n);
+      out.drawTris = drawTris;
+      const per: [string, number, number][] = [];
+      for (const d of dinos.dinos) {
+        if (!d.root.visible) continue;
+        let own = 0; d.root.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh || !m.visible) return; let vis = true; for (let q: THREE.Object3D | null = m; q; q = q.parent) if (!q.visible) vis = false; if (vis) own += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
+        d.root.visible = false; const t = total(); d.root.visible = true;
+        per.push([d.root.name + (d.parent ? '(baby)' : '') + (d.real ? '' : '[ph]'), all - t, own]);
+      }
+      per.sort((a, b) => b[1] - a[1]);
+      const other: string[] = []; dinos.group.children.forEach((c) => { if (!dinos.dinos.some((d) => d.root === c)) other.push(c.type + ':' + c.name); });
+      return { ...out, ...lod, top: per.slice(0, 8) as unknown as number, dinoRoots: per.length, other: other.length } as Record<string, number>;
+    },
     probeMem: () => {
       const tex = new Set<THREE.Texture>(), geo = new Set<THREE.BufferGeometry>(), mats = new Set<THREE.Material>();
       for (const d of dinos.dinos) d.root.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh) return; geo.add(m.geometry); for (const mt of (Array.isArray(m.material) ? m.material : [m.material])) { mats.add(mt); for (const v of Object.values(mt)) if ((v as THREE.Texture)?.isTexture) tex.add(v as THREE.Texture); } });
@@ -397,15 +442,44 @@ async function main(): Promise<void> {
     return { dinoDino: dd, dinoTree: dt, worst: +worst.toFixed(2) };
   };
 
+  // Resolution governor: unknown iPads (and any iPad warming up over a long session) get a steady frame
+  // rate by trading sharpness first, then the low tier; it climbs back when frames are comfortably fast.
+  const governorOn = !forcedQ || params.has('gov');   // tests that force a tier keep it fixed unless they ask
+  let renderScale = 1, govT = 0, govCool = 0, govFastT = 0, slowSim = 0, loadingNow = true, loadQuietT = 0, upgradedAt = -99, upgradeBlockUntil = 0, govEvaluated = false;
+  const govFrames: number[] = [];
+  const pixelRatioFor = (q: Quality): number => Math.max(0.75, Math.min(window.devicePixelRatio, q.pixelRatio) * renderScale);
+  const setScale = (k: number): void => { renderScale = k; renderer.setPixelRatio(pixelRatioFor(quality)); renderer.setSize(window.innerWidth, window.innerHeight); };
+  const govern = (rawDt: number): void => {
+    if (paused || document.hidden || rawDt > 0.25) return;          // tab switches say nothing about load
+    if (loadingNow) { loadQuietT = 0; govFrames.length = 0; govT = 0; return; }
+    loadQuietT += rawDt; if (loadQuietT < 3) return;                  // streaming hitches are not the steady state
+    govFrames.push(rawDt * 1000); govT += rawDt; govCool -= rawDt;
+    if (govT < 2) return;
+    govFrames.sort((a, b) => a - b); const med = govFrames[govFrames.length >> 1];   // median: robust to GC / shader-compile spikes
+    govFrames.length = 0; govT = 0;
+    if (govCool > 0) return;
+    const now = clock.t;
+    const first = !govEvaluated; govEvaluated = true;
+    if (first && med > 30 && quality.tier === 'high') { applyQuality({ ...QUALITY_LOW }); govCool = 4; return; }   // clearly a slow device: straight to low
+    if (med > 22) {
+      govFastT = 0;
+      if (now - upgradedAt < 10) upgradeBlockUntil = now + 90;         // the last upgrade was too much: stay put a while
+      if (renderScale > 0.72) { setScale(Math.max(0.7, renderScale - 0.15)); govCool = 3; }
+      else if (quality.tier === 'high') { renderScale = 1; applyQuality({ ...QUALITY_LOW }); govCool = 4; }
+    } else if (med < 17.8 && renderScale < 1 && now > upgradeBlockUntil) {   // holding vsync (60 Hz): try sharper
+      govFastT += 2;
+      if (govFastT >= 10) { govFastT = 0; setScale(Math.min(1, renderScale + 0.15)); upgradedAt = now; govCool = 3; }
+    } else govFastT = 0;
+  };
   const applyQuality = (q: Quality): void => {
     setQuality(q);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.pixelRatio));
+    renderer.setPixelRatio(pixelRatioFor(q));
     renderer.setSize(window.innerWidth, window.innerHeight);
     sky.sun.shadow.mapSize.set(q.shadowMap, q.shadowMap);
     if (sky.sun.shadow.map) { sky.sun.shadow.map.dispose(); sky.sun.shadow.map = null; }
   };
 
-  let fps = 60, frameMs = 16; let dinoMs = 0, dinoMaxMs = 0; let probeT = 0, probeFrames = 0, probeAcc = 0, probed = !!forcedQ;
+  let fps = 60, frameMs = 16; let dinoMs = 0, dinoMaxMs = 0; 
   let last = performance.now();
   let running = true; let raf = 0;
   const biomeW = new Float32Array(BIOME_IDS.length);
@@ -420,6 +494,8 @@ async function main(): Promise<void> {
     const now = performance.now();
     const rawDt = (now - last) / 1000; last = now;
     frameMs += (rawDt * 1000 - frameMs) * 0.05; fps = 1000 / Math.max(frameMs, 1);
+    if (slowSim > 0) { const t = performance.now(); while (performance.now() - t < slowSim) { /* test hook: emulate a slow device */ } }
+    if (governorOn && api.ready) govern(rawDt);
     if (!paused) tick(Math.min(rawDt, 0.05), rawDt);
     applyWatch();
     renderer.render(scene, camera);
@@ -433,13 +509,8 @@ async function main(): Promise<void> {
     camera.position.set(tx + Math.sin(a) * Math.cos(watchCfg.el) * watchCfg.dist, ty + Math.sin(watchCfg.el) * watchCfg.dist, tz + Math.cos(a) * Math.cos(watchCfg.el) * watchCfg.dist);
     camera.lookAt(tx, ty, tz);
   };
-  const tick = (dt: number, rawDt: number): void => {
+  const tick = (dt: number, _rawDt: number): void => {
     clock.t += dt; ctx.time = clock.t;
-    // quality probe during the first seconds
-    if (!probed && api.ready) {
-      probeT += rawDt; probeFrames++; probeAcc += rawDt;
-      if (probeT > 3) { probed = true; const avg = (probeAcc / probeFrames) * 1000; if (avg > 21) applyQuality({ ...QUALITY_LOW }); }
-    }
     if (magicTarget !== null) {
       let diff = magicTarget - sky.hours; if (diff < 0) diff += 24;
       sky.speed = 140;
@@ -471,7 +542,8 @@ async function main(): Promise<void> {
     zzz.update(dt);
     ambience.update(dt, biomeW, sky.state.night, weather.rainAmount);
     music.update(sky.state.night);
-    hud.setLoading(vegetation.loadedCount < vegetation.species.size || dinos.stats.real + dinos.dinos.filter((d) => d.loaded).length < dinos.dinos.length);
+    loadingNow = vegetation.loadedCount < vegetation.species.size || dinos.dinos.some((d) => d.loading);   // something near the child is still arriving
+    hud.setLoading(loadingNow);
   };
 
   const onResize = (): void => {
