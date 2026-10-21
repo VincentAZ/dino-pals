@@ -19,12 +19,13 @@
   "landmarks y: snout -2.15 head base -1.59 neck base -1.24 hip 0.73 tail 4.85",
   "mouth line samples 11 open-mouth fraction 0.0",
   "bones 36 neck 2 tail 7 legs ['BL', 'BR', 'FL', 'FR']",
-  "geodesic weights 2.3 s",
+  "geodesic weights 1.6 s",
   "jaw vertices 151",
   "eat reach: EAT_K 0.8 snout z at full pose 0.37",
   "walk stride/cycle 1.786 m, clip 2.23 s \u2192 speed 0.801 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 68}",
-  "exported blender/out/ankylosaurus.glb 3.92 MB"
+  "lod1 tris 8000",
+  "exported blender/out/ankylosaurus.glb 4.66 MB"
  ],
  "size": [
   1.874314308166504,

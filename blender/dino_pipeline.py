@@ -723,10 +723,23 @@ if "__analysis" in body.vertex_groups:
     body.vertex_groups.remove(body.vertex_groups["__analysis"])
     log("inner shell weights copied from skin", len(shell))
 
+# ---------------------------------------------------------------- LOD1: reduced mesh on the same skeleton
+lod = body.copy(); lod.data = body.data.copy(); lod.name = f"{SPECIES_ID}_lod1"
+sc.collection.objects.link(lod)
+for m in list(lod.modifiers): lod.modifiers.remove(m)
+bpy.context.view_layer.objects.active = lod
+bpy.ops.object.select_all(action='DESELECT'); lod.select_set(True)
+dec = lod.modifiers.new("dec", 'DECIMATE'); dec.ratio = CFG.get("lod_ratio", 0.2); dec.use_collapse_triangulate = True
+bpy.ops.object.modifier_apply(modifier=dec.name)
+lod.parent = arm
+am = lod.modifiers.new("Armature", 'ARMATURE'); am.object = arm
+lod.data.calc_loop_triangles()
+log("lod1 tris", len(lod.data.loop_triangles))
+
 # ---------------------------------------------------------------- export
 os.makedirs(OUT_DIR, exist_ok=True)
 out = os.path.join(OUT_DIR, f"{SPECIES_ID}.glb")
-bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); arm.select_set(True)
+bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); lod.select_set(True); arm.select_set(True)
 kw = dict(filepath=out, export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
           export_animations=True, export_skins=True, export_texcoords=True, export_normals=True,
           export_materials='EXPORT', export_image_format='WEBP', export_image_quality=85,

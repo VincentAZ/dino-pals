@@ -16,7 +16,8 @@
   "geodesic weights 0.8 s",
   "jaw vertices 3580",
   "clips {'idle': 73, 'fly': 31, 'roar': 61}",
-  "exported blender/out/ornithocheirus.glb 1.66 MB"
+  "lod1 tris 6000",
+  "exported blender/out/ornithocheirus.glb 1.98 MB"
  ],
  "size": [
   5.0,

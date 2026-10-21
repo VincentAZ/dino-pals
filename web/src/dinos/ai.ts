@@ -104,6 +104,35 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       resolveOverlaps(d, ctx);
       return;
     }
+    // carnivores are curious about the pile: walk over, sniff it, lose interest, wander off
+    if (sp.diet === 'carnivore') {
+      if (!ai.sniffFood) {
+        for (const f of ctx.foods) if (f.amount > 0 && !ai.sniffed.has(f) && Math.hypot(f.pos.x - pos.x, f.pos.z - pos.z) < 30) { ai.sniffFood = f; ai.bestDist = Infinity; ai.progressAt = ctx.time; break; }
+      }
+      const f = ai.sniffFood;
+      if (f) {
+        if (f.amount <= 0) { ai.sniffFood = null; }
+        else {
+          let dx = pos.x - f.pos.x, dz = pos.z - f.pos.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+          const R = d.reachNow + f.radius * 0.6;
+          const sx = f.pos.x + dx * R, sz = f.pos.z + dz * R;
+          const here = Math.hypot(sx - pos.x, sz - pos.z);
+          if (here < 0.8 || ctx.time - ai.progressAt > 6) {
+            if (pivotToward(d, f.pos.x, f.pos.z, dt) > 0.1) { d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); resolveOverlaps(d, ctx); return; }
+            ai.sniffed.add(f); ai.sniffFood = null;
+            d.setState('sniff'); ctx.onEvent(d, 'sniff');
+            // afterwards: amble away from the pile
+            ai.target = new THREE.Vector3(f.pos.x + dx * (R + 12 + Math.random() * 8), 0, f.pos.z + dz * (R + 12 + Math.random() * 8));
+            ai.waitUntil = ctx.time + 1;
+            return;
+          }
+          if (d.loco) { d.loco.lookTarget = f.pos; d.loco.lookWeight = 1; }
+          travel(d, ctx, sx, sz, dt, d.species.speed * d.scale, 0.5);
+          resolveOverlaps(d, ctx);
+          return;
+        }
+      }
+    }
     // herbivores (and hungry piscivores) go to food
     if (!ai.foodTarget && sp.diet !== 'carnivore') {
       let best: Food | null = null, bd = 130;
@@ -335,7 +364,7 @@ function updateLook(d: Dino, ctx: DinoContext): void {
   const loco = d.loco; if (!loco) return;
   const ai = d.ai; const pos = d.root.position;
   if (d.state === 'eat' || d.state === 'sniff') { loco.lookWeight = 0; return; }
-  if (ai.foodTarget) return;     // the food branch aims the head while approaching
+  if (ai.foodTarget || ai.sniffFood) return;     // the food branches aim the head while approaching
   const dist = Math.hypot(ctx.eye.x - pos.x, ctx.eye.z - pos.z);
   if (dist < 32) { loco.lookTarget = ctx.eye; loco.lookWeight = d.state === 'roar' ? 0.7 : 1; return; }
   if (ctx.time > ai.glanceUntil) {

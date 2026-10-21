@@ -20,6 +20,7 @@ import { DinoManager } from './dinos/spawner.ts';
 import { facePlayer, secondAction, triggerAction } from './dinos/ai.ts';
 import type { Dino, DinoContext, DinoState, Food } from './dinos/dino.ts';
 import { bodyOf } from './dinos/ai_land.ts';
+import { routeStats } from './dinos/path.ts';
 import { Player } from './player/player.ts';
 import { TouchInput } from './input/touch.ts';
 import { AudioEngine } from './audio/context.ts';
@@ -61,6 +62,7 @@ interface DinoApi {
   loco: (id: string) => Record<string, unknown> | null;
   overlaps: () => { dinoDino: number; dinoTree: number; worst: number };
   probeDino: (id: string) => Record<string, unknown> | null;
+  probeVis: (id: string) => Record<string, unknown> | null;
   biteLog: () => { dino: string; dist: number; t: number }[];
   foods: () => unknown[];
 }
@@ -273,7 +275,7 @@ async function main(): Promise<void> {
   const api: DinoApi = {
     ready: false, version: VERSION, errors, lastTapped: null,
     stats: () => ({
-      fps: Math.round(fps), frameMs: +frameMs.toFixed(2), dinoMs: +dinoMs.toFixed(2), triangles: renderer.info.render.triangles, calls: renderer.info.render.calls,
+      fps: Math.round(fps), frameMs: +frameMs.toFixed(2), dinoMs: +dinoMs.toFixed(2), dinoMaxMs: +dinoMaxMs.toFixed(2), route: { ...routeStats }, triangles: renderer.info.render.triangles, calls: renderer.info.render.calls,
       geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, terrain: terrain.stats, dinos: dinos.stats,
       vegLoaded: vegetation.loadedCount, veg: vegetation.stats, light: grass.material.uniforms.uLight.value.toArray().map((v: number) => +v.toFixed(2)), grassSample: Array.from(grass.sample()), hours: +sky.hours.toFixed(2), quality: quality.tier, pixelRatio: renderer.getPixelRatio(),
       player: { x: +player.pos.x.toFixed(1), y: +player.pos.y.toFixed(1), z: +player.pos.z.toFixed(1), biome: biomeWeights(player.pos.x, player.pos.z).dominant },
@@ -312,9 +314,17 @@ async function main(): Promise<void> {
     dropFoodAt: (x, z) => placeFood(x, z),
     loco: (id) => {
       const d = dinos.dinos.find((x) => x.root.name === id || x.species.id === id); if (!d || !d.loco) return null;
-      return { ...d.loco.stats, legs: d.loco.legs.length, legLen: +d.loco.legLen.toFixed(2), maxSpeed: +d.loco.maxSpeed.toFixed(2), maxTurn: +d.loco.maxTurnRate.toFixed(2), speed: +d.speed.toFixed(2), gaitSpeed: +d.loco.gaitSpeed.toFixed(2), phase: +d.loco.phase.toFixed(2), cycle: +d.loco.lastCycle.toFixed(2), legsSw: d.loco.legs.map((l) => +l.t.toFixed(2) * (l.swinging ? 1 : -1)), state: d.state, eatReach: +d.eatReach.toFixed(2), heading: +d.heading.toFixed(3), pos: [+d.root.position.x.toFixed(2), +d.root.position.z.toFixed(2)], target: d.ai.target ? [+d.ai.target.x.toFixed(1), +d.ai.target.z.toFixed(1)] : null, detour: d.ai.detour ? [+d.ai.detour.x.toFixed(1), +d.ai.detour.z.toFixed(1)] : null, yawVel: +d.ai.yawVel.toFixed(2), scripted: d.ai.scripted, busy: d.isBusy, animated: d.animated, awake: d.awake, food: !!d.ai.foodTarget, steerSpeed: +d.ai.steerSpeed.toFixed(2), steerDir: +d.ai.steerDir.toFixed(2), route: d.ai.route ? d.ai.route.map((p) => [+p.x.toFixed(1), +p.z.toFixed(1)]) : null, routeIdx: d.ai.routeIdx, blocked: +d.ai.blocked.toFixed(1), real: d.real, follow: d.ai.followUntil > clock.t, face: !!d.ai.faceTarget, standAt: d.ai.standAt ? [+d.ai.standAt.x.toFixed(2), +d.ai.standAt.z.toFixed(2)] : null, standItem: d.ai.standItem ? [+d.ai.standItem.pos.x.toFixed(2), +d.ai.standItem.pos.z.toFixed(2), d.ai.standItem.eaten] : null, biteItem: d.ai.biteItem ? d.ai.biteItem.kind : null, repo: d.ai.repositions, trim: +d.eatTrim.toFixed(2), slot: d.ai.foodTarget?.eaters.get(d.index) ?? null, ph: +d.clipPhase.toFixed(2), progressAge: +(clock.t - d.ai.progressAt).toFixed(1) };
+      return { ...d.loco.stats, legs: d.loco.legs.length, legLen: +d.loco.legLen.toFixed(2), maxSpeed: +d.loco.maxSpeed.toFixed(2), maxTurn: +d.loco.maxTurnRate.toFixed(2), speed: +d.speed.toFixed(2), gaitSpeed: +d.loco.gaitSpeed.toFixed(2), phase: +d.loco.phase.toFixed(2), cycle: +d.loco.lastCycle.toFixed(2), legsSw: d.loco.legs.map((l) => +l.t.toFixed(2) * (l.swinging ? 1 : -1)), state: d.state, eatReach: +d.eatReach.toFixed(2), heading: +d.heading.toFixed(3), pos: [+d.root.position.x.toFixed(2), +d.root.position.z.toFixed(2)], target: d.ai.target ? [+d.ai.target.x.toFixed(1), +d.ai.target.z.toFixed(1)] : null, detour: d.ai.detour ? [+d.ai.detour.x.toFixed(1), +d.ai.detour.z.toFixed(1)] : null, yawVel: +d.ai.yawVel.toFixed(2), scripted: d.ai.scripted, busy: d.isBusy, animated: d.animated, awake: d.awake, food: !!d.ai.foodTarget, steerSpeed: +d.ai.steerSpeed.toFixed(2), steerDir: +d.ai.steerDir.toFixed(2), route: d.ai.route ? d.ai.route.map((p) => [+p.x.toFixed(1), +p.z.toFixed(1)]) : null, routeIdx: d.ai.routeIdx, blocked: +d.ai.blocked.toFixed(1), real: d.real, follow: d.ai.followUntil > clock.t, face: !!d.ai.faceTarget, standAt: d.ai.standAt ? [+d.ai.standAt.x.toFixed(2), +d.ai.standAt.z.toFixed(2)] : null, standItem: d.ai.standItem ? [+d.ai.standItem.pos.x.toFixed(2), +d.ai.standItem.pos.z.toFixed(2), d.ai.standItem.eaten] : null, biteItem: d.ai.biteItem ? d.ai.biteItem.kind : null, repo: d.ai.repositions, trim: +d.eatTrim.toFixed(2), slot: d.ai.foodTarget?.eaters.get(d.index) ?? null, ph: +d.clipPhase.toFixed(2), progressAge: +(clock.t - d.ai.progressAt).toFixed(1), sniff: !!d.ai.sniffFood };
     },
     overlaps: () => overlapStats(),
+    probeVis: (id: string) => {
+      const d = dinos.dinos.find((x) => x.root.name === id); if (!d) return null;
+      const box = new THREE.Box3(); let meshes = 0, visMeshes = 0;
+      d.root.updateMatrixWorld(true);
+      d.root.traverse((o) => { const m = o as THREE.SkinnedMesh; if (m.isMesh) { meshes++; if (m.visible) visMeshes++; m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox!.clone().applyMatrix4(m.matrixWorld); box.union(bb); } });
+      let chainVisible = true; for (let o: THREE.Object3D | null = d.root; o; o = o.parent) if (!o.visible) chainVisible = false;
+      return { rootVisible: d.root.visible, chainVisible, meshes, visMeshes, pos: d.root.position.toArray().map((v) => +v.toFixed(1)), box: [box.min.toArray().map((v) => +v.toFixed(1)), box.max.toArray().map((v) => +v.toFixed(1))], scale: d.root.scale.x, modelScale: d.model?.scale.x, real: d.real, animated: d.animated, state: d.state, cam: camera.position.toArray().map((v) => +v.toFixed(1)) };
+    },
     probeDino: (id: string) => {
       const d = dinos.dinos.find((x) => x.root.name === id || x.species.id === id); if (!d || !d.loco) return null;
       const v = new THREE.Vector3(); const out: Record<string, unknown> = { eatReach: d.eatReach, eatHeight: d.eatHeight };
@@ -359,7 +369,7 @@ async function main(): Promise<void> {
     if (sky.sun.shadow.map) { sky.sun.shadow.map.dispose(); sky.sun.shadow.map = null; }
   };
 
-  let fps = 60, frameMs = 16; let dinoMs = 0; let probeT = 0, probeFrames = 0, probeAcc = 0, probed = !!forcedQ;
+  let fps = 60, frameMs = 16; let dinoMs = 0, dinoMaxMs = 0; let probeT = 0, probeFrames = 0, probeAcc = 0, probed = !!forcedQ;
   let last = performance.now();
   let running = true; let raf = 0;
   const biomeW = new Float32Array(BIOME_IDS.length);
@@ -400,6 +410,7 @@ async function main(): Promise<void> {
       if (diff < 0.25 || diff > 23.5) { sky.setTime(magicTarget); sky.speed = 1; magicTarget = null; }
     }
     player.update(dt);
+    applyWatch();   // test camera (if any) before culling
     camera.getWorldDirection(camDir);
     shadowCenter.copy(player.pos).addScaledVector(camDir, 25);
     biomeWeights(player.pos.x, player.pos.z, biomeW);
@@ -418,7 +429,7 @@ async function main(): Promise<void> {
     ctx.view.copy(camDir).setY(0); if (ctx.view.lengthSq() < 1e-6) ctx.view.set(0, 0, -1); ctx.view.normalize();
     const tD = performance.now();
     dinos.update(dt, ctx, shadowCenter, camera);
-    dinoMs += (performance.now() - tD - dinoMs) * 0.05;
+    const dMs = performance.now() - tD; dinoMs += (dMs - dinoMs) * 0.05; dinoMaxMs = Math.max(dinoMaxMs * 0.995, dMs);
     foodSystem.update(dt);
     ambience.update(dt, biomeW, sky.state.night, weather.rainAmount);
     music.update(sky.state.night);

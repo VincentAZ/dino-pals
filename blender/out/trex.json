@@ -15,12 +15,13 @@
   "landmarks y: snout -4.86 head base -3.42 neck base -2.58 hip 0.07 tail 7.14",
   "mouth line samples 17 open-mouth fraction 0.0",
   "bones 26 neck 2 tail 7 legs ['R', 'L']",
-  "geodesic weights 1.6 s",
+  "geodesic weights 0.8 s",
   "jaw vertices 7606",
   "eat reach: EAT_K 1.0 snout z at full pose 0.4",
   "walk stride/cycle 3.825 m, clip 2.93 s \u2192 speed 1.303 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 89}",
-  "exported blender/out/trex.glb 2.69 MB"
+  "lod1 tris 9598",
+  "exported blender/out/trex.glb 3.21 MB"
  ],
  "size": [
   2.8527069091796875,

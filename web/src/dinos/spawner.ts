@@ -4,6 +4,7 @@ import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Dino, type DinoContext } from './dino.ts';
 import type { Species } from './manifest.ts';
 import { updateAI, findSpot } from './ai.ts';
+import { resetRouteBudget } from './path.ts';
 import { BIOMES, type BiomeId } from '../world/biomes.ts';
 import { heightAt, slopeAt, waterAt } from '../world/heightmap.ts';
 import { DINO_SLEEP_DIST, MAX_ANIMATED_DINOS } from '../config.ts';
@@ -105,6 +106,7 @@ export class DinoManager {
 
   update(dt: number, ctx: DinoContext, shadowCenter: THREE.Vector3, camera: THREE.Camera): void {
     const p = ctx.player;
+    resetRouteBudget(1);
     this.herdTimer -= dt;
     if (this.herdTimer <= 0) { this.herdTimer = 2.5; this.herd(ctx); }
     this.projView.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -120,6 +122,10 @@ export class DinoManager {
       if (!awake) { if (d.ai.followUntil > ctx.time) d.ai.followUntil = 0; continue; }
       // only animated dinosaurs may move (an un-animated one would glide like a statue)
       if (d.animated || d.species.kind !== 'land') updateAI(d, dt, ctx); else d.speed = 0;
+      d.animInterval = dist < 45 ? 0 : dist < 100 ? 1 / 31 : 1 / 16;
+      const camD = d.root.position.distanceTo((camera as THREE.PerspectiveCamera).position);
+      const lodFar = 30 + d.species.lengthM * 1.5;
+      d.setLod(d.lodLevel === 0 ? (camD > lodFar + 4 ? 1 : 0) : (camD < lodFar - 4 ? 0 : 1));
       d.update(dt, ctx);
       // manual frustum culling (skinned meshes have unreliable bounds)
       this.sphere.center.copy(d.root.position); this.sphere.center.y += d.species.heightM * 0.5; this.sphere.radius = d.species.lengthM * 0.75 + 2;

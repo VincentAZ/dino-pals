@@ -31,7 +31,8 @@
   "eat reach: EAT_K 0.9 snout z at full pose 0.39",
   "walk stride/cycle 3.376 m, clip 3.2 s \u2192 speed 1.055 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 97}",
-  "exported blender/out/paluxysaurus.glb 4.61 MB"
+  "lod1 tris 9999",
+  "exported blender/out/paluxysaurus.glb 5.78 MB"
  ],
  "size": [
   4.861289024353027,

@@ -15,10 +15,11 @@
   "landmarks y: snout -6.5 head base -4.94 neck base -4.29 hip 0.65 tail 6.5",
   "mouth line samples 17 open-mouth fraction 0.0",
   "bones 18 neck 2 tail 7 legs []",
-  "geodesic weights 0.5 s",
+  "geodesic weights 0.6 s",
   "jaw vertices 1299",
   "clips {'idle': 121, 'swim': 61, 'roar': 61}",
-  "exported blender/out/mosasaurus.glb 2.87 MB"
+  "lod1 tris 6999",
+  "exported blender/out/mosasaurus.glb 3.39 MB"
  ],
  "size": [
   4.038875102996826,

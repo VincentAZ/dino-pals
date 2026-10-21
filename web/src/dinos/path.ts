@@ -1,10 +1,16 @@
 // Grid A* route planning around trees, rocks, water and steep ground, sized per dinosaur.
+// Budgeted: terrain is sampled on a coarse lattice, the open set is a binary heap, the search is
+// capped, and only a couple of plans run per frame (callers fall back to local steering meanwhile).
 import * as THREE from 'three';
 import type { Dino, DinoContext } from './dino.ts';
 import { bodyOf, landOk, obstacleRadius } from './ai_land.ts';
 import type { Obstacle } from '../world/obstacles.ts';
 
 const near: Obstacle[] = [];
+export const routeStats = { calls: 0, ms: 0, maxMs: 0, deferred: 0 };
+let budget = 2;
+/** Called once per frame by the spawner. */
+export function resetRouteBudget(n = 2): void { budget = n; }
 
 /** Does the straight segment a→b keep the body clear of every obstacle? */
 export function lineClear(d: Dino, ctx: DinoContext, ax: number, az: number, bx: number, bz: number, margin = 0.4): boolean {
@@ -14,27 +20,56 @@ export function lineClear(d: Dino, ctx: DinoContext, ax: number, az: number, bx:
     const t = l2 > 0 ? Math.max(0, Math.min(1, ((o.x - ax) * ex + (o.z - az) * ez) / l2)) : 0;
     if (Math.hypot(o.x - ax - ex * t, o.z - az - ez * t) < obstacleRadius(d, o) + margin) return false;
   }
-  const steps = Math.ceil(Math.hypot(ex, ez) / 3);
+  const steps = Math.ceil(Math.hypot(ex, ez) / 4);
   for (let i = 1; i <= steps; i++) if (!landOk(ax + ex * i / steps, az + ez * i / steps)) return false;
   return true;
 }
 
 /**
  * Plan a route for this dinosaur from its position to (gx,gz). Returns waypoints (excluding the
- * start, including the goal) or null when the goal cannot be reached inside the search window.
+ * start, including the goal), null when no route exists inside the search window, or undefined when
+ * this frame's planning budget is spent (try again next frame).
  */
-export function planRoute(d: Dino, ctx: DinoContext, gx: number, gz: number): THREE.Vector3[] | null {
+export function planRoute(d: Dino, ctx: DinoContext, gx: number, gz: number): THREE.Vector3[] | null | undefined {
   const pos = d.root.position;
   if (lineClear(d, ctx, pos.x, pos.z, gx, gz)) return [new THREE.Vector3(gx, 0, gz)];
+  if (budget <= 0) { routeStats.deferred++; return undefined; }
+  budget--;
+  const t0 = performance.now();
+  try { return search(d, ctx, gx, gz); } finally { const ms = performance.now() - t0; routeStats.calls++; routeStats.ms += ms; routeStats.maxMs = Math.max(routeStats.maxMs, ms); }
+}
+
+// ---------------------------------------------------------------- binary heap of cell indices keyed by f
+let heap = new Int32Array(4096), hn = 0;
+let fArr = new Float32Array(1);
+function hpush(k: number): void {
+  if (hn >= heap.length) { const h2 = new Int32Array(heap.length * 2); h2.set(heap); heap = h2; }
+  let i = hn++; heap[i] = k;
+  while (i > 0) { const p = (i - 1) >> 1; if (fArr[heap[p]] <= fArr[heap[i]]) break; const t = heap[p]; heap[p] = heap[i]; heap[i] = t; i = p; }
+}
+function hpop(): number {
+  const top = heap[0]; heap[0] = heap[--hn];
+  let i = 0;
+  for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < hn && fArr[heap[l]] < fArr[heap[m]]) m = l; if (r < hn && fArr[heap[r]] < fArr[heap[m]]) m = r; if (m === i) break; const t = heap[m]; heap[m] = heap[i]; heap[i] = t; i = m; }
+  return top;
+}
+
+function search(d: Dino, ctx: DinoContext, gx: number, gz: number): THREE.Vector3[] | null {
+  const pos = d.root.position;
   const b = bodyOf(d);
-  const cell = THREE.MathUtils.clamp(b.r * 0.9, 1, 2.5);
-  const minX = Math.min(pos.x, gx) - 35, minZ = Math.min(pos.z, gz) - 35;
-  const W = Math.ceil((Math.max(pos.x, gx) + 35 - minX) / cell), H = Math.ceil((Math.max(pos.z, gz) + 35 - minZ) / cell);
-  if (W * H > 160 * 160) return null;
-  const blocked = new Uint8Array(W * H);
-  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
-    const x = minX + (i + 0.5) * cell, z = minZ + (j + 0.5) * cell;
-    if (!landOk(x, z)) blocked[j * W + i] = 1;
+  const cell = THREE.MathUtils.clamp(b.r * 1.1, 1.2, 3);
+  const pad = 30;
+  const minX = Math.min(pos.x, gx) - pad, minZ = Math.min(pos.z, gz) - pad;
+  const W = Math.ceil((Math.max(pos.x, gx) + pad - minX) / cell), H = Math.ceil((Math.max(pos.z, gz) + pad - minZ) / cell);
+  if (W * H > 140 * 140) return null;
+  const N = W * H;
+  const blocked = new Uint8Array(N);
+  // terrain (water / steep / out of bounds) on a coarse lattice — it varies slowly
+  const lat = Math.max(1, Math.round(4 / cell));
+  for (let j = 0; j < H; j += lat) for (let i = 0; i < W; i += lat) {
+    const x = minX + (i + lat * 0.5) * cell, z = minZ + (j + lat * 0.5) * cell;
+    if (landOk(x, z)) continue;
+    for (let jj = j; jj < Math.min(H, j + lat); jj++) for (let ii = i; ii < Math.min(W, i + lat); ii++) blocked[jj * W + ii] = 1;
   }
   const cx = minX + W * cell / 2, cz = minZ + H * cell / 2;
   for (const o of ctx.obstacles.near(cx, cz, Math.hypot(W, H) * cell / 2 + 10, near)) {
@@ -43,14 +78,13 @@ export function planRoute(d: Dino, ctx: DinoContext, gx: number, gz: number): TH
     const j0 = Math.max(0, Math.floor((o.z - R - minZ) / cell)), j1 = Math.min(H - 1, Math.floor((o.z + R - minZ) / cell));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const x = minX + (i + 0.5) * cell, z = minZ + (j + 0.5) * cell;
-      if (Math.hypot(x - o.x, z - o.z) < R) blocked[j * W + i] = 1;
+      if ((x - o.x) * (x - o.x) + (z - o.z) * (z - o.z) < R * R) blocked[j * W + i] = 1;
     }
   }
-  const si = Math.floor((pos.x - minX) / cell), sj = Math.floor((pos.z - minZ) / cell);
-  let ti = Math.floor((gx - minX) / cell), tj = Math.floor((gz - minZ) / cell);
+  const si = Math.min(W - 1, Math.max(0, Math.floor((pos.x - minX) / cell))), sj = Math.min(H - 1, Math.max(0, Math.floor((pos.z - minZ) / cell)));
+  let ti = Math.min(W - 1, Math.max(0, Math.floor((gx - minX) / cell))), tj = Math.min(H - 1, Math.max(0, Math.floor((gz - minZ) / cell)));
   const start = sj * W + si;
   blocked[start] = 0;
-  // goal inside an obstacle → nearest free cell
   if (blocked[tj * W + ti]) {
     let best = -1, bd = Infinity;
     for (let j = Math.max(0, tj - 6); j <= Math.min(H - 1, tj + 6); j++) for (let i = Math.max(0, ti - 6); i <= Math.min(W - 1, ti + 6); i++) {
@@ -60,38 +94,36 @@ export function planRoute(d: Dino, ctx: DinoContext, gx: number, gz: number): TH
     ti = best % W; tj = Math.floor(best / W);
   }
   const goal = tj * W + ti;
-  const g = new Float32Array(W * H).fill(Infinity), from = new Int32Array(W * H).fill(-1);
-  const open: number[] = [start]; const f = new Float32Array(W * H).fill(Infinity);
-  const h = (k: number) => Math.hypot((k % W) - ti, Math.floor(k / W) - tj);
-  g[start] = 0; f[start] = h(start);
-  const closed = new Uint8Array(W * H);
+  const g = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
+  if (fArr.length < N) fArr = new Float32Array(N);
+  hn = 0;
+  const h = (k: number) => { const dx = Math.abs((k % W) - ti), dz = Math.abs(((k / W) | 0) - tj); return Math.max(dx, dz) + 0.4142 * Math.min(dx, dz); };
+  g[start] = 0; fArr[start] = h(start); hpush(start);
   let found = false, iter = 0;
-  while (open.length && iter++ < 40000) {
-    let bi = 0; for (let k = 1; k < open.length; k++) if (f[open[k]] < f[open[bi]]) bi = k;
-    const cur = open[bi]; open[bi] = open[open.length - 1]; open.pop();
+  while (hn > 0 && iter++ < 9000) {
+    const cur = hpop();
     if (cur === goal) { found = true; break; }
     if (closed[cur]) continue; closed[cur] = 1;
-    const ci = cur % W, cj = Math.floor(cur / W);
+    const ci = cur % W, cj = (cur / W) | 0;
     for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
       if (!di && !dj) continue;
       const ni = ci + di, nj = cj + dj; if (ni < 0 || nj < 0 || ni >= W || nj >= H) continue;
       const nk = nj * W + ni; if (blocked[nk] || closed[nk]) continue;
       if (di && dj && (blocked[cj * W + ni] || blocked[nj * W + ci])) continue;   // no corner cutting
       const ng = g[cur] + (di && dj ? 1.4142 : 1);
-      if (ng < g[nk]) { g[nk] = ng; from[nk] = cur; f[nk] = ng + h(nk); open.push(nk); }
+      if (ng < g[nk]) { g[nk] = ng; from[nk] = cur; fArr[nk] = ng + h(nk); hpush(nk); }
     }
   }
   if (!found) return null;
   const cells: number[] = []; for (let k = goal; k !== -1; k = from[k]) cells.push(k);
   cells.reverse();
-  const pts = cells.map((k) => new THREE.Vector3(minX + ((k % W) + 0.5) * cell, 0, minZ + (Math.floor(k / W) + 0.5) * cell));
+  const pts = cells.map((k) => new THREE.Vector3(minX + ((k % W) + 0.5) * cell, 0, minZ + (((k / W) | 0) + 0.5) * cell));
   pts[pts.length - 1].set(gx, 0, gz);
-  // string pulling: keep only the waypoints needed for clear straight legs
-  const out: THREE.Vector3[] = []; let ax = pos.x, az = pos.z, k = 0;
+  // string pulling (bounded): keep only the waypoints needed for clear straight legs
+  const out: THREE.Vector3[] = []; let ax = pos.x, az = pos.z, k = 0, checks = 0;
   while (k < pts.length - 1) {
-    let far = k;
-    for (let m = pts.length - 1; m > k; m--) if (lineClear(d, ctx, ax, az, pts[m].x, pts[m].z, 0.2)) { far = m; break; }
-    if (far === k) far = k + 1;
+    let far = k + 1;
+    for (let m = Math.min(pts.length - 1, k + 40); m > k + 1 && checks < 120; m -= 2) { checks++; if (lineClear(d, ctx, ax, az, pts[m].x, pts[m].z, 0.2)) { far = m; break; } }
     out.push(pts[far]); ax = pts[far].x; az = pts[far].z; k = far;
   }
   if (!out.length || out[out.length - 1] !== pts[pts.length - 1]) out.push(pts[pts.length - 1]);

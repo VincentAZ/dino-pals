@@ -20,7 +20,8 @@
   "eat reach: EAT_K 0.7 snout z at full pose 0.43",
   "walk stride/cycle 4.211 m, clip 3.2 s \u2192 speed 1.316 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 97}",
-  "exported blender/out/spinosaurus.glb 3.5 MB"
+  "lod1 tris 9999",
+  "exported blender/out/spinosaurus.glb 4.04 MB"
  ],
  "size": [
   5.592247009277344,

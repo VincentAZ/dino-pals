@@ -33,7 +33,7 @@ export interface AIData {
   home: THREE.Vector3; target: THREE.Vector3 | null; waitUntil: number; followUntil: number; foodTarget: Food | null;
   angle: number; radius: number; altitude: number; glideUntil: number; actionUntil: number; lastStep: number; breachT: number; nextRoar: number; lastChew: number; breachAt: number;
   yawVel: number; avoidSide: number; blocked: number; bestDist: number; progressAt: number;
-  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null; approachUntil: number; followSide: number;
+  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null; approachUntil: number; followSide: number; sniffFood: Food | null; sniffed: WeakSet<Food>;
 }
 
 export class Dino {
@@ -60,6 +60,9 @@ export class Dino {
   ai: AIData;
   index: number;
   private animTime = Math.random() * 100;
+  private animAcc = 0;
+  /** seconds between animation updates (0 = every frame); set by the spawner from distance */
+  animInterval = 0;
   private blob: THREE.Mesh;
 
   constructor(species: Species, index: number, pos: THREE.Vector3, heading: number) {
@@ -67,7 +70,7 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, approachUntil: 0, followSide: 0 };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet() };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;
@@ -122,6 +125,12 @@ export class Dino {
           this.actions.set(name, a);
         }
       }
+      // level of detail: '<id>_lod1' meshes share the skeleton with the full mesh
+      this.lodHi = []; this.lodLo = [];
+      model.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh) return; (/_lod1/.test(m.name) || /_lod1/.test(m.parent?.name ?? '') ? this.lodLo : this.lodHi).push(m); });
+      if (!this.lodLo.length) this.lodLo = this.lodHi;
+      for (const m of this.lodLo) if (this.lodLo !== this.lodHi) m.visible = false;
+      this.lod = 0;
       if (this.model) this.root.remove(this.model);
       this.model = model; this.root.add(model);
       this.placeholder = null; this.real = true;
@@ -182,6 +191,10 @@ export class Dino {
     const pos = this.root.position;
     const sp = this.species;
     if (this.loco && this.real) {
+      // distant animals update their legs at a lower rate (iPad CPU budget); the pose holds in between
+      this.animAcc += dt;
+      if (this.animAcc < this.animInterval) return;
+      dt = this.animAcc; this.animAcc = 0;
       // procedural legs: the body follows the planted feet, clips drive the upper body
       this.loco.placeBody(dt, this.heading);
       if (!this.animated) return;
@@ -291,6 +304,15 @@ export class Dino {
     const h = this.state === 'eat' ? 0.5 : (sp.headM ?? sp.heightM * 0.8) * this.scale;
     return out.set(this.root.position.x + Math.sin(this.heading) * snout, this.root.position.y + h, this.root.position.z + Math.cos(this.heading) * snout);
   }
+  private lodHi: THREE.Object3D[] = []; private lodLo: THREE.Object3D[] = []; private lod = 0;
+  /** 0 = full mesh, 1 = reduced mesh (with hysteresis handled by the caller). */
+  setLod(level: number): void {
+    if (level === this.lod || this.lodLo === this.lodHi || !this.lodHi.length) return;
+    this.lod = level;
+    for (const m of this.lodHi) m.visible = level === 0;
+    for (const m of this.lodLo) m.visible = level === 1;
+  }
+  get lodLevel(): number { return this.lod; }
   setBlobVisible(v: boolean): void { this.blob.visible = v && this.species.kind === 'land'; }
   private castShadowOn = true;
   setCastShadow(v: boolean): void {

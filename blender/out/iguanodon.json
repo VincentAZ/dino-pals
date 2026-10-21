@@ -18,12 +18,13 @@
   "landmarks y: snout -3.11 head base -2.3 neck base -1.58 hip 0.99 tail 5.89",
   "mouth line samples 14 open-mouth fraction 0.0",
   "bones 36 neck 2 tail 7 legs ['BR', 'BL', 'FR', 'FL']",
-  "geodesic weights 1.3 s",
+  "geodesic weights 1.1 s",
   "jaw vertices 1365",
   "eat reach: EAT_K 1.5 snout z at full pose 0.4",
   "walk stride/cycle 2.632 m, clip 2.63 s \u2192 speed 0.999 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 80}",
-  "exported blender/out/iguanodon.glb 1.96 MB"
+  "lod1 tris 7998",
+  "exported blender/out/iguanodon.glb 2.38 MB"
  ],
  "size": [
   1.571554183959961,

@@ -289,9 +289,15 @@ export function travel(d: Dino, ctx: DinoContext, gx: number, gz: number, dt: nu
   const moved = !ai.route || Math.hypot(ai.routeGoal.x - gx, ai.routeGoal.z - gz) > 1.5;
   const stalled = ctx.time - ai.progressAt > 3.5 && ctx.time > ai.routeReplanAt - 2;
   if (moved || stalled || ctx.time > ai.routeReplanAt) {
-    ai.route = planRoute(d, ctx, gx, gz) ?? [new THREE.Vector3(gx, 0, gz)];
-    ai.routeGoal.set(gx, 0, gz); ai.routeIdx = 0; ai.routeReplanAt = ctx.time + (moved ? 6 : 4);
-    if (stalled) ai.progressAt = ctx.time;
+    const r = planRoute(d, ctx, gx, gz);
+    if (r === undefined) {
+      // planning budget spent this frame: steer straight for now, plan on a later frame
+      if (!ai.route) ai.route = [new THREE.Vector3(gx, 0, gz)];
+    } else {
+      ai.route = r ?? [new THREE.Vector3(gx, 0, gz)];
+      ai.routeGoal.set(gx, 0, gz); ai.routeIdx = 0; ai.routeReplanAt = ctx.time + (moved ? 6 : 4) + Math.random();
+      if (stalled) ai.progressAt = ctx.time;
+    }
   }
   const route = ai.route!;
   let wp = route[Math.min(ai.routeIdx, route.length - 1)];

@@ -26,7 +26,8 @@
   "eat reach: EAT_K 1.9 snout z at full pose 0.51",
   "walk stride/cycle 2.369 m, clip 1.97 s \u2192 speed 1.204 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 60}",
-  "exported blender/out/pachycephalosaurus.glb 2.85 MB"
+  "lod1 tris 7000",
+  "exported blender/out/pachycephalosaurus.glb 3.55 MB"
  ],
  "size": [
   1.065704107284546,

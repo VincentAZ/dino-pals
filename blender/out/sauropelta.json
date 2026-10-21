@@ -19,12 +19,13 @@
   "landmarks y: snout -1.91 head base -1.47 neck base -1.08 hip 0.55 tail 3.59",
   "mouth line samples 12 open-mouth fraction 0.0",
   "bones 36 neck 2 tail 7 legs ['BR', 'BL', 'FR', 'FL']",
-  "geodesic weights 1.6 s",
+  "geodesic weights 1.4 s",
   "jaw vertices 1855",
   "eat reach: EAT_K 0.5 snout z at full pose 0.32",
   "walk stride/cycle 1.593 m, clip 1.99 s \u2192 speed 0.8 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 61}",
-  "exported blender/out/sauropelta.glb 3.4 MB"
+  "lod1 tris 8000",
+  "exported blender/out/sauropelta.glb 4.24 MB"
  ],
  "size": [
   1.7600979804992676,
