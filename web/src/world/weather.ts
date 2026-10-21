@@ -275,6 +275,8 @@ export class Puffs {
     for (const a of ['position', 'aSize', 'aAlpha', 'aColor']) (this.geo.getAttribute(a) as THREE.BufferAttribute).needsUpdate = true;
     this.points.visible = n > 0;
   }
+  /** Remove every live particle (used when rendering stills). */
+  clear(): void { this.pool.length = 0; this.points.visible = false; }
 }
 
 export class Weather {

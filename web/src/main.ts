@@ -74,6 +74,7 @@ interface DinoApi {
   setDinoCulling: (on: boolean) => void;
   simulateSlow: (ms: number) => void;
   setJawClose: (species: string, deg: number) => void;
+  clearFx: () => void;
   motionSample: () => (string | number)[][];
   director: (cam: [number, number, number] | null, targetId?: string | null, lookAt?: [number, number, number], height?: number) => void;
   biteLog: () => { dino: string; dist: number; t: number }[];
@@ -377,6 +378,7 @@ async function main(): Promise<void> {
       }
       return out;
     },
+    clearFx: () => { weather.sparkles.clear(); weather.puffs.clear(); },
     setJawClose: (species, deg) => { for (const d of dinos.dinos) if (d.species.id === species && d.loco) d.loco.jawClose = THREE.MathUtils.degToRad(deg); },
     setDinoCulling: (on) => { Dino.cullDinos = on; for (const d of dinos.dinos) d.root.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) o.frustumCulled = on; }); },
     probeTris: () => {
