@@ -723,6 +723,24 @@ if "__analysis" in body.vertex_groups:
     body.vertex_groups.remove(body.vertex_groups["__analysis"])
     log("inner shell weights copied from skin", len(shell))
 
+# ---------------------------------------------------------------- UV density (for world-scale skin detail in the engine)
+UV_PER_M = None
+try:
+    me = body.data; me.calc_loop_triangles(); uvl = me.uv_layers.active
+    if uvl is not None:
+        co = np.empty(len(me.vertices) * 3, np.float32); me.vertices.foreach_get("co", co); co = co.reshape(-1, 3)
+        uv = np.empty(len(uvl.data) * 2, np.float32); uvl.data.foreach_get("uv", uv); uv = uv.reshape(-1, 2)
+        lt = np.empty(len(me.loop_triangles) * 3, np.int32); me.loop_triangles.foreach_get("loops", lt); lt = lt.reshape(-1, 3)
+        vt = np.empty(len(me.loop_triangles) * 3, np.int32); me.loop_triangles.foreach_get("vertices", vt); vt = vt.reshape(-1, 3)
+        A3 = 0.5 * np.linalg.norm(np.cross(co[vt[:, 1]] - co[vt[:, 0]], co[vt[:, 2]] - co[vt[:, 0]]), axis=1)
+        e1 = uv[lt[:, 1]] - uv[lt[:, 0]]; e2 = uv[lt[:, 2]] - uv[lt[:, 0]]
+        A2 = 0.5 * np.abs(e1[:, 0] * e2[:, 1] - e1[:, 1] * e2[:, 0])
+        ok = (A3 > 1e-9) & (A2 > 1e-12)
+        UV_PER_M = float(np.sqrt(np.median(A2[ok] / A3[ok])))
+        log("uv per metre", round(UV_PER_M, 4))
+except Exception as e:
+    log("uv density failed", e)
+
 # ---------------------------------------------------------------- LOD1: reduced mesh on the same skeleton
 lod = body.copy(); lod.data = body.data.copy(); lod.name = f"{SPECIES_ID}_lod1"
 sc.collection.objects.link(lod)
@@ -799,7 +817,7 @@ if PREVIEW:
 
 json.dump(dict(species=SPECIES_ID, log=LOG, size=[float(x) for x in size], clips={k: v[1] for k, v in CLIPS.items()},
                snout=float(-mn[1]), headZ=float(arm_data.bones["head"].tail_local.z) if "head" in arm_data.bones else None,
-               eatReach=EAT_REACH,
+               eatReach=EAT_REACH, uvPerM=UV_PER_M,
                stride=STRIDE, walkSeconds=((CLIPS["walk"][1] - 1) / FPS) if "walk" in CLIPS else None,
                bones=[b.name for b in arm_data.bones]), open(os.path.join(OUT_DIR, f"{SPECIES_ID}.json"), "w"), indent=1)
 log("total", round(time.time() - t0, 1), "s")

@@ -26,6 +26,7 @@
   "eat reach: EAT_K 1.9 snout z at full pose 0.51",
   "walk stride/cycle 2.369 m, clip 1.97 s \u2192 speed 1.204 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 60}",
+  "uv per metre 0.2339",
   "lod1 tris 7000",
   "exported blender/out/pachycephalosaurus.glb 3.55 MB"
  ],
@@ -46,6 +47,7 @@
   0.8154025077819824,
   0.5131796598434448
  ],
+ "uvPerM": 0.23392683267593384,
  "stride": 2.369042992591858,
  "walkSeconds": 1.9666666666666666,
  "bones": [

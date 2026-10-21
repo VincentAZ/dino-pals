@@ -20,6 +20,7 @@
   "eat reach: EAT_K 0.7 snout z at full pose 0.43",
   "walk stride/cycle 4.211 m, clip 3.2 s \u2192 speed 1.316 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 97}",
+  "uv per metre 0.2103",
   "lod1 tris 9999",
   "exported blender/out/spinosaurus.glb 4.04 MB"
  ],
@@ -40,6 +41,7 @@
   8.964109420776367,
   0.4338216781616211
  ],
+ "uvPerM": 0.2102830857038498,
  "stride": 4.211493343114853,
  "walkSeconds": 3.2,
  "bones": [

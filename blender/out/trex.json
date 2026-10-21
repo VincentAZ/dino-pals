@@ -20,6 +20,7 @@
   "eat reach: EAT_K 1.0 snout z at full pose 0.4",
   "walk stride/cycle 3.825 m, clip 2.93 s \u2192 speed 1.303 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 89}",
+  "uv per metre 0.1174",
   "lod1 tris 9598",
   "exported blender/out/trex.glb 3.21 MB"
  ],
@@ -40,6 +41,7 @@
   3.2736239433288574,
   0.4033623933792114
  ],
+ "uvPerM": 0.11741426587104797,
  "stride": 3.8248215317726135,
  "walkSeconds": 2.933333333333333,
  "bones": [

@@ -26,12 +26,13 @@
   "landmarks y: snout -3.73 head base -1.52 neck base -1.26 hip 0.96 tail 4.77",
   "mouth line samples 21 open-mouth fraction 0.0",
   "bones 36 neck 2 tail 7 legs ['BR', 'FL', 'FR', 'BL']",
-  "geodesic weights 2.1 s",
+  "geodesic weights 2.0 s",
   "jaw vertices 1657",
   "eat reach: EAT_K 0.5 snout z at full pose 0.39",
   "walk stride/cycle 2.704 m, clip 2.25 s \u2192 speed 1.199 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 69}",
   "inner shell weights copied from skin 4684",
+  "uv per metre 0.0858",
   "lod1 tris 8999",
   "exported blender/out/triceratops.glb 4.09 MB"
  ],
@@ -52,6 +53,7 @@
   3.207127571105957,
   0.39038705825805664
  ],
+ "uvPerM": 0.08579528331756592,
  "stride": 2.703854978084564,
  "walkSeconds": 2.2666666666666666,
  "bones": [

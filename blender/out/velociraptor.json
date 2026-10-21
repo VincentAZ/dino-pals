@@ -20,6 +20,7 @@
   "eat reach: EAT_K 1.9 snout z at full pose 0.4",
   "walk stride/cycle 1.413 m, clip 1.19 s \u2192 speed 1.19 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 37}",
+  "uv per metre 0.4324",
   "lod1 tris 6000",
   "exported blender/out/velociraptor.glb 2.07 MB"
  ],
@@ -40,6 +41,7 @@
   0.472714364528656,
   0.3960081934928894
  ],
+ "uvPerM": 0.43235844373703003,
  "stride": 1.4131475985050201,
  "walkSeconds": 1.2,
  "bones": [

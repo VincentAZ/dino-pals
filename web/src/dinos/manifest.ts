@@ -8,7 +8,7 @@ export type ClipName = 'idle' | 'walk' | 'roar' | 'eat' | 'fly' | 'swim';
 
 export interface Species {
   id: string; name: string; sayName: string; kind: DinoKind; diet: Diet;
-  lengthM: number; heightM: number; speed: number; strideM?: number; walkSeconds?: number; snoutM?: number; headM?: number; widthM?: number; voice: Voice;
+  lengthM: number; heightM: number; speed: number; strideM?: number; walkSeconds?: number; snoutM?: number; headM?: number; widthM?: number; uvPerM?: number; voice: Voice;
   biomes: BiomeId[]; count: number; file: string;
   clips: Partial<Record<ClipName, string>>;
   attribution: { title: string; author: string; license: string; url: string };
@@ -27,7 +27,7 @@ function sanitize(raw: unknown): Species[] {
       id: s.id, name: s.name ?? s.id, sayName: s.sayName ?? s.name ?? s.id,
       kind: (['land', 'air', 'water'] as DinoKind[]).includes(s.kind as DinoKind) ? (s.kind as DinoKind) : 'land',
       diet: (['carnivore', 'herbivore', 'piscivore'] as Diet[]).includes(s.diet as Diet) ? (s.diet as Diet) : 'herbivore',
-      lengthM: Number(s.lengthM) || 5, heightM: Number(s.heightM) || 2, speed: Number(s.speed) || 1.2, strideM: Number(s.strideM) || undefined, walkSeconds: Number(s.walkSeconds) || undefined, snoutM: Number(s.snoutM) || undefined, headM: Number(s.headM) || undefined, widthM: Number(s.widthM) || undefined,
+      lengthM: Number(s.lengthM) || 5, heightM: Number(s.heightM) || 2, speed: Number(s.speed) || 1.2, strideM: Number(s.strideM) || undefined, walkSeconds: Number(s.walkSeconds) || undefined, snoutM: Number(s.snoutM) || undefined, headM: Number(s.headM) || undefined, widthM: Number(s.widthM) || undefined, uvPerM: Number(s.uvPerM) || undefined,
       voice: (s.voice as Voice) ?? 'ceratopsian',
       biomes: Array.isArray(s.biomes) && s.biomes.length ? (s.biomes as BiomeId[]) : ['meadow'],
       count: Math.max(1, Math.min(6, Number(s.count) || 2)), file: s.file ?? `${s.id}.glb`,

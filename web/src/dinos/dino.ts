@@ -6,6 +6,7 @@ import type { ClipName, Species } from './manifest.ts';
 import { buildPlaceholder, type PlaceholderRig } from './placeholder.ts';
 import { heightAt, waterAt } from '../world/heightmap.ts';
 import { Locomotion } from './locomotion.ts';
+import { applySkinDetail } from './skin.ts';
 import type { Obstacle } from '../world/obstacles.ts';
 
 export type DinoState = 'idle' | 'walk' | 'roar' | 'eat' | 'fly' | 'swim' | 'stomp' | 'sniff' | 'flap' | 'splash';
@@ -125,6 +126,7 @@ export class Dino {
           this.actions.set(name, a);
         }
       }
+      applySkinDetail(model, this.species.lengthM, this.species.uvPerM);
       // level of detail: '<id>_lod1' meshes share the skeleton with the full mesh
       this.lodHi = []; this.lodLo = [];
       model.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh) return; (/_lod1/.test(m.name) || /_lod1/.test(m.parent?.name ?? '') ? this.lodLo : this.lodHi).push(m); });

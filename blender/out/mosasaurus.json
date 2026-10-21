@@ -18,6 +18,7 @@
   "geodesic weights 0.6 s",
   "jaw vertices 1299",
   "clips {'idle': 121, 'swim': 61, 'roar': 61}",
+  "uv per metre 0.1541",
   "lod1 tris 6999",
   "exported blender/out/mosasaurus.glb 3.39 MB"
  ],
@@ -34,6 +35,7 @@
  "snout": 6.5,
  "headZ": -0.0689389556646347,
  "eatReach": null,
+ "uvPerM": 0.1541006863117218,
  "stride": null,
  "walkSeconds": null,
  "bones": [

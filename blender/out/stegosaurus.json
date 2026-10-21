@@ -17,11 +17,12 @@
   "landmarks y: snout -3.47 head base -2.99 neck base -2.35 hip 1.0 tail 4.53",
   "mouth line samples 9 open-mouth fraction 0.0",
   "bones 36 neck 2 tail 7 legs ['BR', 'BL', 'FL', 'FR']",
-  "geodesic weights 1.5 s",
+  "geodesic weights 1.4 s",
   "jaw vertices 247",
   "eat reach: EAT_K 0.5 snout z at full pose 0.38",
   "walk stride/cycle 2.072 m, clip 2.3 s \u2192 speed 0.901 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 70}",
+  "uv per metre 0.1084",
   "lod1 tris 7999",
   "exported blender/out/stegosaurus.glb 2.54 MB"
  ],
@@ -42,6 +43,7 @@
   3.09152889251709,
   0.3754407465457916
  ],
+ "uvPerM": 0.10843443125486374,
  "stride": 2.0721644163131714,
  "walkSeconds": 2.3,
  "bones": [

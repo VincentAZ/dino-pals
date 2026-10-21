@@ -22,6 +22,7 @@
   "eat reach: EAT_K 1.0 snout z at full pose 0.3",
   "walk stride/cycle 2.768 m, clip 2.12 s \u2192 speed 1.304 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 65}",
+  "uv per metre 0.0909",
   "lod1 tris 8000",
   "exported blender/out/allosaurus.glb 3.24 MB"
  ],
@@ -42,6 +43,7 @@
   3.70094895362854,
   0.3014681339263916
  ],
+ "uvPerM": 0.09086775034666061,
  "stride": 2.767907500267029,
  "walkSeconds": 2.1333333333333333,
  "bones": [

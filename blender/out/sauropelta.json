@@ -24,6 +24,7 @@
   "eat reach: EAT_K 0.5 snout z at full pose 0.32",
   "walk stride/cycle 1.593 m, clip 1.99 s \u2192 speed 0.8 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 61}",
+  "uv per metre 0.1768",
   "lod1 tris 8000",
   "exported blender/out/sauropelta.glb 4.24 MB"
  ],
@@ -44,6 +45,7 @@
   1.7006523609161377,
   0.3214850127696991
  ],
+ "uvPerM": 0.1768341064453125,
  "stride": 1.5933434069156647,
  "walkSeconds": 2.0,
  "bones": [

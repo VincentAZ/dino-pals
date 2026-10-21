@@ -15,7 +15,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 300)); });
-await page.goto(`http://localhost:${PORT}/?q=high`, { waitUntil: 'load' });
+await page.goto(`http://localhost:${PORT}/?q=high${process.env.QS ?? ''}`, { waitUntil: 'load' });
 await page.waitForSelector('#splash'); await page.waitForTimeout(300);
 await page.touchscreen.tap(590, 410);
 await page.waitForFunction(() => window.__dino && window.__dino.ready, null, { timeout: 60000 });

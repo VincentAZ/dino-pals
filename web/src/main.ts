@@ -17,6 +17,7 @@ import { BIOMES, BIOME_IDS, biomeWeights, type BiomeId } from './world/biomes.ts
 import { heightAt, waterAt } from './world/heightmap.ts';
 import { loadManifest, type Species } from './dinos/manifest.ts';
 import { DinoManager } from './dinos/spawner.ts';
+import { loadSkinDetail } from './dinos/skin.ts';
 import { facePlayer, secondAction, triggerAction } from './dinos/ai.ts';
 import type { Dino, DinoContext, DinoState, Food } from './dinos/dino.ts';
 import { bodyOf } from './dinos/ai_land.ts';
@@ -123,6 +124,7 @@ async function main(): Promise<void> {
   const ambience = new Ambience(audio);
   const music = new Music(audio);
 
+  loadSkinDetail();
   const speciesList: Species[] = await loadManifest();
   dinos.spawnAll(speciesList);
 

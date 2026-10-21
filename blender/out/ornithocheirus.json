@@ -16,6 +16,7 @@
   "geodesic weights 0.8 s",
   "jaw vertices 3580",
   "clips {'idle': 73, 'fly': 31, 'roar': 61}",
+  "uv per metre 0.3394",
   "lod1 tris 6000",
   "exported blender/out/ornithocheirus.glb 1.98 MB"
  ],
@@ -32,6 +33,7 @@
  "snout": 1.3616353273391724,
  "headZ": 0.17202390730381012,
  "eatReach": null,
+ "uvPerM": 0.3393709361553192,
  "stride": null,
  "walkSeconds": null,
  "bones": [

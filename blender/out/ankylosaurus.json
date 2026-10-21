@@ -24,6 +24,7 @@
   "eat reach: EAT_K 0.8 snout z at full pose 0.37",
   "walk stride/cycle 1.786 m, clip 2.23 s \u2192 speed 0.801 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 68}",
+  "uv per metre 0.2073",
   "lod1 tris 8000",
   "exported blender/out/ankylosaurus.glb 4.66 MB"
  ],
@@ -44,6 +45,7 @@
   1.4708282947540283,
   0.36885136365890503
  ],
+ "uvPerM": 0.2072789967060089,
  "stride": 1.7862239480018616,
  "walkSeconds": 2.2333333333333334,
  "bones": [

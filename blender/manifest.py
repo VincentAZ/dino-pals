@@ -46,6 +46,7 @@ for s in species:
     if os.path.exists(meta):
         j = json.load(open(meta)); sz = j["size"]; s["heightM"] = round(sz[2], 2); s["widthM"] = round(sz[0], 2)
         if j.get("snout"): s["snoutM"] = round(j["snout"], 2)
+        if j.get("uvPerM"): s["uvPerM"] = round(j["uvPerM"], 4)
         if j.get("headZ"): s["headM"] = round(j["headZ"], 2)
         if j.get("stride") and j.get("walkSeconds"):
             s["strideM"] = round(j["stride"], 3); s["walkSeconds"] = round(j["walkSeconds"], 3)

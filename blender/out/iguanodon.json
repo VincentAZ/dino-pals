@@ -23,6 +23,7 @@
   "eat reach: EAT_K 1.5 snout z at full pose 0.4",
   "walk stride/cycle 2.632 m, clip 2.63 s \u2192 speed 0.999 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 80}",
+  "uv per metre 0.1191",
   "lod1 tris 7998",
   "exported blender/out/iguanodon.glb 2.38 MB"
  ],
@@ -43,6 +44,7 @@
   1.7921128273010254,
   0.40082651376724243
  ],
+ "uvPerM": 0.11911948770284653,
  "stride": 2.631572335958481,
  "walkSeconds": 2.6333333333333333,
  "bones": [
