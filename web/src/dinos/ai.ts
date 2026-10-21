@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Dino, type DinoContext, type DinoState, type Food, type FoodItem } from './dino.ts';
 import { heightAt, waterAt } from '../world/heightmap.ts';
 import { HALF } from '../world/biomes.ts';
-import { brake, travel, freeSpot, headingError, pivotToward, resolveOverlaps, bodyOf } from './ai_land.ts';
+import { brake, travel, freeSpot, headingError, pivotToward, resolveOverlaps, bodyOf, coast, setAICtx, moveBlocked } from './ai_land.ts';
 
 function turnToward(d: Dino, tx: number, tz: number, dt: number, rate: number): number {
   const diff = headingError(d, tx, tz);
@@ -44,6 +44,7 @@ export function eatStand(d: Dino, f: Food, player: THREE.Vector3, slot: number, 
 
 
 export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
+  setAICtx(ctx);
   const sp = d.species; const ai = d.ai; const pos = d.root.position;
   const following = ctx.time < ai.followUntil;
 
@@ -52,8 +53,8 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
     if (d.loco && d.state !== 'eat') d.loco.reachWeight = 0;
     // one-shot actions block walking, but the body may still turn toward the child (stepping)
     if (d.isBusy) {
-      if (ai.faceTarget && ctx.time < ai.faceUntil) { if (pivotToward(d, ai.faceTarget.x, ai.faceTarget.z, dt) < 0.08) ai.faceTarget = null; }
-      else { d.speed = 0; ai.yawVel *= 0.8; d.heading += ai.yawVel * dt; }
+      if (ai.faceTarget && ctx.time < ai.faceUntil) { if (pivotToward(d, ai.faceTarget.x, ai.faceTarget.z, dt, ctx) < 0.08) ai.faceTarget = null; }
+      else { coast(d, dt); ai.yawVel *= 0.8; d.heading += ai.yawVel * dt; }
       if (d.state === 'eat') eatTick(d, dt, ctx);
       if (d.stateTime > d.busyFor(d.state)) {
         if (d.state === 'eat' && ai.foodTarget && ai.foodTarget.amount > 0 && ai.biteItem && !ai.biteItem.eaten) { ai.lastChew = -1; ai.bitten = false; d.replay(); }
@@ -63,7 +64,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       return;
     }
     if (ai.faceTarget && ctx.time < ai.faceUntil) {
-      if (pivotToward(d, ai.faceTarget.x, ai.faceTarget.z, dt) < 0.08) ai.faceTarget = null;
+      if (pivotToward(d, ai.faceTarget.x, ai.faceTarget.z, dt, ctx) < 0.08) ai.faceTarget = null;
       d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle');
       resolveOverlaps(d, ctx);
       return;
@@ -100,7 +101,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       ai.foodTarget = null;
       const dist = Math.hypot(gx - pos.x, gz - pos.z);
       if (dist > 2.5) travel(d, ctx, gx, gz, dt, d.species.speed * d.speedScale * (dist > 10 ? 2.2 : 1.2), 1.5);
-      else if (Math.abs(headingError(d, ctx.eye.x, ctx.eye.z)) > 0.7) { pivotToward(d, ctx.eye.x, ctx.eye.z, dt); d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); }
+      else if (Math.abs(headingError(d, ctx.eye.x, ctx.eye.z)) > 0.7) { pivotToward(d, ctx.eye.x, ctx.eye.z, dt, ctx); d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); }
       else brake(d, dt);
       resolveOverlaps(d, ctx);
       return;
@@ -123,7 +124,11 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
     if (par && par.awake) {
       const pp = par.root.position, L = par.sizeM, side = d.index % 2 ? 1 : -1;
       const sx = Math.sin(par.heading), cx = Math.cos(par.heading);
-      const ox = -sx * L * 0.15 + cx * side * (L * 0.22 + 1.2), oz = -cx * L * 0.15 - sx * side * (L * 0.22 + 1.2);
+      // stand outside the circle the parent's body sweeps when it turns in place
+      const pb = bodyOf(par), mb = bodyOf(d); const back = L * 0.15;
+      const sweep = Math.max(pb.front, pb.back) + pb.r + mb.r + 0.5;
+      const lat = Math.max(L * 0.22 + 1.2, Math.sqrt(Math.max(0, sweep * sweep - back * back)));
+      const ox = -sx * back + cx * side * lat, oz = -cx * back - sx * side * lat;
       // aim where the parent will be in a moment, so the baby sets off together with it
       const lead = par.speed > 0.15 ? 1.5 : 0;
       const gx = pp.x + ox + sx * par.speed * lead, gz = pp.z + oz + cx * par.speed * lead;
@@ -131,9 +136,9 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       if (dist > (par.speed > 0.15 ? 0.6 : 2.2 + L * 0.05)) {
         travel(d, ctx, gx, gz, dt, Math.max(par.speed * 1.15, sp.speed * d.speedScale * (dist > 6 ? 2.4 : 1.2)), 0.5);
       } else if (par.state === 'eat' && Math.random() < dt * 0.6) {
-        ai.lastChew = -1; d.setState('eat'); ctx.onEvent(d, 'graze'); return;
+        ai.lastChew = -1; coast(d, dt); d.setState('eat'); ctx.onEvent(d, 'graze'); return;
       } else if (Math.abs(headingError(d, pos.x + sx, pos.z + cx)) > 0.5 && par.speed < 0.1) {
-        pivotToward(d, pos.x + sx * 5, pos.z + cx * 5, dt); d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle');
+        pivotToward(d, pos.x + sx * 5, pos.z + cx * 5, dt, ctx); d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle');
       } else brake(d, dt);
       // a baby answers when its parent calls
       if (par.state === 'roar' && par.stateTime < 0.1 && d.state !== 'roar') { ai.echoAt = ctx.time + 0.7 + Math.random() * 0.4; }
@@ -143,7 +148,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
     }
     // grown-up herbivores graze now and then while idling
     if (sp.diet === 'herbivore' && !ai.target && !ai.foodTarget && d.speed < 0.05 && ctx.time > ai.waitUntil - 1 && Math.random() < dt * 0.05) {
-      ai.lastChew = -1; d.setState('eat'); ctx.onEvent(d, 'graze'); return;
+      ai.lastChew = -1; coast(d, dt); d.setState('eat'); ctx.onEvent(d, 'graze'); return;
     }
     // carnivores are curious about the pile: walk over, sniff it, lose interest, wander off
     if (sp.diet === 'carnivore') {
@@ -159,7 +164,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
           const sx = f.pos.x + dx * R, sz = f.pos.z + dz * R;
           const here = Math.hypot(sx - pos.x, sz - pos.z);
           if (here < 0.8 || ctx.time - ai.progressAt > 6) {
-            if (pivotToward(d, f.pos.x, f.pos.z, dt) > 0.1) { d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); resolveOverlaps(d, ctx); return; }
+            if (pivotToward(d, f.pos.x, f.pos.z, dt, ctx) > 0.1) { d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); resolveOverlaps(d, ctx); return; }
             ai.sniffed.add(f); ai.sniffFood = null;
             d.setState('sniff'); ctx.onEvent(d, 'sniff');
             // afterwards: amble away from the pile
@@ -221,19 +226,33 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
         }
         const here = Math.hypot(ai.standAt.x - pos.x, ai.standAt.z - pos.z);
         const tol = ai.repositions ? 0.1 : 0.45;
-        if (here < tol || (ai.repositions > 0 && here < 0.8 && ctx.time - ai.progressAt > 1.5)) {
+        // hysteresis: once arrived, stay arrived until well outside the tolerance (no step/turn flicker)
+        if (here < tol || (ai.standOk === true && here < tol * 2.5 + 0.05) || (ai.repositions > 0 && here < 0.8 && ctx.time - ai.progressAt > 1.5)) {
           if (here < tol && ai.standOk !== false) ai.standOk = true;
+          if (ai.shuffling) {   // let the last shuffle step settle out over a few frames
+            ai.shuffleV.multiplyScalar(Math.max(0, 1 - dt * 9));
+            const sx2 = pos.x + ai.shuffleV.x * dt, sz2 = pos.z + ai.shuffleV.z * dt;
+            if (!moveBlocked(d, ctx, sx2, sz2)) { pos.x = sx2; pos.z = sz2; }
+            if (ai.shuffleV.lengthSq() < 0.0004) ai.shuffling = false;
+          }
           // final alignment: face the item, then eat it
-          if (pivotToward(d, item.pos.x, item.pos.z, dt) > 0.06 || Math.abs(ai.yawVel) > 0.08) { d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); resolveOverlaps(d, ctx); return; }
+          if (pivotToward(d, item.pos.x, item.pos.z, dt, ctx) > 0.06 || Math.abs(ai.yawVel) > 0.08) { d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); resolveOverlaps(d, ctx); return; }
           ai.yawVel = 0; ai.lastChew = -1; ai.bitten = false; ai.biteItem = item; d.setState('eat'); ctx.onEvent(d, 'eat'); return;
         }
         if (here < (ai.repositions ? 1.5 : 1.6)) {
           // shuffle: a slow direct step or two while keeping the head on the item
-          const v = Math.min(0.55, Math.max(0.2, here * 0.8)) * (d.species.lengthM > 8 ? 0.8 : 1);
-          const k = Math.min(1, (v * dt) / here);
-          pos.x += (ai.standAt.x - pos.x) * k; pos.z += (ai.standAt.z - pos.z) * k;
-          pivotToward(d, item.pos.x, item.pos.z, dt);
-          d.speed = v; d.setState('walk');
+          // the shuffle has its own velocity: it starts from the walking velocity and steers toward the
+          // stand point with limited acceleration (no direction or speed change in a single frame)
+          const vt = Math.min(0.55, Math.max(0.2, here * 0.8)) * (d.species.lengthM > 8 ? 0.8 : 1);
+          if (!ai.shuffling) { ai.shuffleV.set(Math.sin(d.heading) * d.speed, 0, Math.cos(d.heading) * d.speed); ai.shuffling = true; }
+          const ux = (ai.standAt.x - pos.x) / here * vt - ai.shuffleV.x, uz = (ai.standAt.z - pos.z) / here * vt - ai.shuffleV.z;
+          const ul = Math.hypot(ux, uz), amax = 2.0 * dt;
+          if (ul > amax) { ai.shuffleV.x += ux / ul * amax; ai.shuffleV.z += uz / ul * amax; } else { ai.shuffleV.x += ux; ai.shuffleV.z += uz; }
+          let stepX = ai.shuffleV.x * dt, stepZ = ai.shuffleV.z * dt; const sl = Math.hypot(stepX, stepZ);
+          if (sl > here) { stepX *= here / sl; stepZ *= here / sl; }
+          if (!moveBlocked(d, ctx, pos.x + stepX, pos.z + stepZ)) { pos.x += stepX; pos.z += stepZ; } else ai.shuffleV.multiplyScalar(0.5);
+          d.speed = 0; pivotToward(d, item.pos.x, item.pos.z, dt, ctx);   // turn only (the step above is the motion)
+          d.speed = Math.hypot(ai.shuffleV.x, ai.shuffleV.z); d.setState('walk');
           if (here < ai.bestDist - 0.03) { ai.bestDist = here; ai.progressAt = ctx.time; }
           if (ctx.time - ai.progressAt > 1.5) {
             // blocked (by a neighbour): eat from where we stand — the item nearest to our snout
@@ -473,8 +492,7 @@ export function triggerAction(d: Dino, action: DinoState, ctx: DinoContext): Din
   if (d.ai.foodTarget) { d.ai.foodTarget.eaters.delete(d.index); d.ai.foodTarget = null; }
   d.ai.standAt = null; d.ai.standItem = null;
   d.ai.awakeUntil = ctx.time + 45;
-  d.speed = 0;
-  d.setState('idle'); d.setState(action);
+  d.setState('idle'); d.setState(action);   // keeps its speed: the busy branch coasts it to a halt
   ctx.onEvent(d, action as 'roar' | 'eat' | 'stomp' | 'sniff');
   // after saying hello from afar, come closer
   const far = Math.hypot(ctx.player.x - d.root.position.x, ctx.player.z - d.root.position.z);

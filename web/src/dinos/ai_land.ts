@@ -136,15 +136,48 @@ export function headingError(d: Dino, tx: number, tz: number): number {
 }
 
 /** Turn in place toward a world point at the rate the feet can follow (with angular acceleration). */
-export function pivotToward(d: Dino, tx: number, tz: number, dt: number): number {
+/**
+ * Would turning to heading `h` push this body further into another animal or a tree? Turning in place
+ * sweeps a long body sideways like a door; without this check it swept into babies and neighbours,
+ * and the overlap fix then shoved both sideways.
+ */
+export function turnBlocked(d: Dino, ctx: DinoContext, h: number): boolean {
+  const pos = d.root.position; const b = bodyOf(d);
+  for (const e of ctx.others) {
+    if (e === d || !e.awake || e.species.kind !== 'land') continue;
+    const ep = e.root.position;
+    if (Math.abs(ep.x - pos.x) > 40 || Math.abs(ep.z - pos.z) > 40) continue;
+    const k = coEaters(d, e) ? 0.35 : 1;
+    const [ex0, ez0, ex1, ez1] = capsule(e, ep.x, ep.z, e.heading, k);
+    const min = b.r + bodyOf(e).r + 0.05;
+    const [ax, az, bx, bz] = capsule(d, pos.x, pos.z, h, k);
+    const dn = segSeg(ax, az, bx, bz, ex0, ez0, ex1, ez1, P, Q);
+    if (dn >= min) continue;
+    const [cx0, cz0, cx1, cz1] = capsule(d, pos.x, pos.z, d.heading, k);
+    if (dn < segSeg(cx0, cz0, cx1, cz1, ex0, ez0, ex1, ez1, P, Q) - 1e-3) return true;
+  }
+  const [ax, az, bx, bz] = capsule(d, pos.x, pos.z, h);
+  const [cx0, cz0, cx1, cz1] = capsule(d, pos.x, pos.z, d.heading);
+  for (const o of ctx.obstacles.near(pos.x, pos.z, b.front + b.back + 4, near)) {
+    const min = obstacleRadius(d, o);
+    closestOnSeg(o.x, o.z, ax, az, bx, bz, P); const dn = Math.hypot(o.x - P.x, o.z - P.z);
+    if (dn >= min) continue;
+    closestOnSeg(o.x, o.z, cx0, cz0, cx1, cz1, Q);
+    if (dn < Math.hypot(o.x - Q.x, o.z - Q.z) - 1e-3) return true;
+  }
+  return false;
+}
+
+export function pivotToward(d: Dino, tx: number, tz: number, dt: number, ctx?: DinoContext): number {
   const err = headingError(d, tx, tz);
   const max = d.maxTurnRate;
   const want = THREE.MathUtils.clamp(err * 2.2, -max, max);
   const acc = d.species.lengthM > 8 ? 1.6 : 3.5;
   d.ai.yawVel += THREE.MathUtils.clamp(want - d.ai.yawVel, -acc * dt, acc * dt);
   if (Math.abs(err) < 0.02) d.ai.yawVel *= 0.5;
-  d.heading += d.ai.yawVel * dt;
-  d.speed = Math.max(0, d.speed - d.maxSpeed * dt * 2.5);
+  const nh = d.heading + d.ai.yawVel * dt;
+  if (ctx && turnBlocked(d, ctx, nh)) d.ai.yawVel *= 0.5; else d.heading = nh;
+  coast(d, dt);   // carry the remaining walking speed into a short glide while turning
   return Math.abs(err);
 }
 
@@ -193,8 +226,10 @@ function chooseVelocity(d: Dino, ctx: DinoContext, dx: number, dz: number, pref:
     // lower-priority animals treat moving higher-priority ones as moving; the others only half
     const share = e.index < d.index || !moving ? 1 : 0.5;
     const fk = coEaters(d, e) ? 0.35 : 1;
-    circles.push({ x: ep.x + s * eb.front * 0.55 * fk, z: ep.z + c * eb.front * 0.55 * fk, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
-    circles.push({ x: ep.x - s * eb.back * 0.55, z: ep.z - c * eb.back * 0.55, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
+    // three circles cover the whole capsule (two at mid-length left the ends of long bodies unseen)
+    circles.push({ x: ep.x + s * eb.front * 0.8 * fk, z: ep.z + c * eb.front * 0.8 * fk, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
+    circles.push({ x: ep.x, z: ep.z, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
+    circles.push({ x: ep.x - s * eb.back * 0.8, z: ep.z - c * eb.back * 0.8, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
   }
   for (const [ox, oz, rr] of ctx.keepClear) circles.push({ x: ox, z: oz, r: rr + 0.6, vx: 0, vz: 0, hard: true });
   const base = Math.atan2(dx, dz);
@@ -204,15 +239,16 @@ function chooseVelocity(d: Dino, ctx: DinoContext, dx: number, dz: number, pref:
     for (const k of [1, 0.55]) {
       const sp = pref * k;
       const vx = s * sp, vz = c * sp;
-      // our two body circles, oriented along the candidate direction
-      const fx = pos.x + s * b.front * 0.55, fz = pos.z + c * b.front * 0.55;
-      const bx = pos.x - s * b.back * 0.55, bz = pos.z - c * b.back * 0.55;
+      // our body as three circles along the candidate direction (front, middle, back of the capsule)
+      const fx = pos.x + s * b.front * 0.8, fz = pos.z + c * b.front * 0.8;
+      const bx = pos.x - s * b.back * 0.8, bz = pos.z - c * b.back * 0.8;
       let t = Infinity;
       for (const o of circles) {
         const R = o.r + b.r;
         const t1 = ttc(o.x - fx, o.z - fz, o.vx - vx, o.vz - vz, R);
         const t2 = ttc(o.x - bx, o.z - bz, o.vx - vx, o.vz - vz, R);
-        const tt = Math.min(t1, t2);
+        const t3 = ttc(o.x - pos.x, o.z - pos.z, o.vx - vx, o.vz - vz, R);
+        const tt = Math.min(t1, t2, t3);
         if (tt < t) t = tt;
         if (t === 0) break;
       }
@@ -235,6 +271,7 @@ function chooseVelocity(d: Dino, ctx: DinoContext, dx: number, dz: number, pref:
  */
 export function drive(d: Dino, ctx: DinoContext, tx: number, tz: number, dt: number, maxSpeed: number, stopDist: number, through = false): number {
   const ai = d.ai; const pos = d.root.position; const b = bodyOf(d);
+  if (ai.shuffling) { ai.shuffling = false; d.speed = Math.max(0, ai.shuffleV.x * Math.sin(d.heading) + ai.shuffleV.z * Math.cos(d.heading)); }
   maxSpeed = Math.min(maxSpeed, maxSpeed > d.species.speed * d.speedScale * 1.05 ? d.trotSpeed : d.maxSpeed);
   let dx = tx - pos.x, dz = tz - pos.z;
   const dist = Math.hypot(dx, dz);
@@ -259,7 +296,7 @@ export function drive(d: Dino, ctx: DinoContext, tx: number, tz: number, dt: num
   const wantYaw = THREE.MathUtils.clamp(err * 2.0, -maxYaw, maxYaw);
   const angAcc = d.species.lengthM > 8 ? 1.4 : 3.2;
   ai.yawVel += THREE.MathUtils.clamp(wantYaw - ai.yawVel, -angAcc * dt, angAcc * dt);
-  d.heading += ai.yawVel * dt;
+  { const nh = d.heading + ai.yawVel * dt; if (d.speed < 0.5 && Math.abs(ai.yawVel) > 0.05 && turnBlocked(d, ctx, nh)) ai.yawVel *= 0.5; else d.heading = nh; }
   // ---- speed
   const turnSlow = pivoting ? 0 : absErr > 0.9 ? 0.3 : absErr > 0.45 ? 0.6 : 1;
   const want = Math.min(ai.steerSpeed, maxSpeed * Math.min(arrive, turnSlow));
@@ -275,15 +312,57 @@ export function drive(d: Dino, ctx: DinoContext, tx: number, tz: number, dt: num
   return dist;
 }
 
+/** A one-shot action started while walking: glide to a halt over a fraction of a second, not in a frame. */
+export function coast(d: Dino, dt: number, decel = Math.max(1.2, d.maxSpeed * 1.5)): void {
+  if (d.speed <= 0) return;
+  d.speed = Math.max(0, d.speed - decel * dt);
+  const pos = d.root.position; const b = bodyOf(d);
+  const nx = pos.x + Math.sin(d.heading) * d.speed * dt, nz = pos.z + Math.cos(d.heading) * d.speed * dt;
+  const ok = landOk(nx, nz) && landOk(nx + Math.sin(d.heading) * b.front, nz + Math.cos(d.heading) * b.front) && !(aiCtx && moveBlocked(d, aiCtx, nx, nz));
+  if (ok) { pos.x = nx; pos.z = nz; } else d.speed = 0;
+}
+/** The context of the dinosaur currently being updated (set by updateAI), for helpers without a ctx argument. */
+let aiCtx: DinoContext | null = null;
+export function setAICtx(ctx: DinoContext): void { aiCtx = ctx; }
+/** Would moving the body to (x,z) bring it closer into another animal, a tree, or the explorer / camera? */
+export function moveBlocked(d: Dino, ctx: DinoContext, x: number, z: number): boolean {
+  const pos = d.root.position; const b = bodyOf(d);
+  const [ax, az, bx, bz] = capsule(d, x, z, d.heading);
+  const [cx0, cz0, cx1, cz1] = capsule(d, pos.x, pos.z, d.heading);
+  for (const e of ctx.others) {
+    if (e === d || !e.awake || e.species.kind !== 'land') continue;
+    const ep = e.root.position;
+    if (Math.abs(ep.x - pos.x) > 40 || Math.abs(ep.z - pos.z) > 40) continue;
+    const k = coEaters(d, e) ? 0.35 : 1;
+    const [ex0, ez0, ex1, ez1] = capsule(e, ep.x, ep.z, e.heading, k);
+    const min = b.r + bodyOf(e).r + 0.05;
+    const dn = segSeg(ax, az, bx, bz, ex0, ez0, ex1, ez1, P, Q);
+    if (dn < min && dn < segSeg(cx0, cz0, cx1, cz1, ex0, ez0, ex1, ez1, P, Q)) return true;
+  }
+  for (const o of ctx.obstacles.near(x, z, b.front + b.back + 4, near)) {
+    closestOnSeg(o.x, o.z, ax, az, bx, bz, P); const dn = Math.hypot(o.x - P.x, o.z - P.z);
+    if (dn < obstacleRadius(d, o)) { closestOnSeg(o.x, o.z, cx0, cz0, cx1, cz1, Q); if (dn < Math.hypot(o.x - Q.x, o.z - Q.z)) return true; }
+  }
+  for (const [ox, oz, rr] of ctx.keepClear) {
+    closestOnSeg(ox, oz, ax, az, bx, bz, P); const dn = Math.hypot(ox - P.x, oz - P.z);
+    if (dn < rr + b.r) { closestOnSeg(ox, oz, cx0, cz0, cx1, cz1, Q); if (dn < Math.hypot(ox - Q.x, oz - Q.z)) return true; }
+  }
+  return false;
+}
+
 export function brake(d: Dino, dt: number): void {
-  d.speed = Math.max(0, d.speed - d.maxSpeed * dt * 2);
+  coast(d, dt, Math.max(1.0, d.maxSpeed * 2));   // decelerate while still moving (a dead stop looks robotic)
   d.ai.yawVel *= Math.max(0, 1 - dt * 4);
   d.heading += d.ai.yawVel * dt;
   d.setState(d.speed > 0.05 || Math.abs(d.ai.yawVel) > 0.05 ? 'walk' : 'idle');
 }
 
 /** Hard non-overlap constraint against trees/rocks and other dinosaurs (small positional fixes). */
+/** debug: positional corrections applied by the last resolveOverlaps call, per dinosaur */
+export const pushStats = { tree: 0, dino: 0, lastOther: '' };
+export const lastPush = new WeakMap<Dino, [number, number, string]>();
 export function resolveOverlaps(d: Dino, ctx: DinoContext): void {
+  pushStats.tree = 0; pushStats.dino = 0; pushStats.lastOther = '';
   if (d.species.kind !== 'land') return;
   const pos = d.root.position; const b = bodyOf(d);
   for (let iter = 0; iter < 2; iter++) {
@@ -291,7 +370,7 @@ export function resolveOverlaps(d: Dino, ctx: DinoContext): void {
     for (const o of ctx.obstacles.near(pos.x, pos.z, b.front + b.back + 4, near)) {
       closestOnSeg(o.x, o.z, ax, az, bx, bz, P);
       const min = obstacleRadius(d, o); const dx = P.x - o.x, dz = P.z - o.z; const dd = Math.hypot(dx, dz);
-      if (dd < min && dd > 1e-4) { const push = min - dd; pos.x += dx / dd * push; pos.z += dz / dd * push; }
+      if (dd < min && dd > 1e-4) { const push = min - dd; pos.x += dx / dd * push; pos.z += dz / dd * push; pushStats.tree += push; }
     }
     for (const e of ctx.others) {
       if (e === d || !e.awake || e.species.kind !== 'land') continue;
@@ -305,10 +384,11 @@ export function resolveOverlaps(d: Dino, ctx: DinoContext): void {
       if (dd < min && dd > 1e-4) {
         // the one that is moving (or the smaller one) gives way
         const share = e.isBusy || e.speed < 0.05 ? 1 : d.speed < 0.05 ? 0 : 0.5;
-        const push = (min - dd) * share; pos.x += (P.x - Q.x) / dd * push; pos.z += (P.z - Q.z) / dd * push;
+        const push = (min - dd) * share; pos.x += (P.x - Q.x) / dd * push; pos.z += (P.z - Q.z) / dd * push; pushStats.dino += push; pushStats.lastOther = e.root.name;
       }
     }
   }
+  lastPush.set(d, [pushStats.tree, pushStats.dino, pushStats.lastOther]);
 }
 
 /** A wander goal the body can actually stand on (clear of trees/rocks), or null. */

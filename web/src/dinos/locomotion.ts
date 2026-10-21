@@ -58,7 +58,7 @@ interface Leg {
 
 export interface LocoEvents { onPlant: (pos: THREE.Vector3, leg: string, heavy: boolean) => void }
 
-export interface LocoStats { maxSlip: number; maxReach: number; steps: number; gait: number; settle: number; emergency: number }
+export interface LocoStats { maxSlip: number; maxReach: number; steps: number; gait: number; settle: number; emergency: number; reach: number }
 
 export class Locomotion {
   legs: Leg[] = [];
@@ -74,6 +74,8 @@ export class Locomotion {
   head: THREE.Bone | null = null;
   snout: THREE.Bone | null = null;
   jaw: THREE.Bone | null = null;
+  /** radians that close this species' sculpted-open mouth, applied with weight jawW easing to jawTarget */
+  jawClose = 0; jawTarget = 1; jawW = 1;
   legLen: number;                         // mean hip height (m)
   footRadius: number;                     // mean horizontal distance of feet from the root origin
   footRadiusMax = 1;
@@ -110,7 +112,7 @@ export class Locomotion {
   /** 0 = standing, 1 = lying down (sleep): the pelvis lowers and the IK folds the legs */
   crouch = 0;
   private crouchCur = 0;
-  stats: LocoStats = { maxSlip: 0, maxReach: 0, steps: 0, gait: 0, settle: 0, emergency: 0 };
+  stats: LocoStats = { maxSlip: 0, maxReach: 0, steps: 0, gait: 0, settle: 0, emergency: 0, reach: 0 };
   private started = false;
 
   static create(root: THREE.Object3D, model: THREE.Object3D): Locomotion | null {
@@ -296,6 +298,17 @@ export class Locomotion {
         if (this.stomp && !conflict && this.stillTime > 0.15) { start = true; settle = true; }
         else if (!conflict && this.stillTime > 0.2 && (err > 0.12 * this.legLen || yawErr > 0.45)) { start = true; settle = true; }
       }
+      // reach: a planted leg pulled nearly straight by the body moving / turning away from it steps now,
+      // instead of the hips dropping to let it reach (real animals step; they don't squat)
+      if (!start && err > 0.15 * this.legLen) {
+        const H = wpos(l.thigh, _a), K = wpos(l.shin, _b), A = wpos(l.foot, _c);
+        const full = H.distanceTo(K) + K.distanceTo(A);
+        const ank = _g.copy(l.restAnkleOff).applyQuaternion(_q.setFromAxisAngle(UP, l.plantYaw)).add(l.plant);
+        if (H.distanceTo(ank) > 0.93 * full) {
+          const conflict = this.legs.some((o) => o !== l && o.swinging && (this.biped || o.front === l.front || o.side === l.side));
+          if (!conflict) { start = true; settle = !moving; this.stats.reach++; }
+        }
+      }
       // emergency: a planted foot left far behind (pushed / teleported) steps immediately
       let emergency = false;
       if (!start && err > 0.9 * this.legLen && swingingCount < this.legs.length - 1) { start = true; settle = true; emergency = true; }
@@ -371,7 +384,9 @@ export class Locomotion {
       if (drop > need) need = drop;
     }
     need = Math.min(need, 0.45 * this.legLen);
-    this.reachDrop += (need - this.reachDrop) * Math.min(1, dt * (need > this.reachDrop ? 30 : 3));
+    // ease the hips down (and back up) at a natural rate: a sudden dip reads as a stumble
+    const maxV = 0.45 * this.legLen;
+    this.reachDrop += THREE.MathUtils.clamp((need - this.reachDrop) * Math.min(1, dt * (need > this.reachDrop ? 12 : 3)), -maxV * dt, maxV * dt);
     this.crouchCur += (this.crouch - this.crouchCur) * Math.min(1, dt * (this.crouch > this.crouchCur ? 0.7 : 1.6));
     const dy = bobY - this.reachDrop - this.crouchCur * (this.biped ? 0.36 : 0.42) * this.legLen;
     if (Math.abs(dy) > 1e-4 || Math.abs(swayX) > 1e-4) {  // (includes crouch)
@@ -437,6 +452,11 @@ export class Locomotion {
         rotateAxis(chain[i], right, -this.lookPitch * w[i] / tot);
       }
     }
+    // mouth at rest: several source models were sculpted gaping; real animals hold their jaws (nearly)
+    // closed. The clips' bite / chew / roar motions are relative to the sculpted pose, so they still play
+    // on top of the closed mouth; a roar relaxes the closure so it opens wider than the resting mouth.
+    this.jawW += (this.jawTarget - this.jawW) * Math.min(1, dt * (this.jawTarget > this.jawW ? 3 : 9));
+    if (this.jaw && this.jawClose > 0 && this.jawW > 1e-3) rotateAxis(this.jaw, _f.set(1, 0, 0).applyQuaternion(rootQ), -this.jawClose * this.jawW);
   }
 
   private reach(): void {
@@ -487,7 +507,7 @@ export class Locomotion {
   /** Re-plant every foot under the body (after a teleport). */
   resetPlants(): void {
     this.started = false; for (const l of this.legs) { l.swinging = false; l.lastK = -99; } this.vel.set(0, 0, 0); this.yawRate = 0;
-    this.stats = { maxSlip: 0, maxReach: 0, steps: 0, gait: 0, settle: 0, emergency: 0 };
+    this.stats = { maxSlip: 0, maxReach: 0, steps: 0, gait: 0, settle: 0, emergency: 0, reach: 0 };
   }
 
   /** World position of the snout tip (end effector). */

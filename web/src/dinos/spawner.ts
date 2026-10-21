@@ -130,6 +130,7 @@ export class DinoManager {
   update(dt: number, ctx: DinoContext, shadowCenter: THREE.Vector3, camera: THREE.Camera): void {
     const p = ctx.player;
     resetRouteBudget(1);
+    ctx.dt = dt;
     prewarmLand(p.x, p.z, 0.6);   // walkability ahead of need, so route plans are lookups
     this.herdTimer -= dt;
     if (this.herdTimer <= 0) { this.herdTimer = 2.5; this.herd(ctx); }

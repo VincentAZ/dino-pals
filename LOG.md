@@ -160,3 +160,24 @@ Brief: the owner wants "detailed assets throughout" and a world that "looks real
 - The grass and flower shaders now take up to 16 "pushers" per frame (`Grass.setPushers`): the explorer, every food pile, and front and back body circles for the five nearest land dinosaurs. Blades inside a pusher's radius lean away from its centre and flatten, so the grass visibly parts around feet and bodies and lies down under the pile.
 - `tests/grassfeed.mjs` films feeding from the child's camera plus side views. The pile stays visible with the grass flattened around it, and the Triceratops, Stegosaurus and their babies stand and eat normally. WebKit compiles the shader with zero warnings. At six-times CPU throttle: 50 fps, worst route 1.6 ms.
 - Production check after the last deploy (`tests/prod.mjs` against the live URL): splash 0.5 s, world ready 1.9 s, fully streamed 5.0 s, a tap gives a roar, 60 fps, 21 dinosaurs loaded, 15 KTX2 textures, zero unversioned data URLs, zero failed requests, zero errors.
+
+### Motion smoothness pass (what made walking still look "wonky")
+Foot-slip numbers were already good, so I added a per-frame motion recorder (`motionSample` hook, `tests/smooth.mjs`, report via `tests/smooth_report.py`). It samples every nearby dinosaur every frame for 30 s in three scenarios (free roaming, food dropped, rapid taps) and flags jolts, hip dips and sideways sliding. It found four real causes:
+1. **Hip dips.** When a leg could not reach its planted foot (turning in place, slopes), the hip solver dropped the hips at a rate of 30/s, which is effectively instant: up to 0.66 m in 0.2 s on the sauropod, a third of its hip height on a baby. Now any planted leg pulled past 93% of its length steps right away, as animals do, and the remaining hip correction is rate-limited to 0.45 leg lengths per second. Turning slip also improved: Paluxysaurus 10.8 to 1.2 cm, Triceratops 4.3 to 1.7 cm.
+2. **Dead stops.** `brake` and `pivotToward` lowered the speed value but never moved the body, so animals froze from walking pace in a single frame. Tapped, echo-roaring and grazing animals stopped the same way. They now glide to a halt (`coast`), checking ahead for animals, trees and the explorer and camera.
+3. **Sideways sliding.** Steering modelled each body as two circles at about half its length, so a sauropod's neck end was invisible to it until the overlap fix shoved the whole body sideways at up to 2.2 m/s. Bodies are now three circles covering the full capsule. Turning in place also sweeps a long body like a door; a turn that would push further into another animal or a tree is now held back (`turnBlocked`), and babies stand outside their parent's turning circle.
+4. **Feeding shuffle.** It switched direction and speed in one frame and flickered between stepping and turning at its 10 cm tolerance. It now has its own acceleration-limited velocity, settles out on arrival, and holds "arrived" until it drifts well past the tolerance.
+
+| Measured, worst over all nearby animals | Before | After |
+|---|---|---|
+| Hip vertical speed | 8.8 m/s | 1.8 m/s |
+| Body acceleration, single frame | 26 to 50 m/s² | 3 to 10 m/s² |
+| Body acceleration, 100 ms window | n/a | 3.3 m/s² |
+| Sideways slide speed | 2.2 m/s | 0.5 m/s |
+
+Regression after the pass: gait slip 1.1 cm or less, zero overlaps in the collision suite and in a 200 s monkey run, feeding 23 bites with a median 8.7 cm from mouth to item, smoke, WebKit, air/water, family and sleep all clean.
+
+### Asset audit
+- **Gaping jaws at rest.** Several source models were sculpted with open mouths, so they idled with jaws hanging. Measured per species with side-on head sweeps (`tests/jawsweep.mjs`): T. rex 10°, Ankylosaurus 18°, Allosaurus 20°, Carnotaurus 40°. The jaw is held closed by that amount at rest. Roars relax it to 40% so they open wider than rest, and bite and chew motions still play on top.
+- **T. rex skin** read as white plaster in daylight. Its body material now has a warm earthy tint (0.8, 0.72, 0.6); teeth, claws and eyes are untouched.
+- **Loop seams:** `scripts/inspect-loops.mjs` checks that every looping clip ends where it starts. All 15 models are seamless.

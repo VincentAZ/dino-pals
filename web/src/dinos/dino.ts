@@ -28,6 +28,8 @@ export interface DinoContext {
   /** extra round no-go zones [x, z, r] (the explorer, the camera) */
   keepClear: [number, number, number][];
   time: number;
+  /** this frame's step (s) */
+  dt?: number;
   foods: Food[];
   onFootstep: (d: Dino, big: boolean, at?: THREE.Vector3, heavy?: boolean) => void;
   onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'chew' | 'graze' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap' | 'snore' | 'yawn', item?: FoodItem) => void;
@@ -40,6 +42,8 @@ export interface AIData {
   faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null; echoAt: number; awakeUntil: number; snoreAt: number; approachUntil: number; followSide: number; sniffFood: Food | null; sniffed: WeakSet<Food>;
   /** taps: alternation counter, last tap time, whether the current one-shot came from a tap, and the next tap action waiting for it to finish */
   tapSeq: number; lastTapAt: number; tapAct: boolean; queued: DinoState | null;
+  /** feeding shuffle: its own smoothed velocity (m/s), so steps in and out of it don't jolt */
+  shuffleV: THREE.Vector3; shuffling: boolean;
 }
 
 const GLB_CACHE = new Map<string, Promise<GLTF>>();
@@ -63,6 +67,20 @@ function plainSkin(mat: THREE.Material): THREE.Material {
   if (glassy) { s.transparent = true; s.color.setRGB(0, 0, 0); s.opacity = 0.3; s.roughness = 0.04; s.depthWrite = false; }
   p.dispose();
   return s;
+}
+
+/**
+ * Degrees that close each sculpted-open mouth at rest, measured from side-on head renders swept in steps
+ * (tests/jawsweep.mjs): the angle where the teeth meet before the lower jaw starts passing the upper.
+ */
+const JAW_CLOSE_DEG: Record<string, number> = { trex: 10, ankylosaurus: 18, allosaurus: 20, carnotaurus: 40 };
+/** Skin colour corrections for source textures that read as plaster in daylight (body material only). */
+const SKIN_TINT: Record<string, { match: RegExp; rgb: [number, number, number] }> = {
+  trex: { match: /^SkinColor$/, rgb: [0.8, 0.72, 0.6] },
+};
+function tintOverride(rgb: [number, number, number]): [number, number, number] {
+  const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('tint') : null;   // A/B: ?tint=r,g,b
+  if (!q) return rgb; const v = q.split(',').map(Number); return v.length === 3 && v.every((x) => x >= 0 && x <= 2) ? [v[0], v[1], v[2]] : rgb;
 }
 
 /** Shared soft contact-shadow blob: a radial falloff, not a hard-edged disc. */
@@ -109,7 +127,7 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, awakeUntil: 0, snoreAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet(), tapSeq: 0, lastTapAt: -99, tapAct: false, queued: null };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, awakeUntil: 0, snoreAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet(), tapSeq: 0, lastTapAt: -99, tapAct: false, queued: null, shuffleV: new THREE.Vector3(), shuffling: false };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;
@@ -143,6 +161,8 @@ export class Dino {
               if (!mat) continue;
               if (mat.isMeshStandardMaterial) mat.envMapIntensity = 0.6;
               if (mat.isMeshPhysicalMaterial && mat.transmission > 0) mat.transmission = 0;   // never trigger the transmission pass
+              const tint = SKIN_TINT[this.species.id];
+              if (tint && tint.match.test(mat.name) && (mat as THREE.MeshStandardMaterial).color) (mat as THREE.MeshStandardMaterial).color.multiply(new THREE.Color(...tintOverride(tint.rgb)));
               if (mat.transparent) { mat.forceSinglePass = true; mat.depthWrite = false; }   // one draw, not back-then-front
             }
           });
@@ -175,6 +195,7 @@ export class Dino {
       if (this.species.kind === 'land') {
         this.root.add(model); this.root.updateMatrixWorld(true);
         this.loco = Locomotion.create(this.root, model);
+        if (this.loco) this.loco.jawClose = THREE.MathUtils.degToRad(JAW_CLOSE_DEG[this.species.id] ?? 0);
         this.root.remove(model);
       }
       const wanted: ClipName[] = ['idle', 'walk', 'roar', 'eat', 'fly', 'swim'];
@@ -280,6 +301,7 @@ export class Dino {
       this.loco.captureClipPose();
       this.loco.stomp = this.state === 'stomp';
       this.loco.crouch = this.state === 'sleep' ? 1 : 0;
+      this.loco.jawTarget = this.state === 'roar' ? 0.4 : 1;
       const idle = this.actions.get('idle'); if (idle) idle.timeScale = this.state === 'sleep' ? 0.4 : 1;
       this.loco.update(dt, this.heading, {
         onPlant: (at, _leg, heavy) => ctx.onFootstep(this, this.sizeM >= 6 || heavy, at, heavy),

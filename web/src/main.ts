@@ -23,7 +23,7 @@ import { loadSkinDetail } from './dinos/skin.ts';
 import { facePlayer, tapAction } from './dinos/ai.ts';
 import { Dino } from './dinos/dino.ts';
 import type { DinoContext, DinoState, Food } from './dinos/dino.ts';
-import { bodyOf, warmStats } from './dinos/ai_land.ts';
+import { bodyOf, warmStats, lastPush } from './dinos/ai_land.ts';
 import { routeStats } from './dinos/path.ts';
 import { Player } from './player/player.ts';
 import { TouchInput } from './input/touch.ts';
@@ -62,7 +62,7 @@ interface DinoApi {
   // ---- test hooks
   pause: (on: boolean) => void;
   step: (frames: number, dt?: number) => void;
-  watch: (id: string | null, az?: number, el?: number, dist?: number, height?: number) => void;
+  watch: (id: string | null, az?: number, el?: number, dist?: number, height?: number, head?: boolean) => void;
   command: (id: string, cmd: { walkTo?: [number, number]; face?: [number, number]; stop?: boolean; release?: boolean; place?: [number, number, number] }) => void;
   dropFoodAt: (x: number, z: number) => void;
   loco: (id: string) => Record<string, unknown> | null;
@@ -73,6 +73,8 @@ interface DinoApi {
   probeTris: () => Record<string, number>;
   setDinoCulling: (on: boolean) => void;
   simulateSlow: (ms: number) => void;
+  setJawClose: (species: string, deg: number) => void;
+  motionSample: () => (string | number)[][];
   biteLog: () => { dino: string; dist: number; t: number }[];
   audioStats: () => Record<string, unknown>;
   foods: () => unknown[];
@@ -343,7 +345,7 @@ async function main(): Promise<void> {
     biomes: Object.fromEntries(BIOME_IDS.map((id) => [id, BIOMES[id].anchor])),
     pause: (on) => { paused = on; },
     step: (frames, dt = 1 / 30) => { for (let i = 0; i < frames; i++) tick(dt, dt); applyWatch(); renderer.render(scene, camera); },
-    watch: (id, az = 1.57, el = 0.12, dist = 14, height = 0.5) => { watchId = id; Object.assign(watchCfg, { az, el, dist, height }); applyWatch(); },
+    watch: (id, az = 1.57, el = 0.12, dist = 14, height = 0.5, head = false) => { watchId = id; Object.assign(watchCfg, { az, el, dist, height, head }); applyWatch(); },
     command: (id, cmd) => {
       const d = dinos.dinos.find((x) => x.root.name === id || x.species.id === id); if (!d) return;
       d.ai.scripted = !cmd.release;
@@ -360,6 +362,20 @@ async function main(): Promise<void> {
     },
     overlaps: () => overlapStats(),
     simulateSlow: (ms) => { slowSim = ms; },
+    motionSample: () => {
+      const out: (string | number)[][] = []; const v = new THREE.Vector3();
+      for (const d of dinos.dinos) {
+        if (!d.real || !d.animated || d.species.kind !== 'land') continue;
+        if (Math.hypot(d.root.position.x - player.pos.x, d.root.position.z - player.pos.z) > 70) continue;
+        d.snoutPos(v);
+        const L = d.loco as unknown as { bones: Map<string, THREE.Bone>; lookPitch: number; lookYaw: number; reachWeight: number; lookWeight: number };
+        const hip = L.bones.get('root'); const hy = hip ? hip.getWorldPosition(new THREE.Vector3()).y - d.root.position.y : 0;
+        const lp = lastPush.get(d) ?? [0, 0, ''];
+        out.push([d.root.name, +clock.t.toFixed(4), d.root.position.x, d.root.position.z, d.heading, v.x, v.y, v.z, d.state, d.root.position.y, hy, L.lookPitch, L.lookYaw, L.reachWeight, L.lookWeight, lp[0], lp[1], lp[2], d.ai.target ? 1 : 0, d.ai.foodTarget ? 1 : 0, d.ai.followUntil > clock.t ? 1 : 0, d.parent ? 1 : 0]);
+      }
+      return out;
+    },
+    setJawClose: (species, deg) => { for (const d of dinos.dinos) if (d.species.id === species && d.loco) d.loco.jawClose = THREE.MathUtils.degToRad(deg); },
     setDinoCulling: (on) => { Dino.cullDinos = on; for (const d of dinos.dinos) d.root.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) o.frustumCulled = on; }); },
     probeTris: () => {
       // triangles drawn per top-level scene child (including its shadow-pass cost), by hiding each in turn
@@ -492,7 +508,7 @@ async function main(): Promise<void> {
   const pushBuf = new Float32Array(64); const pushNear: [number, Dino][] = [];
 
   let paused = false;
-  let watchId: string | null = null; const watchCfg = { az: 1.57, el: 0.12, dist: 14, height: 0.5 };
+  let watchId: string | null = null; const watchCfg = { az: 1.57, el: 0.12, dist: 14, height: 0.5, head: false };
   const frame = (): void => {
     if (!running) return;
     raf = requestAnimationFrame(frame);
@@ -510,7 +526,8 @@ async function main(): Promise<void> {
     const d = dinos.dinos.find((x) => x.root.name === watchId);
     if (!d) return;
     const p = d.root.position; const a = d.heading + watchCfg.az;
-    const tx = p.x, ty = p.y + d.species.heightM * watchCfg.height, tz = p.z;
+    let tx = p.x, ty = p.y + d.species.heightM * watchCfg.height, tz = p.z;
+    if (watchCfg.head) { const h = d.snoutPos(new THREE.Vector3()); tx = h.x; ty = h.y; tz = h.z; }   // frame the head (asset review)
     camera.position.set(tx + Math.sin(a) * Math.cos(watchCfg.el) * watchCfg.dist, ty + Math.sin(watchCfg.el) * watchCfg.dist, tz + Math.cos(a) * Math.cos(watchCfg.el) * watchCfg.dist);
     camera.lookAt(tx, ty, tz);
   };
