@@ -148,17 +148,20 @@ void main() {
     // cumulus: a cluster of soft puffs fixed per cloud, a flatter base, noise eroding only the rim
     // (the old noise threshold punched holes that read as dark speckles against the sky)
     vec2 p = vec2(c.x, c.y * 1.6);
+    // the seed is a varying: its tiny per-pixel interpolation jitter, amplified by the hash below, picked
+    // different puff positions per pixel (a stippled rim). Round it so every pixel of a cloud agrees.
+    float sd = floor(vSeed * 4096.0 + 0.5) / 4096.0;
     float m = 0.0;
     float msum = 0.0;
     for (int i = 0; i < 11; i++) {
       float fi = float(i);
-      vec2 h = fract(sin(vec2(vSeed * 91.7 + fi * 12.9898, vSeed * 47.3 + fi * 78.233)) * 43758.5453);
+      vec2 h = fract(sin(vec2(sd * 91.7 + fi * 12.9898, sd * 47.3 + fi * 78.233)) * 43758.5453);
       vec2 o = vec2((h.x - 0.5) * 0.66, (h.y - 0.3) * 0.38 * (1.0 - 1.2 * abs(h.x - 0.5)));
       float r = 0.09 + 0.12 * fract(h.x * 7.13 + h.y * 3.7) * (1.0 - abs(h.x - 0.5));
       float b = 1.0 - smoothstep(r * 0.35, r, length(p - o));
       m = max(m, b); msum += b;
     }
-    float n = texture2D(uNoise, vUv * 1.3 + vSeed * 5.0).r * 0.5 + texture2D(uNoise, vUv * 3.1 + vSeed * 9.0).g * 0.32 + texture2D(uNoise, vUv * 7.0 + vSeed * 2.0).r * 0.18;
+    float n = texture2D(uNoise, vUv * 1.3 + sd * 5.0).r * 0.5 + texture2D(uNoise, vUv * 3.1 + sd * 9.0).g * 0.32 + texture2D(uNoise, vUv * 7.0 + sd * 2.0).r * 0.18;
     float dens = m - (1.0 - n) * 0.62;
     a = smoothstep(0.03, 0.36, dens) * smoothstep(-0.32, -0.16, c.y) * smoothstep(1.0, 0.85, d);
     float lit = smoothstep(-0.28, 0.3, c.y + (n - 0.5) * 0.35 + (m - 0.5) * 0.1);

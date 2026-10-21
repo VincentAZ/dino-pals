@@ -241,3 +241,8 @@ Brief: the two spots the realism pass left below standard. Conifers still used c
 
 ### Final regression on the merged world (environment pass 2 + all of the above)
 smoke (all biomes, both tiers, portrait), WebKit 0 errors/0 warnings, gait slip of 1.1 cm or less, collide 0 overlaps, eat 23 bites median 5.9 cm, spam, lifecycle, air/water, family, sleep, cache-bust, governor, smoothness (free/food/taps) and a 7-minute monkey all pass. GPU textures 197 MB at start and 232 MB with everything loaded. 60 fps at 1x and 4x CPU throttle, 49 fps at 6x.
+
+### Safari-engine visual parity, and a cloud fix it exposed
+- The WebKit test checked errors only. `tests/visual_parity.mjs` now renders the same paused frames in Chromium and in WebKit (Safari's engine) with an iPad profile: young fir close up, conifers mid-distance, volcano slope, T. rex close up, food pile.
+- WebKit exposes ASTC and ETC, the compressed formats an iPad's GPU uses, so these renders exercise the iPad's transcode path for the new conifer needles, volcano ground, dinosaur skins and food. All five views match Chromium with zero errors.
+- The comparison exposed a stippled dot pattern on cloud rims in both engines. Each cloud's random seed is a varying, and the hash amplified its per-pixel interpolation jitter about four million times, so neighbouring pixels picked different puff positions. The seed is now rounded before hashing, and the rims render soft in both engines.
