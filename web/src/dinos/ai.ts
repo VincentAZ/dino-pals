@@ -75,12 +75,32 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       return;
     }
     if (following) {
-      const dist = Math.hypot(ctx.player.x - pos.x, ctx.player.z - pos.z);
-      const stop = 3 + bodyOf(d).front + 2;
+      // walk beside the child, a little ahead, on our side of the camera — so the child sees us coming along
+      if (!ai.followSide) {
+        const rx = ctx.view.z, rz = -ctx.view.x;    // camera right
+        ai.followSide = ((pos.x - ctx.player.x) * rx + (pos.z - ctx.player.z) * rz) >= 0 ? 1 : -1;
+      }
+      const b = bodyOf(d);
+      const side = ai.followSide * (3.5 + b.r + b.front * 0.3), ahead = 2 + b.front * 0.5;
+      const gx = ctx.player.x + ctx.view.x * ahead + ctx.view.z * side, gz = ctx.player.z + ctx.view.z * ahead - ctx.view.x * side;
       ai.foodTarget = null;
-      if (dist > stop + 1.5) travel(d, ctx, ctx.player.x, ctx.player.z, dt, d.species.speed * 1.5, stop);
-      else if (Math.abs(headingError(d, ctx.player.x, ctx.player.z)) > 0.5) { pivotToward(d, ctx.player.x, ctx.player.z, dt); d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); }
+      const dist = Math.hypot(gx - pos.x, gz - pos.z);
+      if (dist > 2.5) travel(d, ctx, gx, gz, dt, d.species.speed * d.scale * (dist > 10 ? 2.2 : 1.2), 1.5);
+      else if (Math.abs(headingError(d, ctx.eye.x, ctx.eye.z)) > 0.7) { pivotToward(d, ctx.eye.x, ctx.eye.z, dt); d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); }
       else brake(d, dt);
+      resolveOverlaps(d, ctx);
+      return;
+    }
+    if (ctx.time < ai.approachUntil) {
+      // tapped from afar: come over to say hello, stop a friendly distance away, facing the child
+      const b = bodyOf(d); const R = 6 + b.front + b.r;
+      let dx = pos.x - ctx.player.x, dz = pos.z - ctx.player.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+      const gx = ctx.player.x + dx * R, gz = ctx.player.z + dz * R;
+      if (L > R + 1.5) travel(d, ctx, gx, gz, dt, d.species.speed * d.scale * 1.3, 0.8);
+      else {
+        ai.approachUntil = 0; ai.faceTarget = ctx.eye.clone(); ai.faceUntil = ctx.time + 4; ai.waitUntil = ctx.time + 6 + Math.random() * 4;
+        ai.target = null; brake(d, dt);
+      }
       resolveOverlaps(d, ctx);
       return;
     }
@@ -350,6 +370,9 @@ export function triggerAction(d: Dino, action: DinoState, ctx: DinoContext): Din
   d.speed = 0;
   d.setState('idle'); d.setState(action);
   ctx.onEvent(d, action as 'roar' | 'eat' | 'stomp' | 'sniff');
+  // after saying hello from afar, come closer
+  const far = Math.hypot(ctx.player.x - d.root.position.x, ctx.player.z - d.root.position.z);
+  if (action === 'roar' && far > 14 + bodyOf(d).front) d.ai.approachUntil = ctx.time + 20;
   return action;
 }
 

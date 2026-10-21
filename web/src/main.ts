@@ -149,7 +149,7 @@ async function main(): Promise<void> {
   const keepClear: [number, number, number][] = [[0, 0, 1.6], [0, 0, 1.4]];
   const biteLog: { dino: string; dist: number; t: number }[] = [];
   const ctx: DinoContext = {
-    player: player.pos, eye: player.eye, time: 0, foods, obstacles, others: dinos.dinos, keepClear,
+    player: player.pos, eye: player.eye, view: new THREE.Vector3(0, 0, -1), time: 0, foods, obstacles, others: dinos.dinos, keepClear,
     onFootstep: (d, big, at, heavy) => {
       const p = at ?? d.root.position;
       const s = spatial(p, big ? 120 : 50);
@@ -217,7 +217,7 @@ async function main(): Promise<void> {
     const nx = (x / window.innerWidth) * 2 - 1, ny = -(y / window.innerHeight) * 2 + 1;
     const d = dinos.pick(camera, nx, ny, 44, window.innerWidth, window.innerHeight);
     if (!d) return null;
-    d.ai.followUntil = clock.t + 45; d.ai.target = null;
+    d.ai.followUntil = clock.t + 45; d.ai.target = null; d.ai.followSide = 0; d.ai.approachUntil = 0;
     if (d.ai.foodTarget) { d.ai.foodTarget.eaters.delete(d.index); d.ai.foodTarget = null; }
     facePlayer(d, player.pos, clock.t);
     weather.sparkles.spawn('heart', d.root.position.x, d.root.position.y + d.species.heightM * 0.9, d.root.position.z, 14);
@@ -415,6 +415,7 @@ async function main(): Promise<void> {
     obstacles.update(clock.t);
     keepClear[0][0] = player.pos.x; keepClear[0][1] = player.pos.z;
     keepClear[1][0] = camera.position.x; keepClear[1][1] = camera.position.z;
+    ctx.view.copy(camDir).setY(0); if (ctx.view.lengthSq() < 1e-6) ctx.view.set(0, 0, -1); ctx.view.normalize();
     const tD = performance.now();
     dinos.update(dt, ctx, shadowCenter, camera);
     dinoMs += (performance.now() - tD - dinoMs) * 0.05;
