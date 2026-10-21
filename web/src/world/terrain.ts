@@ -262,7 +262,9 @@ void splat() {
   vec4 gf = grassField(vWPos.xz, w);
   float detailL = clamp(lum3(col) / max(lumRef * macro, 1e-3), 0.45, 1.7);
   float nearG = smoothstep(4.0, 26.0, dCam);
-  vec3 grassGround = mix(mix(gf.rgb, vec3(0.2, 0.15, 0.07), 0.35) * 0.55, gf.rgb * 0.82, nearG) * detailL;
+  // tussocks and thin patches: brightness at clump scale so distant lawns are not billiard-smooth
+  float tuss = texture(uField, vWPos.xz / 6.7 + 0.29).g * 0.6 + texture(uField, vWPos.xz / 2.3 + 0.61).r * 0.4;
+  vec3 grassGround = mix(mix(gf.rgb, vec3(0.2, 0.15, 0.07), 0.35) * 0.55, gf.rgb * 0.82 * (0.8 + 0.42 * tuss), nearG) * detailL;
   col = mix(col, grassGround, clamp(gf.a, 0.0, 1.0) * 0.85);
   // grit detail near the camera
   float dK = det * (1.0 - smoothstep(6.0, 26.0, dCam));
@@ -488,7 +490,7 @@ export class Terrain {
     geo.computeBoundingBox(); geo.computeBoundingSphere();
     const mesh = new THREE.Mesh(geo, this.material);
     mesh.position.set(c.cx * CHUNK_SIZE - HALF, 0, c.cz * CHUNK_SIZE - HALF);
-    mesh.receiveShadow = true; mesh.castShadow = lod === 0 && Math.hypot(c.center.x - this.lastPx, c.center.z - this.lastPz) < 120;
+    mesh.receiveShadow = true; mesh.castShadow = lod === 0 && Math.hypot(c.center.x - this.lastPx, c.center.z - this.lastPz) < 85;
     mesh.matrixAutoUpdate = false; mesh.updateMatrix();
     if (c.mesh) { this.group.remove(c.mesh); c.mesh.geometry.dispose(); }
     c.mesh = mesh; c.lod = lod;

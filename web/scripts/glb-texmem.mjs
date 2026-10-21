@@ -20,7 +20,15 @@ for (const f of files) {
   const doc = await io.read(f);
   let mb = 0; const dims = [];
   for (const t of doc.getRoot().listTextures()) {
-    const m = await sharp(Buffer.from(t.getImage())).metadata();
+    const img = t.getImage();
+    if (t.getMimeType() === 'image/ktx2') {
+      // KTX2 header: pixelWidth/pixelHeight at bytes 20..27; Basis transcodes to 8 bpp block formats
+      const dv = new DataView(img.buffer, img.byteOffset, img.byteLength);
+      const w = dv.getUint32(20, true), h = dv.getUint32(24, true);
+      mb += (w * h * 1 * 4) / 3 / 1048576; dims.push(`${w}k`);
+      continue;
+    }
+    const m = await sharp(Buffer.from(img)).metadata();
     mb += (m.width * m.height * 4 * 4) / 3 / 1048576; dims.push(`${m.width}`);
   }
   total += mb;

@@ -67,12 +67,19 @@ const FOLIAGE_ALPHA = /* glsl */ `
   }
 #endif
 #include <alphatest_fragment>`;
+// leaves right at the lens dissolve (screen-space dither) instead of filling the view
+const FOLIAGE_NEAR_FADE = /* glsl */ `
+  {
+    float camD = length(vViewPosition);
+    float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    if (ign > smoothstep(1.0, 3.2, camD)) discard;
+  }`;
 
 function vegetationHooks(mat: THREE.Material, range: [number, number], height: number, windAmt: number, key: string, foliage = false): void {
   mat.onBeforeCompile = (shader) => {
     if (foliage) {
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <alphatest_fragment>', FOLIAGE_ALPHA)
+        .replace('#include <alphatest_fragment>', FOLIAGE_ALPHA + (shader.fragmentShader.includes('varying vec3 vViewPosition') ? FOLIAGE_NEAR_FADE : ''))
         .replace('#include <normal_fragment_begin>', FOLIAGE_NORMAL)
         .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>\n${FOLIAGE_TRANSLUCENCY}`);
     }

@@ -36,9 +36,9 @@ const R = (id: string, density: VegSpecies['density'], extra: Partial<VegSpecies
 
 export const VEG: VegSpecies[] = [
   // trees (island trees are ~3-5 m, jacaranda/pine/fir ~18 m)
-  T('island_tree_01', { jungle: 80, meadow: 2.5, beach: 22, lake: 3 }, { scale: [1.7, 2.6], lod: [26, 62, 800], spacing: 3.5, cluster: 0.15 }),
-  T('island_tree_02', { jungle: 70, meadow: 2.0, beach: 18, lake: 2.5 }, { scale: [1.7, 2.6], lod: [26, 62, 800], spacing: 3.5, cluster: 0.15 }),
-  T('island_tree_03', { jungle: 50, meadow: 0.8, beach: 4 }, { scale: [1.6, 2.5], lod: [26, 62, 800], spacing: 3.5, cluster: 0.15 }),
+  T('island_tree_01', { jungle: 80, meadow: 2.5, beach: 22, lake: 3 }, { scale: [1.7, 2.6], lod: [24, 58, 800], spacing: 3.5, cluster: 0.15 }),
+  T('island_tree_02', { jungle: 70, meadow: 2.0, beach: 18, lake: 2.5 }, { scale: [1.7, 2.6], lod: [24, 58, 800], spacing: 3.5, cluster: 0.15 }),
+  T('island_tree_03', { jungle: 50, meadow: 0.8, beach: 4 }, { scale: [1.6, 2.5], lod: [24, 58, 800], spacing: 3.5, cluster: 0.15 }),
   T('jacaranda_tree', { meadow: 2.4, lake: 2.6, jungle: 9 }, { scale: [0.7, 1.1], spacing: 12, lod: [60, 150, 900] }),
   T('tree_small_02', { meadow: 4, lake: 4, jungle: 16, swamp: 1.5 }, { scale: [1.1, 1.8], lod: [30, 80, 700], spacing: 3.5, cluster: 0.2 }),
   T('fir_tree_01', { snow: 20, meadow: 0.3 }, { scale: [0.7, 1.15], maxSlope: 0.5, lod: [70, 150, 900], spacing: 7, sink: 0.3 }),
@@ -46,8 +46,8 @@ export const VEG: VegSpecies[] = [
   T('dead_quiver_trunk', { swamp: 16, volcano: 3, canyon: 1.2 }, { scale: [1.4, 2.4], cluster: 0.3, lod: [70, 150, 700], spacing: 5, sink: 0.4, inWater: true }),
   T('quiver_tree_01', { canyon: 5, beach: 0.5 }, { scale: [1.2, 2.0], cluster: 0.3, lod: [60, 130, 600], spacing: 8, sink: 0.2 }),
   // plants
-  P('fern_02', { jungle: 380, swamp: 110, lake: 12 }, { baseScale: 1.4, scale: [0.8, 1.4], cluster: 0.2, lod: [16, 38, 0] }),
-  P('shrub_01', { meadow: 8, jungle: 24, beach: 5, lake: 6 }, { lod: [24, 60, 0], sink: 0.1 }),
+  P('fern_02', { jungle: 280, swamp: 110, lake: 12 }, { baseScale: 1.4, scale: [0.8, 1.4], cluster: 0.2, lod: [16, 38, 0] }),
+  P('shrub_01', { meadow: 8, jungle: 16, beach: 5, lake: 6 }, { lod: [24, 60, 0], sink: 0.1 }),
   P('shrub_02', { meadow: 6, canyon: 12, jungle: 6 }, { lod: [40, 110, 0], sink: 0.15 }),
   P('shrub_03', { meadow: 7, jungle: 18, beach: 4, swamp: 5 }, { lod: [35, 90, 0], sink: 0.1 }),
   P('shrub_04', { meadow: 6, canyon: 8, snow: 3 }, { lod: [35, 90, 0], sink: 0.1 }),

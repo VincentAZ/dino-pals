@@ -40,9 +40,9 @@ const ONLY = (() => { const i = args.indexOf('--only'); return i >= 0 ? args[i +
 const MODELS = {
   fir_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 512, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 8, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.3, tint: [0.85, 0.9, 0.8] } },
   pine_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 512, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 14, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.36, tint: [0.85, 0.9, 0.8] } },
-  island_tree_01: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
-  island_tree_02: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
-  island_tree_03: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
+  island_tree_01: { kind: 'tree', tris: 7200, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 480, limbs: 30000, cover: 0.95 } },
+  island_tree_02: { kind: 'tree', tris: 7200, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 480, limbs: 30000, cover: 0.95 } },
+  island_tree_03: { kind: 'tree', tris: 7200, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 480, limbs: 30000, cover: 0.95 } },
   jacaranda_tree: { kind: 'tree', tris: 22000, lod1: 3600, tex: 512, leafTex: 512, foliage: { leaves0: 8000, leaves1: 1500, limbs: 60000, cover: 0.55 } },
   tree_small_02: { kind: 'tree', tris: 5800, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 1900, leaves1: 480, limbs: 20000, cover: 0.9 } },
   dead_tree_trunk: { kind: 'tree', tris: 5000, lod1: 900, tex: 512 },

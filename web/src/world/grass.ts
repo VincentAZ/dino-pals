@@ -343,7 +343,7 @@ export class Grass {
     const high = quality.tier === 'high';
     const cfgs: RingCfg[] = high
       ? [
-          { cell: 0.32, n: 72, blades: 8, segs: 3, fade: [-1, 0, 8.0, 11.2], width: 0.028, budget: 700 },
+          { cell: 0.32, n: 72, blades: 7, segs: 3, fade: [-1, 0, 8.0, 11.2], width: 0.03, budget: 700 },
           { cell: 0.6, n: 84, blades: 6, segs: 1, fade: [7.2, 10.5, 19, 25.5], width: 0.05, budget: 500 },
           { cell: 0.8, n: 36, blades: 1, segs: 1, fade: [-1, 0, 20, 26], width: 0, budget: 300, flowers: true },
         ]
