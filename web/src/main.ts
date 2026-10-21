@@ -93,6 +93,14 @@ async function main(): Promise<void> {
   renderer.shadowMap.enabled = quality.shadows;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   app.appendChild(renderer.domElement);
+  // Safari drops WebGL contexts under memory pressure or after long backgrounding. three.js re-uploads
+  // everything on restore; if the context does not come back, reload rather than leave a frozen screen.
+  let contextLost = false, lostTimer = 0, contextLosses = 0;
+  renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault(); contextLost = true; contextLosses++;
+    lostTimer = window.setTimeout(() => { if (contextLost) location.reload(); }, 4000);
+  });
+  renderer.domElement.addEventListener('webglcontextrestored', () => { contextLost = false; clearTimeout(lostTimer); });
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.3, 4000);
@@ -140,6 +148,10 @@ async function main(): Promise<void> {
   void samples.load(audio);
   ambience.start(); music.start();
   requestWakeLock();
+  // iOS parks the audio context as "interrupted" after calls, Siri or other apps; the next touch revives it
+  const reviveAudio = (): void => { if (audio.ctx.state !== 'running' && !document.hidden) void audio.unlock(); };
+  window.addEventListener('pointerdown', reviveAudio, { capture: true, passive: true });
+  window.addEventListener('touchend', reviveAudio, { capture: true, passive: true });
   try { await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch { /* not available on iOS */ }
 
   // ---------- interactions ----------
@@ -295,6 +307,7 @@ async function main(): Promise<void> {
       fps: Math.round(fps), frameMs: +frameMs.toFixed(2), dinoMs: +dinoMs.toFixed(2), dinoMaxMs: +dinoMaxMs.toFixed(2), route: { ...routeStats }, triangles: renderer.info.render.triangles, calls: renderer.info.render.calls,
       geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, terrain: terrain.stats, dinos: dinos.stats,
       vegLoaded: vegetation.loadedCount, veg: vegetation.stats, light: grass.material.uniforms.uLight.value.toArray().map((v: number) => +v.toFixed(2)), grassSample: Array.from(grass.sample()), hours: +sky.hours.toFixed(2), quality: quality.tier, pixelRatio: renderer.getPixelRatio(),
+      contextLosses, audioState: audio.ctx.state,
       player: { x: +player.pos.x.toFixed(1), y: +player.pos.y.toFixed(1), z: +player.pos.z.toFixed(1), biome: biomeWeights(player.pos.x, player.pos.z).dominant },
     }),
     teleport: (x, z) => player.teleport(x, z),
@@ -482,7 +495,11 @@ let wakeLock: { release: () => Promise<void> } | null = null;
 async function requestWakeLock(): Promise<void> {
   try {
     const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
-    if (nav.wakeLock && !wakeLock) wakeLock = await nav.wakeLock.request('screen');
+    if (nav.wakeLock && !wakeLock) {
+      const lock = await nav.wakeLock.request('screen') as { release: () => Promise<void>; addEventListener?: (t: string, f: () => void) => void };
+      wakeLock = lock;
+      lock.addEventListener?.('release', () => { if (wakeLock === lock) wakeLock = null; });   // the OS drops it when the page hides
+    }
   } catch { wakeLock = null; }
 }
 

@@ -87,3 +87,9 @@ User asked for a great game, no shortcuts. Unreal was considered and rejected: U
 - **Families:** Triceratops, Stegosaurus, Paluxysaurus, T. rex, Iguanodon, Ankylosaurus and Pachycephalosaurus bring a baby (0.38× / 0.25× scale) that walks beside its parent (setting off together with it), grazes when the parent eats and answers when the parent calls (higher-pitched voice). Speeds scale with √size (dynamic similarity) so babies keep up. Idle herbivores graze the ground now and then (head down, leaf puffs, soft crunch).
 - **Safari engine check:** Playwright WebKit (WPE, the engine behind iPad Safari; the two missing gamepad/HID libraries were unpacked into Playwright's own browser folder, nothing installed system-wide) runs the full game: WebGL2, MP3 decoding, tap → roar, food → eating, 0 errors (`web/tests/webkit_smoke.mjs`).
 - **Bedtime:** at night land dinosaurs settle down and sleep — the pelvis lowers and the leg IK folds the legs under the body, the head droops to the ground, breathing slows (idle clip at 0.4×), soft synthesized snores and floating "z" bubbles; babies sleep when their parent does. At dawn (or when tapped) they wake with a big yawn; a tapped dinosaur stays awake for 45 s.
+
+### iPad lifecycle hardening
+- **WebGL context loss** (Safari drops contexts under memory pressure or after long backgrounding): three.js re-uploads on restore; if the context does not come back within 4 s the page reloads instead of freezing. Tested by forcing `WEBGL_lose_context`: the restored frame matches the original (mean luminance 107.6 vs 108.6), taps still work, and a permanent loss reloads to the splash.
+- **Audio interruptions** (phone call, Siri, another app): any touch now revives a non-running AudioContext.
+- **Screen wake lock** is re-acquired after the OS releases it on hide (the old code kept a stale handle and never asked again).
+- New test: `tests/lifecycle.mjs`.
