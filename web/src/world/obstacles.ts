@@ -1,7 +1,7 @@
 // Spatial hash of static obstacles (tree trunks, canopies, rocks) for dinosaur steering.
 import type { Vegetation } from './vegetation.ts';
 
-export interface Obstacle { x: number; z: number; r: number; canopy: number; h: number; tree: boolean }
+export interface Obstacle { x: number; z: number; r: number; canopy: number; h: number; tree: boolean; /** height (m) where foliage starts */ crown: number }
 
 const CELL = 8;
 const key = (i: number, j: number): number => (i + 4096) * 8192 + (j + 4096);
@@ -22,8 +22,8 @@ export class ObstacleGrid {
     this.nextCheck = time + 0.5;
     this.builtVersion = this.veg.version; this.rebuilds++;
     this.cells.clear(); this.count = 0;
-    this.veg.forEachObstacle((x, z, r, canopy, h, tree) => {
-      const o: Obstacle = { x, z, r, canopy, h, tree };
+    this.veg.forEachObstacle((x, z, r, canopy, h, tree, crown) => {
+      const o: Obstacle = { x, z, r, canopy, h, tree, crown };
       const span = Math.max(r, canopy);
       const i0 = Math.floor((x - span) / CELL), i1 = Math.floor((x + span) / CELL);
       const j0 = Math.floor((z - span) / CELL), j1 = Math.floor((z + span) / CELL);

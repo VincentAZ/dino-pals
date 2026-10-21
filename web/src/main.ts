@@ -581,6 +581,7 @@ async function main(): Promise<void> {
     sky.update(dt, player.pos.x, player.pos.z, scene, player.pos, camDir);
     terrain.update(player.pos.x, player.pos.z, clock.t);
     terrain.uniforms.uLavaGlow.value = 0.7 + 0.5 * sky.state.night;
+    terrain.uniforms.uLavaLight.value = Math.min(1, sky.state.night + sky.state.dusk * 0.85);
     water?.update(dt, sky.state, player.pos.x, player.pos.z);
     // near-neutral foliage/grass light: sun + whitened hemisphere
     const light = new THREE.Color().copy(sky.sun.color).multiplyScalar(0.55 * sky.sun.intensity / 3.2).add(sky.hemi.color.clone().lerp(new THREE.Color(1, 1, 1), 0.6).multiplyScalar(0.5 * sky.hemi.intensity));

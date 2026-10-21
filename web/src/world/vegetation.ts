@@ -9,7 +9,9 @@
 // match the 3D LODs at every time of day.
 import * as THREE from 'three';
 import type { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { VEG, type VegSpecies } from './vegrules.ts';
+import { VEG, type VegSpecies, CROWN_BASE } from './vegrules.ts';
+/** test switch: ?oldcrown restores the old one-third canopy rule (A/B in tests/forest_cross.mjs) */
+const OLD_CROWN = typeof location !== 'undefined' && new URLSearchParams(location.search).has('oldcrown');
 import type { VegPlacement } from './terrain.ts';
 import { CHUNK_SIZE, quality } from '../config.ts';
 import { HALF } from './biomes.ts';
@@ -700,16 +702,16 @@ void main() {
   }
 
   /** Every placed tree / rock: trunk (or rock) radius, canopy radius and height, in metres. */
-  forEachObstacle(cb: (x: number, z: number, r: number, canopy: number, height: number, tree: boolean) => void): void {
+  forEachObstacle(cb: (x: number, z: number, r: number, canopy: number, height: number, tree: boolean, crown: number) => void): void {
     for (const rec of this.chunks.values()) for (const c of rec.cells) for (const [id, cs] of c.species) {
       const sp = this.species.get(id)!; if (sp.def.kind === 'plant' || sp.def.obstacle === false) continue;
-      const tree = sp.def.kind === 'tree';
+      const tree = sp.def.kind === 'tree'; const crownK = OLD_CROWN ? 0.33 : CROWN_BASE[id] ?? 0.33;
       for (let v = 0; v < cs.data.length; v++) {
         const data = cs.data[v]; const va = sp.variants[v]; if (!va) continue;
         for (let k = 0; k < data.length; k += 5) {
           const sc = data[k + 4];
           const r = (tree ? Math.min(1.2, va.width * 0.12) : va.width * 0.45) * sc + 0.3;
-          cb(data[k], data[k + 2], r, tree ? va.width * 0.5 * sc : r, va.height * sc, tree);
+          cb(data[k], data[k + 2], r, tree ? va.width * 0.5 * sc : r, va.height * sc, tree, va.height * sc * crownK);
         }
       }
     }

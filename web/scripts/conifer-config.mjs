@@ -6,7 +6,9 @@
 //   sigma: needle extinction per voxel for the crown light, aoMin: darkest crown occlusion
 export const CONIFERS = {
   fir_tree_01: {
-    mode: 'flat', skip: ['fir_tree_01_c_LOD0'], cell0: 0.42, cell1: 0.85, max0: 3200, max1: 760, sprites0: 16, sprites1: 6, density0: 900, density1: 300, atlas: [2048, 1024],
+    mode: 'flat', skip: ['fir_tree_01_c_LOD0'], cell0: 0.42, cell1: 0.85, max0: 4600, max1: 1050,
+    // open-grown habit: the lowest live band repeated down the trunk (see addSkirt in conifer.mjs)
+    skirt: { slab: 2.4, step: 1.45, minY: 0.45, grow: 0.17, droop: 0.05 }, sprites0: 16, sprites1: 6, density0: 900, density1: 300, atlas: [2048, 1024],
     trunk0: 600, trunk1: 200, branch0: 1400, branch1: 450, twiglet0: 0.3, twiglet1: 1.2, sigma: 0.012, cardScale0: 1.2, grade: { sat: 1.08, mul: [0.55, 0.68, 0.6] },
     closeup: { x0: -3.0, x1: -0.6, y0: 6.0, y1: 8.4 },
   },

@@ -9,6 +9,7 @@ const ctx = await browser.newContext({ ...devices['iPad Pro 11'], viewport: { wi
 const page = await ctx.newPage();
 await page.goto(`http://localhost:${PORT}/?q=${process.argv[2] || 'high'}`); await page.waitForSelector('#splash'); await page.waitForTimeout(300); await page.touchscreen.tap(590, 410);
 await page.waitForFunction(() => window.__dino && window.__dino.ready); await page.waitForFunction(() => !window.__dino.busy(), null, { timeout: 90000 }).catch(() => {});
+if (process.env.BIOME) { await page.evaluate(([b, h]) => { const a = window.__dino; a.teleportBiome(b); if (h) a.setTime(+h); }, [process.env.BIOME, process.env.HOUR]); await page.waitForFunction(() => !window.__dino.busy(), null, { timeout: 90000 }).catch(() => {}); }
 await page.waitForTimeout(4000);
 const cdp = await ctx.newCDPSession(page);
 for (const rate of [1, 4, 6]) {

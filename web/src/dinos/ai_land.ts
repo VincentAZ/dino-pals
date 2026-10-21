@@ -27,8 +27,10 @@ export function obstacleRadius(d: Dino, o: Obstacle): number {
   // tall bodies keep out of low canopies too; short ones only avoid the trunk
   // canopies start roughly a third of the way up a tree; anything taller than that keeps its head out
   const head = (d.species.heightM ?? 2) * d.scale;
-  const underCanopy = o.tree && head > 0.33 * o.h;
-  return (underCanopy ? Math.max(o.r, o.canopy * (b.tall ? 0.75 : 0.55)) : o.r) + b.r;
+  const underCanopy = o.tree && head > (o.crown ?? 0.33 * o.h);
+  // low-skirted conifers: animals may brush the springy outer sprays but keep out of the inner crown
+  const k = o.tree && o.crown < 0.2 * o.h ? 0.42 : b.tall ? 0.75 : 0.55;
+  return (underCanopy ? Math.max(o.r, o.canopy * k) : o.r) + b.r;
 }
 
 // Walkability is static (procedural terrain, fixed water levels) but each evaluation costs ~6 noise

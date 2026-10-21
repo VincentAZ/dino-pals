@@ -92,6 +92,12 @@ export const VEG: VegSpecies[] = [
 ];
 export const VEG_BY_ID: Record<string, VegSpecies> = Object.fromEntries(VEG.map((v) => [v.id, v]));
 
+/**
+ * Where the foliage starts, as a fraction of the tree's height (default 1/3). Low-crowned conifers keep
+ * branches near the ground (the firs' skirt whorls), so even small animals must walk around them.
+ */
+export const CROWN_BASE: Record<string, number> = { fir_tree_01: 0.08, fir_sapling_medium: 0.05 };
+
 /** Ground contact-occlusion footprint (crown / rock radius in m at scale 1) for the baked terrain AO. */
 export const AO_RADIUS: Record<string, number> = {
   island_tree_01: 2.5, island_tree_02: 2.1, island_tree_03: 1.5, jacaranda_tree: 11, tree_small_02: 2.2,

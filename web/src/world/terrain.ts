@@ -169,6 +169,8 @@ export interface TerrainUniforms {
   uWorldHalf: { value: number };
   uTime: { value: number };
   uLavaGlow: { value: number };
+  /** 0 = full daylight .. 1 = dusk / night: how much the lava lights the ground around it */
+  uLavaLight: { value: number };
   uField: { value: THREE.Texture | null };
   uGrassCol: { value: THREE.Vector3[] };
   uGrassCov: { value: number[] };
@@ -184,7 +186,7 @@ uniform sampler2D uDetA; uniform sampler2D uDetB; uniform vec3 uDetAvg;
 uniform sampler2D uSplat0; uniform sampler2D uSplat1; uniform sampler2D uSplat2; uniform sampler2D uSplat3; uniform sampler2D uSplat4;
 uniform float uTile[${LAYER_COUNT}]; uniform float uRough[${LAYER_COUNT}]; uniform vec3 uTint[${LAYER_COUNT}]; uniform float uDetail[${LAYER_COUNT}];
 uniform float uLayerLum[${LAYER_COUNT}];
-uniform float uWorldHalf; uniform float uTime; uniform float uLavaGlow;
+uniform float uWorldHalf; uniform float uTime; uniform float uLavaGlow; uniform float uLavaLight;
 ${FIELD_GLSL}
 ${STEEP_GLSL}
 vec3 gCol; vec3 gN; float gRough; float gAO; vec3 gEmit;
@@ -326,6 +328,23 @@ void splat() {
       rough = mix(rough, 0.34, bank * 0.8);
     }
   }
+  // lava light: molten lava lights the ground around it (orange, falling off over ~40 m). It is a faint
+  // tint by day and the main light on the cone at dusk and night, when the dark basalt would otherwise
+  // go black. Proximity = a golden-angle ring of taps into the lava channel of the splat map.
+  // The whole cone also takes a dim warm glow from the crater and the lit plume once the daylight fades.
+  if (volc > 0.01 || lv > 0.01) {
+    float px = 1.0 / (2.0 * uWorldHalf), near = 0.0;
+    for (int i = 0; i < 16; i++) {
+      float a = float(i) * 2.39996 + 0.7;
+      float r = i < 4 ? 4.0 : (i < 8 ? 12.0 : (i < 12 ? 30.0 : 60.0));
+      float wt = i < 4 ? 0.14 : (i < 8 ? 0.07 : (i < 12 ? 0.04 : 0.025));
+      near += texture(uSplat3, suv + vec2(cos(a), sin(a)) * r * px).a * wt;
+    }
+    near = clamp(near, 0.0, 1.0);
+    float local = near * (0.18 + 1.9 * uLavaLight);
+    float cone = volc * 0.25 * uLavaLight;
+    gEmit += col * vec3(1.0, 0.38, 0.11) * (local + cone) * 3.4;
+  }
   gCol = col; gN = Nw; gRough = clamp(rough, 0.04, 1.0); gAO = mix(1.0, ao, 0.85);
 }`;
 
@@ -382,7 +401,7 @@ export class Terrain {
       uSplat0: { value: null }, uSplat1: { value: null }, uSplat2: { value: null }, uSplat3: { value: null }, uSplat4: { value: null },
       uNoise: { value: makeNoiseTexture() }, uTile: { value: [...LAYER_TILE] }, uRough: { value: [...LAYER_ROUGH] }, uTint: { value: LAYER_TINT.map((t) => new THREE.Vector3(t[0], t[1], t[2])) },
       uDetail: { value: [...LAYER_DETAIL] },
-      uWorldHalf: { value: HALF }, uTime: { value: 0 }, uLavaGlow: { value: 1 },
+      uWorldHalf: { value: HALF }, uTime: { value: 0 }, uLavaGlow: { value: 1 }, uLavaLight: { value: 0 },
       uField: { value: null }, uGrassCol: { value: GRASS_COL_LIN.map((c) => new THREE.Vector3(c[0], c[1], c[2])) }, uGrassCov: { value: [...GRASS_COV] },
       uGrassDry: { value: [...GRASS_DRY] }, uDryCol: { value: new THREE.Vector3(...DRY_LIN) }, uLayerLum: { value: new Array(LAYER_COUNT).fill(0.2) },
     };

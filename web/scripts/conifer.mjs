@@ -353,6 +353,81 @@ function trunkUV(p, around = 5, vScale = 6.2) {
   return { ...p, pos, nor, uv, idx: Uint32Array.from({ length: nt * 3 }, (_, i) => i) };
 }
 
+// ---------------------------------------------------------------- skirt whorls
+/**
+ * Forest-grown source firs carry their live crown only in the top third (the lower trunk self-pruned), so
+ * from a child's eye height they read as bare poles. An open-grown fir keeps whorls down to the ground,
+ * longer the lower they are. This copies the tree's own lowest live band (needles + branch wood, real
+ * geometry) down the trunk: each copy rotated by the golden angle about the trunk axis, scaled up about its
+ * attachment height and drooped a little. Everything downstream (clusters, sprites, crown light, LODs)
+ * then treats the new whorls as real branches. Dead wood is not copied.
+ */
+function addSkirt(tw, wood, sk, rnd) {
+  // trunk = the 'trunk' material when the model has one (fir: trunk_a + 'bark' branches), else 'bark'
+  const trunkRx = wood.some((w) => /trunk/.test(w.mat.getName())) ? /trunk/ : /bark/;
+  const isTrunk = (w) => trunkRx.test(w.mat.getName());
+  const trunk = wood.filter(isTrunk);
+  const trunkCentre = (y) => {
+    let x = 0, z = 0, n = 0;
+    for (const w of trunk) for (let i = 0; i < w.pos.length; i += 3) if (Math.abs(w.pos[i + 1] - y) < 0.6) { x += w.pos[i]; z += w.pos[i + 2]; n++; }
+    return n ? [x / n, z / n] : [0, 0];
+  };
+  // needle components and their centroids
+  const comps = (g) => {
+    const cc = components(g.idx, g.pos.length / 3); const out = [];
+    for (let c = 0; c < cc.count; c++) {
+      let y0 = 1e9, y1 = -1e9, mx = 0, my = 0, mz = 0, n = 0;
+      for (let k = cc.start[c]; k < cc.start[c + 1]; k++) { const t = cc.order[k]; for (let j = 0; j < 3; j++) { const v = g.idx[t * 3 + j]; const y = g.pos[v * 3 + 1]; mx += g.pos[v * 3]; my += y; mz += g.pos[v * 3 + 2]; n++; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+      out.push({ tris: Array.from(cc.order.subarray(cc.start[c], cc.start[c + 1])), cx: mx / n, cy: my / n, cz: mz / n, span: y1 - y0 });
+    }
+    return out;
+  };
+  const twc = comps(tw);
+  const ys = twc.map((c) => c.cy).sort((a, b) => a - b);
+  const yBase = ys[Math.floor(ys.length * (sk.basePct ?? 0.03))];
+  const inSlab = (c) => c.cy >= yBase && c.cy <= yBase + sk.slab;
+  const [sx, sz] = trunkCentre(yBase + sk.slab * 0.5);
+  // geometry appenders
+  const grow = (g) => ({ pos: Array.from(g.pos), nor: g.nor ? Array.from(g.nor) : null, uv: g.uv ? Array.from(g.uv) : null, idx: Array.from(g.idx), mat: g.mat });
+  const out = { tw: grow(tw), wood: wood.map(grow) };
+  const copy = (src, dst, tris, xf) => {
+    const map = new Map();
+    for (const t of tris) for (let j = 0; j < 3; j++) {
+      const v = src.idx[t * 3 + j]; let nv = map.get(v);
+      if (nv === undefined) {
+        nv = dst.pos.length / 3; map.set(v, nv);
+        const [p, n] = xf([src.pos[v * 3], src.pos[v * 3 + 1], src.pos[v * 3 + 2]], src.nor ? [src.nor[v * 3], src.nor[v * 3 + 1], src.nor[v * 3 + 2]] : null);
+        dst.pos.push(...p); if (dst.nor) dst.nor.push(...(n ?? [0, 1, 0])); if (dst.uv) dst.uv.push(src.uv[v * 2], src.uv[v * 2 + 1]);
+      }
+      dst.idx.push(nv);
+    }
+  };
+  const slabNeedles = twc.filter(inSlab);
+  const woodSlabs = wood.map((w) => !isTrunk(w) && !/dead/.test(w.mat.getName()) ? comps(w).filter((c) => inSlab(c) && c.span < sk.slab * 1.5 && Math.hypot(c.cx - sx, c.cz - sz) > 0.2) : []);
+  let copies = 0;
+  for (let j = 1; ; j++) {
+    const base = yBase - j * sk.step;
+    if (base < sk.minY) break;
+    const ang = j * 2.39996323 + (rnd() - 0.5) * 0.4, ca = Math.cos(ang), sa = Math.sin(ang);
+    const sc = 1 + sk.grow * j, droop = sk.droop * j;
+    const [tx, tz] = trunkCentre(base + sk.slab * 0.5 * sc);
+    const xf = (p, n) => {
+      let x = p[0] - sx, y = p[1] - yBase, z = p[2] - sz;
+      const rx = x * ca - z * sa, rz = x * sa + z * ca;
+      const r = Math.hypot(rx, rz) * sc;
+      const P = [tx + rx * sc, base + y * sc - droop * r, tz + rz * sc];
+      const N = n ? [n[0] * ca - n[2] * sa, n[1], n[0] * sa + n[2] * ca] : null;
+      return [P, N];
+    };
+    copy(tw, out.tw, slabNeedles.flatMap((c) => c.tris), xf);
+    wood.forEach((w, wi) => { if (woodSlabs[wi].length) copy(w, out.wood[wi], woodSlabs[wi].flatMap((c) => c.tris), xf); });
+    copies++;
+  }
+  const pack = (g) => ({ pos: Float32Array.from(g.pos), nor: g.nor ? Float32Array.from(g.nor) : null, uv: g.uv ? Float32Array.from(g.uv) : null, idx: Uint32Array.from(g.idx), mat: g.mat });
+  console.log(`  skirt: crown base ${yBase.toFixed(2)} m, band ${slabNeedles.length} needles + ${woodSlabs.reduce((n, c) => n + c.length, 0)} branch pieces, ${copies} whorl copies down to ${(yBase - copies * sk.step).toFixed(2)} m`);
+  return { tw: pack(out.tw), wood: out.wood.map(pack) };
+}
+
 // ---------------------------------------------------------------- main
 /** Twig textures, variants (tallest first, cfg.skip dropped), needle elements and LOD clusters of a source model. */
 async function prepareModel(src, dir, cfg) {
@@ -383,10 +458,13 @@ async function prepareModel(src, dir, cfg) {
     }
     const origin = [bx / bn, b.min[1], bz / bn];
     const twigP = prims.find((p) => /twig/.test(p.getMaterial().getName()));
-    const tw = readPrim(twigP, T, origin);
+    let tw = readPrim(twigP, T, origin);
+    let wood = prims.filter((p) => p !== twigP).map((p) => readPrim(p, T, origin));
+    if (cfg.skirt) ({ tw, wood } = addSkirt(tw, wood, cfg.skirt, mulberry((cfg.seed ?? 4242) + variants.length * 31)));
     const E = twigElements(tw);
-    const wood = prims.filter((p) => p !== twigP).map((p) => readPrim(p, T, origin));
-    const bounds = { min: [b.min[0] - origin[0], 0, b.min[2] - origin[2]], max: [b.max[0] - origin[0], b.max[1] - origin[1], b.max[2] - origin[2]] };
+    // bounds from the (possibly extended) geometry
+    const bounds = { min: [1e9, 0, 1e9], max: [-1e9, -1e9, -1e9] };
+    for (const g of [tw, ...wood]) for (let i = 0; i < g.pos.length; i += 3) for (let k = 0; k < 3; k++) { if (k !== 1 && g.pos[i + k] < bounds.min[k]) bounds.min[k] = g.pos[i + k]; if (g.pos[i + k] > bounds.max[k]) bounds.max[k] = g.pos[i + k]; }
     variants.push({ name: node.getName(), tw, E, wood, bounds });
     console.log(`${name} ${node.getName()}: ${E.needles} needles, ${E.n} elements, wood ${wood.map((w) => `${w.mat.getName().replace(name + '_', '')}:${w.idx.length / 3}`).join(' ')}`);
   }

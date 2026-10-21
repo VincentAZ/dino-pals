@@ -247,3 +247,24 @@ smoke (all biomes, both tiers, portrait), WebKit 0 errors/0 warnings, gait slip 
 - WebKit exposes ASTC and ETC, the compressed formats an iPad's GPU uses, so these renders exercise the iPad's transcode path for the new conifer needles, volcano ground, dinosaur skins and food. All five views match Chromium with zero errors.
 - The comparison exposed a stippled dot pattern on cloud rims in both engines. Each cloud's random seed is a varying, and the hash amplified its per-pixel interpolation jitter about four million times, so neighbouring pixels picked different puff positions. The seed is now rounded before hashing, and the rims render soft in both engines.
 - **Deploy delay:** the cloud fix and splash pushes sat unbuilt for about 20 minutes because GitHub had an incident delaying webhook deliveries ("Delays for Pull Requests and Webhook deliveries", githubstatus.com). I re-triggered with an empty commit. Vercel built everything once deliveries recovered, and the live site in a real Chrome serves the new bundle with the cloud fix, zero errors and 18 dinosaurs loaded.
+
+### The two remaining asset shortfalls: tall firs, and the volcano at dusk
+Measured as the child sees them (`tests/shortfalls.mjs`: tall firs at 3, 6 and 12 m from the game camera height, the snow biome on arrival, the volcano at dusk and night).
+
+- **Tall firs were bare poles at eye height.** The Poly Haven fir is forest-grown: the lower trunk self-pruned, with the live crown starting 5 to 7 m up.
+  - The bake (`scripts/conifer.mjs`, `addSkirt`) now gives it an open-grown habit using the tree's own geometry. The lowest live band of the crown (its needles and branch wood, but not dead wood) is copied down the trunk in whorls every 1.45 m, down to about 1 to 1.5 m. Each copy is rotated by the golden angle, scaled up 17% per step, so lower whorls are longer like a real fir, and drooped slightly.
+  - Clustering, the needle atlas, crown light and LODs all treat the whorls as real branches, so the inside of the skirt shades as a volume.
+  - Result: at 12 m it is a full fir from the ground up, and at 3 to 6 m you stand under real branches. The asset is 0.74 MB, up from 0.62 MB, with the atlas unchanged in size.
+- **Foliage as an obstacle.** A tree's canopy counted as an obstacle only for animals whose heads reached a third of its height. A new per-species crown base (`CROWN_BASE` in vegrules) marks the skirted firs as foliage from about 8% of their height, so even a raptor walks around the inner crown. Animals may brush the springy outer sprays (42% of the canopy radius).
+  - `tests/forest_cross.mjs` sends a raptor and a Triceratops 70 m across the snow forest from four directions. Results match the old-rule baseline: the four runs that don't arrive are blocked by terrain in both rules, not by trees.
+- **The volcano went black at dusk.** The basalt and clinker albedo is realistic (about 0.07), but nothing lit the cone except the fading sky. The terrain shader now adds **lava light**:
+  - each pixel samples the lava map in a ring out to 60 m, and nearby lava lights it orange;
+  - the whole cone takes a dim glow from the crater and plume;
+  - both are driven by a new `uLavaLight`, from the sky's dusk and night state.
+
+  Noon is unchanged. At dusk the slopes read in warm light with their ridges and gullies visible, and at night the cone glows like a living volcano, seen from the meadow too.
+- **Checks:**
+  - smoke and collide pass, and WebKit shows 0 errors and 0 warnings;
+  - the Chromium and WebKit renders of the firs match;
+  - performance: 60 fps at six-times CPU throttle in the snow forest, 54 to 60 fps at the volcano at dusk, start view unchanged;
+  - GPU textures unchanged at 197 MB at start and 232 MB with everything loaded.
