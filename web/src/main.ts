@@ -489,6 +489,7 @@ async function main(): Promise<void> {
   const biomeW = new Float32Array(BIOME_IDS.length);
   const camDir = new THREE.Vector3();
   const shadowCenter = new THREE.Vector3();
+  const pushBuf = new Float32Array(64); const pushNear: [number, Dino][] = [];
 
   let paused = false;
   let watchId: string | null = null; const watchCfg = { az: 1.57, el: 0.12, dist: 14, height: 0.5 };
@@ -532,6 +533,22 @@ async function main(): Promise<void> {
     // near-neutral foliage/grass light: sun + whitened hemisphere
     const light = new THREE.Color().copy(sky.sun.color).multiplyScalar(0.55 * sky.sun.intensity / 3.2).add(sky.hemi.color.clone().lerp(new THREE.Color(1, 1, 1), 0.6).multiplyScalar(0.5 * sky.hemi.intensity));
     vegetation.update(dt, light, player.pos);
+    // grass parts around the explorer, food piles and the nearest dinosaurs
+    {
+      let n = 0; const P = pushBuf; const add = (x: number, z: number, r: number, k: number): void => { if (n < 16) { P[n * 4] = x; P[n * 4 + 1] = z; P[n * 4 + 2] = r; P[n * 4 + 3] = k; n++; } };
+      add(player.pos.x, player.pos.z, 0.55, 0.9);
+      for (const f of foods) if (f.amount > 0) add(f.pos.x, f.pos.z, f.radius * 1.1, 1);
+      pushNear.length = 0;
+      for (const d of dinos.dinos) { if (!d.real || !d.root.visible || d.species.kind !== 'land') continue; const dd = Math.hypot(d.root.position.x - camera.position.x, d.root.position.z - camera.position.z); if (dd < 32) pushNear.push([dd, d]); }
+      pushNear.sort((a, b) => a[0] - b[0]);
+      for (const [, d] of pushNear) {
+        if (n > 14) break;
+        const b = bodyOf(d); const sx = Math.sin(d.heading), cz = Math.cos(d.heading); const p = d.root.position; const r = b.r * 1.15 + 0.15;
+        add(p.x + sx * b.front * 0.55, p.z + cz * b.front * 0.55, r, 0.85);
+        add(p.x - sx * b.back * 0.45, p.z - cz * b.back * 0.45, r, 0.85);
+      }
+      grass.setPushers(P, n);
+    }
     grass.update(dt, player.pos.x, player.pos.z, light, sky.state.night > 0.5 ? sky.state.moonDir : sky.state.sunDir);
     weather.update(dt, camera.position, player.pos, biomeW, sky.state, renderer.getPixelRatio());
     obstacles.update(clock.t);

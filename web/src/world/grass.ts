@@ -46,22 +46,39 @@ function flowerGeometry(): THREE.BufferGeometry {
   return g;
 }
 
+const MAX_PUSH = 16;
 const shared = {
   uTime: { value: 0 },
   uWindDir: { value: new THREE.Vector2(0.8, 0.6) },
   uField: { value: null as THREE.Texture | null },
+  /** trampling: (x, z, radius, strength) for the explorer, food piles and nearby dinosaurs */
+  uPush: { value: Array.from({ length: MAX_PUSH }, () => new THREE.Vector4()) },
+  uPushN: { value: 0 },
 };
+const TRAMPLE_GLSL = `
+uniform vec4 uPush[${MAX_PUSH}]; uniform int uPushN;
+// blades near feet, bodies and food piles lean away (xy) and flatten (z)
+vec3 trample(vec2 p) {
+  vec3 r = vec3(0.0);
+  for (int k = 0; k < ${MAX_PUSH}; k++) {
+    if (k >= uPushN) break;
+    vec4 P = uPush[k]; vec2 dv = p - P.xy; float dd = length(dv);
+    float infl = (1.0 - smoothstep(P.z * 0.45, P.z, dd)) * P.w;
+    if (infl > 0.0) { r.xy += (dd > 1e-3 ? dv / dd : vec2(1.0, 0.0)) * infl; r.z = max(r.z, infl); }
+  }
+  return r;
+}`;
 
 function flowerMaterial(cfg: RingCfg): THREE.MeshLambertMaterial {
   const m = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   m.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = shared.uTime; shader.uniforms.uWindDir = shared.uWindDir; shader.uniforms.uField = shared.uField;
+    shader.uniforms.uTime = shared.uTime; shader.uniforms.uWindDir = shared.uWindDir; shader.uniforms.uField = shared.uField; shader.uniforms.uPush = shared.uPush; shader.uniforms.uPushN = shared.uPushN;
     shader.uniforms.uFade = { value: new THREE.Vector4(...cfg.fade) };
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
 attribute vec3 iPos; attribute vec4 iA; attribute vec4 iB; attribute vec3 iCol;
 uniform float uTime; uniform vec2 uWindDir; uniform sampler2D uField; uniform vec4 uFade;
-varying vec3 vGrassCol; varying float vGrassT;
+varying vec3 vGrassCol; varying float vGrassT;${TRAMPLE_GLSL}
 float gh(float n) { return fract(sin(n) * 43758.5453123); }
 vec3 gPos; vec3 gNrm;`)
       .replace('#include <beginnormal_vertex>', `{
@@ -73,6 +90,7 @@ vec3 gPos; vec3 gNrm;`)
   float gust = texture2D(uField, iPos.xz * 0.012 - uWindDir * uTime * 0.035).g;
   float wind = (0.05 + 0.3 * smoothstep(0.38, 0.8, gust)) * (0.8 + 0.2 * sin(uTime * 2.3 + r3 * 6.28));
   vec2 lean = vec2(cos(r1 * 6.28), sin(r1 * 6.28)) * 0.15 + uWindDir * wind;
+  vec3 tr = trample(iPos.xz); lean += tr.xy * 1.4; H *= 1.0 - 0.75 * tr.z;
   vec3 top = iPos + vec3(lean.x * H, H * (1.0 - 0.3 * dot(lean, lean)), lean.y * H);
   vec3 col; vec3 n = vec3(0.0, 1.0, 0.0); float t;
   if (position.z < 0.5) {
@@ -110,7 +128,7 @@ vec3 objectNormal = gNrm;`)
 function grassMaterial(cfg: RingCfg): THREE.MeshLambertMaterial {
   const m = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   m.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = shared.uTime; shader.uniforms.uWindDir = shared.uWindDir; shader.uniforms.uField = shared.uField;
+    shader.uniforms.uTime = shared.uTime; shader.uniforms.uWindDir = shared.uWindDir; shader.uniforms.uField = shared.uField; shader.uniforms.uPush = shared.uPush; shader.uniforms.uPushN = shared.uPushN;
     shader.uniforms.uFade = { value: new THREE.Vector4(...cfg.fade) };
     shader.uniforms.uBlades = { value: cfg.blades };
     shader.uniforms.uWidth = { value: cfg.width };
@@ -118,7 +136,7 @@ function grassMaterial(cfg: RingCfg): THREE.MeshLambertMaterial {
       .replace('#include <common>', `#include <common>
 attribute vec3 iPos; attribute vec4 iA; attribute vec4 iB; attribute vec3 iCol;
 uniform float uTime; uniform vec2 uWindDir; uniform sampler2D uField; uniform vec4 uFade; uniform float uBlades; uniform float uWidth;
-varying vec3 vGrassCol; varying float vGrassT;
+varying vec3 vGrassCol; varying float vGrassT;${TRAMPLE_GLSL}
 float gh(float n) { return fract(sin(n) * 43758.5453123); }
 vec3 gPos; vec3 gNrm;`)
       .replace('#include <beginnormal_vertex>', `{
@@ -147,6 +165,7 @@ vec3 gPos; vec3 gNrm;`)
   wind *= mix(1.0, 0.55, tuft) * (1.0 - thatch);
   vec2 flut = vec2(-uWindDir.y, uWindDir.x) * sin(uTime * 3.7 + r6 * 6.28) * 0.04 * (1.0 - thatch);
   vec2 bend = outw * lean + uWindDir * wind + flut;
+  vec3 tr = trample(iPos.xz + o); bend += tr.xy * 1.8; H *= 1.0 - 0.45 * tr.z;
   float bl = length(bend);
   float t2 = t * t;
   vec2 off = bend * t2 * H;
@@ -354,6 +373,13 @@ export class Grass {
         ];
     for (const c of cfgs) { const r = new GrassRing(c); this.rings.push(r); this.mesh.add(r.group); }
     this.mesh.name = 'grass';
+  }
+
+  /** Set this frame's trampling sources: [x, z, radius, strength] (at most 16). */
+  setPushers(list: ArrayLike<number>, n: number): void {
+    const k = Math.min(n, MAX_PUSH);
+    for (let i = 0; i < k; i++) shared.uPush.value[i].set(list[i * 4], list[i * 4 + 1], list[i * 4 + 2], list[i * 4 + 3]);
+    shared.uPushN.value = k;
   }
 
   sample(): Float32Array { for (const r of this.rings) { const s = r.sample(); if (s) return new Float32Array(s); } return new Float32Array(0); }
