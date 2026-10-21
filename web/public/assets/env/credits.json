@@ -165,25 +165,6 @@
       "license": "CC0",
       "url": "https://polyhaven.com/a/pine_tree_01"
     },
-    "grass_medium_01": {
-      "type": "model",
-      "name": "Grass Medium 01",
-      "authors": {
-        "Rob Tuytel": "Photography",
-        "Rico Cilliers": "Modeling"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/grass_medium_01"
-    },
-    "grass_bermuda_01": {
-      "type": "model",
-      "name": "Grass Bermuda 01",
-      "authors": {
-        "Rico Cilliers": "All"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/grass_bermuda_01"
-    },
     "nettle_plant": {
       "type": "model",
       "name": "Nettle Plant",
@@ -282,16 +263,6 @@
       "license": "CC0",
       "url": "https://polyhaven.com/a/moon_rock_03"
     },
-    "coast_rocks_01": {
-      "type": "model",
-      "name": "Coast Rocks 01",
-      "authors": {
-        "Rob Tuytel": "Photography, processing",
-        "Rico Cilliers": "cleanup"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/coast_rocks_01"
-    },
     "grass_ground": {
       "type": "texture",
       "name": "Grass Ground",
@@ -337,15 +308,6 @@
       "license": "CC0",
       "url": "https://polyhaven.com/a/forest_leaves_02"
     },
-    "coast_sand_01": {
-      "type": "texture",
-      "name": "Coast Sand 01",
-      "authors": {
-        "Rob Tuytel": "All"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/coast_sand_01"
-    },
     "damp_beach_sand": {
       "type": "texture",
       "name": "Damp Beach Sand",
@@ -354,15 +316,6 @@
       },
       "license": "CC0",
       "url": "https://polyhaven.com/a/damp_beach_sand"
-    },
-    "brown_mud": {
-      "type": "texture",
-      "name": "Brown Mud",
-      "authors": {
-        "Rob Tuytel": "All"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/brown_mud"
     },
     "cracked_red_ground": {
       "type": "texture",
@@ -440,97 +393,61 @@
       "license": "CC0",
       "url": "https://polyhaven.com/a/pine_sapling_medium"
     },
-    "bananas": {
-      "type": "model",
-      "name": "Bananas",
+    "aerial_sand": {
+      "type": "texture",
+      "name": "Aerial Sand",
       "authors": {
-        "Alexander Shulha": "All"
+        "Rob Tuytel": "All"
       },
       "license": "CC0",
-      "url": "https://polyhaven.com/a/bananas"
+      "url": "https://polyhaven.com/a/aerial_sand"
     },
-    "food_apple_01": {
-      "type": "model",
-      "name": "Food Apple 01",
+    "brown_mud_03": {
+      "type": "texture",
+      "name": "Brown Mud 03",
       "authors": {
-        "Oliver Harries": "All"
+        "Rob Tuytel": "All"
       },
       "license": "CC0",
-      "url": "https://polyhaven.com/a/food_apple_01"
+      "url": "https://polyhaven.com/a/brown_mud_03"
     },
-    "food_avocado_01": {
-      "type": "model",
-      "name": "Food Avocado 01",
+    "rock_ground_02": {
+      "type": "texture",
+      "name": "Rock Ground 02",
       "authors": {
-        "Oliver Harries": "All"
+        "Rob Tuytel": "All"
       },
       "license": "CC0",
-      "url": "https://polyhaven.com/a/food_avocado_01"
+      "url": "https://polyhaven.com/a/rock_ground_02"
     },
-    "food_lime_01": {
-      "type": "model",
-      "name": "Food Lime 01",
+    "brown_mud_leaves_01": {
+      "type": "texture",
+      "name": "Brown Mud Leaves 01",
       "authors": {
-        "Oliver Harries": "All"
+        "Rob Tuytel": "All"
       },
       "license": "CC0",
-      "url": "https://polyhaven.com/a/food_lime_01"
+      "url": "https://polyhaven.com/a/brown_mud_leaves_01"
     },
-    "food_pears_asian_01": {
-      "type": "model",
-      "name": "Pears Asian 01",
+    "cliff_side": {
+      "type": "texture",
+      "name": "Cliff Side",
       "authors": {
-        "Amal Kumar": "All"
+        "James Ray Cock": "Photography",
+        "Jenelle van Heerden": "Processing",
+        "Dario Barresi": "Photography"
       },
       "license": "CC0",
-      "url": "https://polyhaven.com/a/food_pears_asian_01"
+      "url": "https://polyhaven.com/a/cliff_side"
     },
-    "food_pomegranate_01": {
-      "type": "model",
-      "name": "Food Pomegranate 01",
+    "floor_pebbles_01": {
+      "type": "texture",
+      "name": "Floor Pebbles 01",
       "authors": {
-        "Oliver Harries": "All"
+        "Rob Tuytel": "All"
       },
       "license": "CC0",
-      "url": "https://polyhaven.com/a/food_pomegranate_01"
-    },
-    "lemon": {
-      "type": "model",
-      "name": "Lemon",
-      "authors": {
-        "Kuutti Siitonen": "All"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/lemon"
-    },
-    "sweet_potato": {
-      "type": "model",
-      "name": "Sweet Potato",
-      "authors": {
-        "Jan Martens": "All"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/sweet_potato"
-    },
-    "calathea_orbifolia_01": {
-      "type": "model",
-      "name": "Calathea Orbifolia 01",
-      "authors": {
-        "Rob Tuytel": "scanning",
-        "Rico Cilliers": "modeling"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/calathea_orbifolia_01"
-    },
-    "anthurium_botany_01": {
-      "type": "model",
-      "name": "Anthurium Botany 01",
-      "authors": {
-        "Rob Tuytel": "scanning",
-        "Rico Cilliers": "modeling"
-      },
-      "license": "CC0",
-      "url": "https://polyhaven.com/a/anthurium_botany_01"
+      "url": "https://polyhaven.com/a/floor_pebbles_01"
     }
   }
 }

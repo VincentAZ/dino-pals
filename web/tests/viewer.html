@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Vegetation viewer</title>
+<style>html, body { margin: 0; background: #9cb8d8; overflow: hidden; } canvas { display: block; }</style>
+</head>
+<body>
+<script type="module">
+// QA viewer: lines up the LOD0 (or LOD1) of the given env species on a ground plane under a
+// sun + sky light comparable to the game.  ?species=a,b,c&lod=0&dist=30&yaw=0
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+const q = new URLSearchParams(location.search);
+const ids = (q.get('species') || 'island_tree_01').split(',');
+const lod = q.get('lod') || '0';
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(1.5);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9cb8d8);
+const sun = new THREE.DirectionalLight(0xfffaf0, 3.2); sun.position.set(30, 50, 25); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, far: 200 });
+scene.add(sun, new THREE.HemisphereLight(0xbcd2f0, 0x5a5a40, 1.1));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x5f6f3a, roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder); loader.setKTX2Loader(new KTX2Loader().setTranscoderPath('/basis/').detectSupport(renderer));
+let x = 0; let maxH = 1;
+const placed = [];
+for (const id of ids) {
+  const g = await loader.loadAsync(`/assets/env/${id}.glb`);
+  const node = g.scene.getObjectByName(`V0_LOD${lod}`) ?? g.scene;
+  node.traverse((o) => { if (o.isMesh) { o.castShadow = true; const m = o.material; if (m.alphaTest > 0 || m.transparent) { m.alphaTest = 0.5; m.transparent = false; m.side = THREE.DoubleSide; } m.vertexColors = !!o.geometry.getAttribute('color'); } });
+  const box = new THREE.Box3().setFromObject(node); const size = box.getSize(new THREE.Vector3());
+  const holder = new THREE.Group(); holder.add(node); scene.add(holder);
+  x += size.x / 2; holder.position.set(x - (box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2); x += size.x / 2 + 1.5;
+  maxH = Math.max(maxH, size.y); placed.push(holder);
+}
+for (const p of placed) p.position.x -= x / 2;
+const cam = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 1000);
+const dist = Number(q.get('dist') || Math.max(x * 0.9, maxH * 1.6));
+const yaw = Number(q.get('yaw') || 0);
+cam.position.set(Math.sin(yaw) * dist, maxH * 0.55, Math.cos(yaw) * dist); cam.lookAt(0, maxH * 0.45, 0);
+renderer.render(scene, cam);
+window.__ready = true;
+</script>
+</body>
+</html>

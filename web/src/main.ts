@@ -115,7 +115,7 @@ async function main(): Promise<void> {
 
   // world
   const workers = new TerrainWorkers(2);
-  const terrain = new Terrain(workers);
+  const terrain = new Terrain(workers, renderer);
   scene.add(terrain.group);
   const terrainReady = terrain.init();
   const sky = new Sky(renderer, scene, terrain.uniforms.uNoise.value);
@@ -314,7 +314,7 @@ async function main(): Promise<void> {
     stats: () => ({
       fps: Math.round(fps), frameMs: +frameMs.toFixed(2), dinoMs: +dinoMs.toFixed(2), dinoMaxMs: +dinoMaxMs.toFixed(2), route: { ...routeStats, warmed: warmStats.cells }, triangles: renderer.info.render.triangles, calls: renderer.info.render.calls,
       geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, terrain: terrain.stats, dinos: dinos.stats,
-      vegLoaded: vegetation.loadedCount, veg: vegetation.stats, light: grass.material.uniforms.uLight.value.toArray().map((v: number) => +v.toFixed(2)), grassSample: Array.from(grass.sample()), hours: +sky.hours.toFixed(2), quality: quality.tier, pixelRatio: renderer.getPixelRatio(),
+      vegLoaded: vegetation.loadedCount, veg: vegetation.stats, grassTris: grass.triangles, light: grass.material.uniforms.uLight.value.toArray().map((v: number) => +v.toFixed(2)), grassSample: Array.from(grass.sample()), hours: +sky.hours.toFixed(2), quality: quality.tier, pixelRatio: renderer.getPixelRatio(),
       contextLosses, audioState: audio.ctx.state, renderScale: +renderScale.toFixed(2),
       player: { x: +player.pos.x.toFixed(1), y: +player.pos.y.toFixed(1), z: +player.pos.z.toFixed(1), biome: biomeWeights(player.pos.x, player.pos.z).dominant },
     }),

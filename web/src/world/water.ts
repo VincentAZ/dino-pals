@@ -7,12 +7,12 @@ import type { SkyState } from './sky.ts';
 const V = /* glsl */ `
 #include <fog_pars_vertex>
 varying vec3 vW; varying vec3 vN;
-uniform float uTime;
+uniform float uTime; uniform vec3 uSwamp;
 void main() {
   vec3 p = position;
   vec4 w = modelMatrix * vec4(p, 1.0);
   float wave = sin(w.x * 0.35 + uTime * 1.1) * 0.06 + sin(w.z * 0.27 - uTime * 0.9) * 0.05 + sin((w.x + w.z) * 0.12 + uTime * 0.6) * 0.08;
-  w.y += wave * uWaveAmp;
+  w.y += wave * uWaveAmp * (1.0 - smoothstep(uSwamp.z, uSwamp.z * 0.55, distance(w.xz, uSwamp.xy)));
   vW = w.xyz; vN = vec3(0.0, 1.0, 0.0);
   vec4 mvPosition = viewMatrix * w;
   gl_Position = projectionMatrix * mvPosition;
@@ -25,6 +25,7 @@ varying vec3 vW; varying vec3 vN;
 uniform sampler2D uNoise; uniform sampler2D uHeight; uniform float uWorldHalf; uniform float uTime;
 uniform vec3 uSunDir; uniform vec3 uSunCol; uniform vec3 uZenith; uniform vec3 uHorizon; uniform float uDay;
 uniform float uDiscardBelow; uniform vec3 uShallow; uniform vec3 uDeep; uniform float uFish; uniform float uFoam; uniform float uMinAlpha; uniform float uReflect;
+uniform vec3 uSwamp; // swamp centre (x, z) and radius: murky, weedy, still water inside
 float terrainH(vec2 xz) { vec4 t = texture2D(uHeight, xz / (2.0 * uWorldHalf) + 0.5); return (t.r * 255.0 * 256.0 + t.g * 255.0) / 65535.0 * 320.0 - 64.0; }
 vec3 waterNormal(vec2 p) {
   vec2 uv1 = p * 0.09 + vec2(uTime * 0.025, uTime * 0.018);
@@ -48,6 +49,9 @@ void main() {
   // body colour by depth
   float dfac = 1.0 - exp(-depth * 0.16);
   vec3 body = mix(uShallow, uDeep, dfac);
+  float murk = smoothstep(uSwamp.z, uSwamp.z * 0.55, distance(vW.xz, uSwamp.xy));
+  body = mix(body, mix(vec3(0.1, 0.11, 0.055), vec3(0.035, 0.045, 0.022), dfac), murk);
+  N = normalize(mix(N, vec3(0.0, 1.0, 0.0), murk * 0.8));
   // sand/ground seen through shallow water: fade alpha
   float alpha = max(uMinAlpha, mix(0.35, 0.93, 1.0 - exp(-depth * 0.45)));
   // reflection: sky gradient from reflected direction + sun highlight
@@ -55,10 +59,11 @@ void main() {
   float t = pow(clamp(1.0 - R.y, 0.0, 1.0), 2.0);
   vec3 refl = mix(uZenith, uHorizon, t);
   float spec = pow(max(dot(R, uSunDir), 0.0), 240.0) * 3.0 + pow(max(dot(R, uSunDir), 0.0), 24.0) * 0.25;
-  vec3 col = mix(body * (0.35 + 0.65 * uDay), refl, clamp(fres * 1.2 * uReflect, 0.0, 0.85));
+  alpha = mix(alpha, max(alpha, 0.92), murk);
+  vec3 col = mix(body * (0.35 + 0.65 * uDay), refl, clamp(fres * 1.2 * uReflect * (1.0 - murk * 0.62), 0.0, 0.85));
   col += uSunCol * spec * smoothstep(-0.05, 0.1, uSunDir.y) * uReflect;
   // fish
-  if (uFish > 0.5 && depth > 0.6 && depth < 9.0) {
+  if (uFish > 0.5 && murk < 0.5 && depth > 0.6 && depth < 9.0) {
     vec2 cell = floor(vW.xz / 7.0);
     float r = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
     if (r > 0.55) {
@@ -79,7 +84,10 @@ void main() {
   float foamN2 = texture2D(uNoise, vW.xz * 0.05 - vec2(uTime * 0.015, uTime * 0.025)).r;
   float shore = smoothstep(1.6, 0.0, depth) * smoothstep(0.35, 0.7, foamN * 0.6 + foamN2 * 0.5 + sin(depth * 4.0 - uTime * 1.6) * 0.15);
   float crest = smoothstep(0.86, 0.96, foamN2 + N.x * 0.3) * 0.5;
-  float foam = clamp(shore + crest, 0.0, 1.0) * uFoam;
+  float foam = clamp(shore + crest, 0.0, 1.0) * uFoam * (1.0 - murk);
+  // duckweed and algae rafts on the still swamp water
+  float weed = smoothstep(0.56, 0.74, texture2D(uNoise, vW.xz * 0.045 + 0.13).g * 0.7 + texture2D(uNoise, vW.xz * 0.21).r * 0.3) * murk;
+  col = mix(col, vec3(0.13, 0.2, 0.045) * (0.3 + 0.7 * uDay), weed * 0.85);
   col = mix(col, vec3(0.95) * (0.25 + 0.75 * uDay), foam * 0.85);
   alpha = max(alpha, foam * 0.9);
   gl_FragColor = vec4(col, alpha);
@@ -102,6 +110,7 @@ export class Water {
           uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color(1, 1, 1) }, uZenith: { value: new THREE.Color(0.3, 0.5, 0.9) },
           uHorizon: { value: new THREE.Color(0.8, 0.9, 1) }, uDay: { value: 1 }, uDiscardBelow: { value: opts.discardBelow },
           uShallow: { value: opts.shallow }, uDeep: { value: opts.deep }, uFish: { value: opts.fish }, uWaveAmp: { value: opts.waveAmp }, uFoam: { value: opts.foam }, uMinAlpha: { value: opts.minAlpha }, uReflect: { value: opts.reflect },
+          uSwamp: { value: new THREE.Vector3(BIOMES.swamp.center[0], BIOMES.swamp.center[1], BIOMES.swamp.radius + 30) },
         }]),
       });
       // merge() clones textures' holders; re-point to shared textures

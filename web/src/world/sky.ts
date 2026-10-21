@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { DAY_LENGTH_SEC, quality } from '../config.ts';
 import { BIOMES, BIOME_IDS, biomeWeights } from './biomes.ts';
+import './atmosphere.ts';
 
 const V = /* glsl */ `
 varying vec3 vDir;
@@ -88,7 +89,7 @@ export class Sky {
   private fogColor = new THREE.Color();
   private tmpC = new THREE.Color();
   private sunTarget = new THREE.Object3D();
-  private shadowSize = 90;
+  private shadowSize = 110;
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, noise: THREE.Texture) {
     this.material = new THREE.ShaderMaterial({
@@ -112,7 +113,7 @@ export class Sky {
     this.sun.shadow.mapSize.set(quality.shadowMap, quality.shadowMap);
     const s = this.shadowSize;
     this.sun.shadow.camera.left = -s; this.sun.shadow.camera.right = s; this.sun.shadow.camera.top = s; this.sun.shadow.camera.bottom = -s;
-    this.sun.shadow.camera.near = 10; this.sun.shadow.camera.far = 400;
+    this.sun.shadow.camera.near = 10; this.sun.shadow.camera.far = 440;
     this.sun.shadow.bias = -0.0006; this.sun.shadow.normalBias = 0.6; this.sun.shadow.radius = 2; this.sun.shadow.intensity = 0.85;
     this.sun.target = this.sunTarget;
     scene.add(this.sun); scene.add(this.sunTarget);
@@ -157,8 +158,8 @@ export class Sky {
     this.sun.intensity = (useMoon ? moonI : sunI) * (1 - 0.35 * wJungle);
     this.sun.color.copy(useMoon ? new THREE.Color(0.62, 0.7, 1.0) : st.sunColor);
     // tight shadow frustum following the player, oriented along the view so near things get resolution
-    this.sunTarget.position.copy(playerPos).addScaledVector(camDir, 25);
-    this.sun.position.copy(this.sunTarget.position).addScaledVector(dir, 180);
+    this.sunTarget.position.copy(playerPos).addScaledVector(camDir, 38);
+    this.sun.position.copy(this.sunTarget.position).addScaledVector(dir, 200);
     // moonlit blue-grey ambient at night (~25% of day), bluish in the snow, dimmer under the jungle canopy
     const dayHemi = new THREE.Color().copy(st.zenith).lerp(new THREE.Color(0.8, 0.85, 1), 0.3).lerp(new THREE.Color(0.65, 0.75, 1.0), wSnow * 0.6);
     const nightHemi = new THREE.Color(0.42, 0.5, 0.78);
