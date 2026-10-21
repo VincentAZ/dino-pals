@@ -17,6 +17,15 @@ import draco3d from 'draco3dgltf';
 import { buildCardTexture, canopyCards } from './canopy.mjs';
 import { extractLeaves, crownOf, pickLeaves, writeLeafQuads, keepLimbs } from './foliage.mjs';
 import { EXTTextureWebP } from '@gltf-transform/extensions';
+import { encodeToKTX2 } from 'ktx2-encoder';
+
+const ktxDecoder = async (buf) => { const { data, info } = await sharp(Buffer.from(buf)).ensureAlpha().raw().toBuffer({ resolveWithObject: true }); return { width: info.width, height: info.height, data: new Uint8Array(data) }; };
+/** ETC1S/Basis KTX2 (sRGB, mipmapped) of an RGBA raw image: transcodes to ASTC / ETC2 / BC7 on the GPU. */
+async function writeKtx2(rgba, size, file, srgb = true) {
+  const png = await sharp(rgba, { raw: { width: size, height: size, channels: 4 } }).png().toBuffer();
+  const out = await encodeToKTX2(new Uint8Array(png), { isUASTC: false, qualityLevel: 220, compressionLevel: 2, generateMipmap: true, isKTX2File: true, isPerceptual: srgb, isSetKTX2SRGBTransferFunc: srgb, imageDecoder: ktxDecoder });
+  await fs.writeFile(file, out);
+}
 
 function mulberry(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -28,8 +37,8 @@ const ONLY = (() => { const i = args.indexOf('--only'); return i >= 0 ? args[i +
 
 /** @type {Record<string, {kind:'tree'|'plant'|'rock', tris:number, lod1:number, tex:number, leafTex?:number}>} */
 const MODELS = {
-  fir_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 1024, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 8, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.3, tint: [0.85, 0.9, 0.8] } },
-  pine_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 1024, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 14, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.36, tint: [0.85, 0.9, 0.8] } },
+  fir_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 512, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 8, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.3, tint: [0.85, 0.9, 0.8] } },
+  pine_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 512, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 14, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.36, tint: [0.85, 0.9, 0.8] } },
   island_tree_01: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
   island_tree_02: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
   island_tree_03: { kind: 'tree', tris: 7200, lod1: 1600, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 620, limbs: 30000, cover: 0.95 } },
@@ -37,31 +46,28 @@ const MODELS = {
   tree_small_02: { kind: 'tree', tris: 5800, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 1900, leaves1: 480, limbs: 20000, cover: 0.9 } },
   dead_tree_trunk: { kind: 'tree', tris: 5000, lod1: 900, tex: 512 },
   dead_tree_trunk_02: { kind: 'tree', tris: 5000, lod1: 900, tex: 512 },
-  quiver_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 1024 },
+  quiver_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 512 },
   dead_quiver_trunk: { kind: 'tree', tris: 5000, lod1: 1000, tex: 512 },
   tree_stump_01: { kind: 'rock', tris: 1500, lod1: 300, tex: 512 },
-  pine_sapling_medium: { kind: 'plant', tris: 2500, lod1: 600, tex: 512, leafTex: 1024, canopy: { key: 'twig', cards0: 160, cards1: 50, copies: 12, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.85, tint: [0.85, 0.9, 0.8] } },
-  searsia_lucida: { kind: 'plant', tris: 2000, lod1: 500, tex: 512, leafTex: 1024 },
-  fern_02: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
+  pine_sapling_medium: { kind: 'plant', tris: 2500, lod1: 600, tex: 512, norTex: 256, leafTex: 512, canopy: { key: 'twig', cards0: 160, cards1: 50, copies: 12, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.85, tint: [0.85, 0.9, 0.8] } },
+  searsia_lucida: { kind: 'plant', tris: 2000, lod1: 500, tex: 512, norTex: 256, leafTex: 512 },
+  fern_02: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, norTex: 256, leafTex: 512 },
   shrub_01: { kind: 'plant', tris: 2400, lod1: 600, tex: 512, leafTex: 512, foliage: { leaves0: 1100, leaves1: 260, limbs: 0, cover: 0.85, leafMat: 'shrub' } },
   shrub_02: { kind: 'plant', tris: 1400, lod1: 500, tex: 512, leafTex: 512, foliage: { leaves0: 260, leaves1: 90, limbs: 0, cover: 0.9, leafMat: 'shrub' } },
-  shrub_03: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
+  shrub_03: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, norTex: 256, leafTex: 512 },
   shrub_04: { kind: 'plant', tris: 1000, lod1: 300, tex: 512, leafTex: 512, foliage: { leaves0: 420, leaves1: 120, limbs: 0, cover: 0.9, leafMat: 'shrub' } },
-  grass_medium_01: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  grass_bermuda_01: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  nettle_plant: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  weed_plant_02: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  wild_rooibos_bush: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  flower_gazania: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  flower_ursinia: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, leafTex: 1024 },
-  boulder_01: { kind: 'rock', tris: 3500, lod1: 700, tex: 1024 },
-  rock_07: { kind: 'rock', tris: 1500, lod1: 300, tex: 1024 },
-  rock_09: { kind: 'rock', tris: 1500, lod1: 300, tex: 1024 },
-  rock_moss_set_01: { kind: 'rock', tris: 2500, lod1: 500, tex: 1024 },
-  namaqualand_boulder_02: { kind: 'rock', tris: 1500, lod1: 300, tex: 1024 },
-  coast_rocks_01: { kind: 'rock', tris: 2500, lod1: 500, tex: 1024 },
-  moon_rock_03: { kind: 'rock', tris: 1500, lod1: 300, tex: 1024 },
-  rock_face_01: { kind: 'rock', tris: 3000, lod1: 600, tex: 1024 },
+  nettle_plant: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, norTex: 256, leafTex: 512 },
+  weed_plant_02: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, norTex: 256, leafTex: 512 },
+  wild_rooibos_bush: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, norTex: 256, leafTex: 512 },
+  flower_gazania: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, norTex: 256, leafTex: 512 },
+  flower_ursinia: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, norTex: 256, leafTex: 512 },
+  boulder_01: { kind: 'rock', tris: 3500, lod1: 700, tex: 512 },
+  rock_07: { kind: 'rock', tris: 1500, lod1: 300, tex: 512 },
+  rock_09: { kind: 'rock', tris: 1500, lod1: 300, tex: 512 },
+  rock_moss_set_01: { kind: 'rock', tris: 2500, lod1: 500, tex: 512 },
+  namaqualand_boulder_02: { kind: 'rock', tris: 1500, lod1: 300, tex: 512 },
+  moon_rock_03: { kind: 'rock', tris: 1500, lod1: 300, tex: 512 },
+  rock_face_01: { kind: 'rock', tris: 3000, lod1: 600, tex: 512 },
 };
 
 // Ground layers (order = GROUND_LAYERS in src/world/biomes.ts) + the near-camera detail texture.
@@ -326,12 +332,19 @@ async function processModel(name, cfg, io, credits) {
     if (/disp|displacement/i.test(uri)) tex.dispose();
   }
   await doc.transform(prune());
+  // texture diet: no ARM maps (constant roughness), smaller normals on small plants
+  for (const mat of doc.getRoot().listMaterials()) {
+    mat.setOcclusionTexture(null).setMetallicRoughnessTexture(null).setMetallicFactor(0);
+    if (!cfg.foliage) mat.setRoughnessFactor(cfg.kind === 'rock' ? 0.85 : 0.9);
+  }
+  await doc.transform(prune());
   const leafRe = /twig|leaf|leaves|needle|branch|plant|grass|flower|fern|frond|shrub|bush|nettle|weed|card|sapling|searsia/i;
   for (const tex of doc.getRoot().listTextures()) {
     const uri = tex.getURI() || tex.getName();
     if (uri.startsWith('canopy_')) continue;
     const isLeaf = cfg.leafTex && leafRe.test(uri);
-    const size = isLeaf ? cfg.leafTex : cfg.tex;
+    const isNor = /nor_gl|normal|_nor/i.test(uri);
+    const size = isNor && cfg.norTex ? cfg.norTex : isLeaf ? cfg.leafTex : cfg.tex;
     const isNormal = /nor_gl|normal/i.test(uri);
     await doc.transform(textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [size, size], quality: isNormal ? 90 : 82, pattern: new RegExp(path.basename(uri).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
   }
@@ -366,7 +379,7 @@ async function processTexture(name, credits) {
   const diff = await get('Diffuse', '2k'), nor = await get('nor_gl', '1k'), arm = await get('arm', '1k'), disp = await get('Displacement', '1k');
   if (!diff || !nor) throw new Error(`${name}: missing maps`);
   const raw = async (f, size, channels) => { const { data } = await sharp(f).resize(size, size, { kernel: 'lanczos3' }).removeAlpha().raw().toBuffer({ resolveWithObject: true }); const out = Buffer.alloc(size * size * channels); const c = data.length / (size * size); for (let i = 0; i < size * size; i++) for (let k = 0; k < channels; k++) out[i * channels + k] = data[i * c + Math.min(k, c - 1)]; return out; };
-  for (const size of [1024, 512]) {
+  for (const size of name === 'floor_pebbles_01' ? [512] : [1024, 512]) {
     const rgb = await raw(diff, size, 3);
     let h = disp ? await raw(disp, size, 1) : Buffer.alloc(size * size, 128);
     // stretch the height to the full 0..255 range (per texture) for height-blending
@@ -374,7 +387,9 @@ async function processTexture(name, credits) {
     const span = Math.max(1, hi - lo);
     const rgba = Buffer.alloc(size * size * 4);
     for (let i = 0; i < size * size; i++) { rgba[i * 4] = rgb[i * 3]; rgba[i * 4 + 1] = rgb[i * 3 + 1]; rgba[i * 4 + 2] = rgb[i * 3 + 2]; rgba[i * 4 + 3] = Math.round(((h[i] - lo) / span) * 255); }
-    await sharp(rgba, { raw: { width: size, height: size, channels: 4 } }).webp({ quality: size > 512 ? 80 : 84, alphaQuality: 45, effort: 6 }).toFile(path.join(outDir, `${name}_a_${size}.webp`));
+    // 1024: KTX2 (compressed on the GPU, streamed after start-up); 512: WebP for the first frames and the low tier
+    if (size > 512) await writeKtx2(rgba, size, path.join(outDir, `${name}_a_${size}.ktx2`));
+    else await sharp(rgba, { raw: { width: size, height: size, channels: 4 } }).webp({ quality: 84, alphaQuality: 45, effort: 6 }).toFile(path.join(outDir, `${name}_a_${size}.webp`));
   }
   {
     const size = 512;

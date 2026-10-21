@@ -6,6 +6,7 @@
 // and puddled; volcanic channels hold flowing, glowing lava. Geometry (with
 // baked horizon + contact ambient occlusion) is generated in a worker pool.
 import * as THREE from 'three';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { CHUNK_LOAD_RADIUS, CHUNK_LOD_DIST, CHUNK_SEGMENTS, CHUNK_SIZE, CHUNKS_PER_SIDE, quality } from '../config.ts';
 import { DETAIL_TEXTURE, GROUND_LAYERS, HALF, LAYER_COUNT, LAYER_DETAIL, LAYER_ROUGH, LAYER_TILE, LAYER_TINT, TEX_LAYERS } from './biomes.ts';
 import { heightAt } from './heightmap.ts';
@@ -86,6 +87,28 @@ async function loadLayerArray(renderer: THREE.WebGLRenderer, urls: string[], siz
   return tex;
 }
 
+/** Loads N KTX2 (Basis) layers and stacks them into one compressed 2D array texture. */
+async function loadKtx2Array(renderer: THREE.WebGLRenderer, urls: string[], size: number, aniso: number): Promise<THREE.CompressedArrayTexture | null> {
+  const loader = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(renderer);
+  try {
+    const texs = await Promise.all(urls.map((u) => loader.loadAsync(u)));
+    const first = texs[0] as THREE.CompressedTexture;
+    if (!texs.every((t) => (t as THREE.CompressedTexture).isCompressedTexture && t.format === first.format && t.mipmaps && t.mipmaps.length === first.mipmaps.length && t.image.width === size)) return null;
+    const mipmaps = first.mipmaps.map((m, level) => {
+      const parts = texs.map((t) => (t.mipmaps![level] as { data: Uint8Array }).data);
+      const data = new Uint8Array(parts.reduce((n, p) => n + p.byteLength, 0));
+      let o = 0; for (const p of parts) { data.set(p, o); o += p.byteLength; }
+      return { data, width: m.width, height: m.height };
+    });
+    const arr = new THREE.CompressedArrayTexture(mipmaps as unknown as ImageData[], size, size, urls.length, first.format as THREE.CompressedPixelFormat, first.type);
+    arr.colorSpace = first.colorSpace; arr.wrapS = arr.wrapT = THREE.RepeatWrapping;
+    arr.minFilter = THREE.LinearMipmapLinearFilter; arr.magFilter = THREE.LinearFilter; arr.generateMipmaps = false; arr.anisotropy = aniso;
+    arr.needsUpdate = true;
+    for (const t of texs) t.dispose();
+    return arr;
+  } catch { return null; } finally { loader.dispose(); }
+}
+
 async function loadTexture2D(url: string, srgb: boolean, aniso: number): Promise<THREE.Texture> {
   const bm = await decode(url);
   const t = new THREE.Texture(bm ?? undefined);
@@ -128,7 +151,7 @@ function makeNoiseTexture(): THREE.DataTexture {
 }
 
 export interface TerrainUniforms {
-  uAlb: { value: THREE.DataArrayTexture | null };
+  uAlb: { value: THREE.DataArrayTexture | THREE.CompressedArrayTexture | null };
   uNrm: { value: THREE.DataArrayTexture | null };
   uDetA: { value: THREE.Texture | null };
   uDetB: { value: THREE.Texture | null };
@@ -227,6 +250,13 @@ void splat() {
   // macro variation against tiling
   float macro = (0.84 + 0.3 * mA.a) * (0.92 + 0.16 * mB.r);
   col *= macro;
+  // volcanic ground: oxidised rusty-brown scoria patches and lighter ash drifts
+  float volc = clamp(w[8] + w[12], 0.0, 1.0);
+  if (volc > 0.01) {
+    float rust = smoothstep(0.55, 0.8, mA.r * 0.6 + mB.b * 0.4) * volc;
+    col = mix(col, col * vec3(1.75, 1.08, 0.72), rust * 0.55);
+    col = mix(col, col * 1.45, smoothstep(0.6, 0.85, mB.g) * w[12] * 0.5);
+  }
   // grass-covered ground takes the colour of its grass (same field function as the blades),
   // keeping the texture's luminance detail; darker near the camera where it is the shade between blades
   vec4 gf = grassField(vWPos.xz, w);
@@ -391,11 +421,12 @@ export class Terrain {
     ht.minFilter = THREE.LinearFilter; ht.magFilter = THREE.LinearFilter; ht.needsUpdate = true;
     this.heightTexture = ht;
     this.ready = true;
-    // sharper albedo once the world is up (high tier only)
-    if (quality.tier === 'high') {
-      void loadLayerArray(this.renderer, aUrls(1024), 1024, true, aniso).then((hi) => {
+    // sharper albedo once the world is up (high tier only): 1024 Basis layers, GPU-compressed
+    if (quality.tier === 'high' && new URLSearchParams(location.search).get('ktx') !== '0') {
+      void loadKtx2Array(this.renderer, GROUND_LAYERS.map((n) => `${base}${n}_a_1024.ktx2`), 1024, aniso).then((hi) => {
+        if (!hi) return; // keep the 512 set
         const old = this.uniforms.uAlb.value; this.uniforms.uAlb.value = hi; old?.dispose();
-      }).catch(() => { /* keep the 512 set */ });
+      });
     }
   }
 

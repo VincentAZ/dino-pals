@@ -27,7 +27,9 @@ const GL_TRACK = () => {
   const sizes = new Map(); const bound = new Map(); let unit = 0;
   const bpp = (fmt, type) => {
     // internal formats (sized) or format+type
-    const map = { 0x8058: 4, 0x8C43: 4, 0x881A: 8, 0x8814: 16, 0x822E: 4, 0x8229: 1, 0x822B: 2, 0x8230: 8, 0x822F: 2, 0x81A6: 4, 0x8CAC: 4, 0x88F0: 4, 0x8D48: 4, 0x8C3A: 4, 0x8C3D: 4 };
+    const map = { 0x8058: 4, 0x8C43: 4, 0x881A: 8, 0x8814: 16, 0x822E: 4, 0x8229: 1, 0x822B: 2, 0x8230: 8, 0x822F: 2, 0x81A6: 4, 0x8CAC: 4, 0x88F0: 4, 0x8D48: 4, 0x8C3A: 4, 0x8C3D: 4,
+      // compressed: BPTC, S3TC, ETC2, ASTC 4x4 (bytes per texel)
+      0x8E8C: 1, 0x8E8D: 1, 0x83F3: 1, 0x8C4F: 1, 0x83F1: 0.5, 0x8C4C: 0.5, 0x9278: 1, 0x9279: 1, 0x9274: 0.5, 0x9275: 0.5, 0x93B0: 1, 0x93D0: 1 };
     if (map[fmt]) return map[fmt];
     if (fmt === 0x1908) return type === 0x1406 ? 16 : type === 0x140B ? 8 : 4; // RGBA
     if (fmt === 0x1907) return type === 0x1406 ? 12 : 3; // RGB
@@ -74,8 +76,8 @@ const VIEWS = [
   { name: 'grass2', js: 'window.__dino.teleport(-30, 40); window.__dino.lookAt(-30, 0); window.__dino.setView(window.__dino.view().yaw, 0.28, 4)' },
   { name: 'jungle', js: "window.__dino.teleportBiome('jungle')" },
   { name: 'volcano-meadow', js: 'window.__dino.teleport(0, -60); window.__dino.lookAt(20, -520); window.__dino.setView(window.__dino.view().yaw, 0.06, 7)' },
-  { name: 'volcano-slope', js: 'window.__dino.teleport(110, -420); window.__dino.lookAt(20, -520); window.__dino.setView(window.__dino.view().yaw, 0.12, 8)' },
-  { name: 'volcano-crater', js: 'window.__dino.teleport(40, -470); window.__dino.lookAt(20, -520); window.__dino.setView(window.__dino.view().yaw, 0.35, 9)' },
+  { name: 'volcano-slope', js: 'window.__dino.teleport(-53, -437.7); window.__dino.lookAt(-119.6, -363); window.__dino.setView(window.__dino.view().yaw, 0.25, 9)' },
+  { name: 'volcano-crater', js: 'window.__dino.teleport(20, -497); window.__dino.lookAt(20, -520); window.__dino.setView(window.__dino.view().yaw, 0.55, 13)' },
   { name: 'volcano-biome', js: "window.__dino.teleportBiome('volcano')" },
   { name: 'swamp', js: "window.__dino.teleportBiome('swamp')" },
   { name: 'canyon', js: "window.__dino.teleportBiome('canyon')" },
@@ -99,7 +101,7 @@ for (const tier of TIERS) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   const t0 = Date.now();
-  await page.goto(`http://localhost:${PORT}/?q=${tier}`, { waitUntil: 'load' });
+  await page.goto(`http://localhost:${PORT}/?q=${tier}${opt('extra', '')}`, { waitUntil: 'load' });
   await page.waitForSelector('#splash', { timeout: 20000 });
   await page.waitForTimeout(400);
   await page.touchscreen.tap(590, 410);
@@ -115,7 +117,7 @@ for (const tier of TIERS) {
     await page.evaluate((h) => { const a = window.__dino; a.setTime(h); a.pause(true); a.step(2); }, v.hours ?? 10);
     await page.waitForTimeout(250);
     const st = await page.evaluate(() => ({ ...window.__dino.stats(), texMB: window.__texMB ? window.__texMB() : null }));
-    summary[tier].views[v.name] = { triangles: st.triangles, calls: st.calls, texMB: st.texMB, textures: st.textures, veg: st.veg?.triangles, terrain: st.terrain?.triangles };
+    summary[tier].views[v.name] = { triangles: st.triangles, calls: st.calls, texMB: st.texMB, textures: st.textures, veg: st.veg?.triangles, terrain: st.terrain?.triangles, grass: st.grassTris };
     await page.screenshot({ path: path.join(OUT, `${tier}-${v.name}.png`) });
     console.log(tier, v.name, JSON.stringify(summary[tier].views[v.name]));
     if (args.includes('--texlist')) console.log((await page.evaluate(() => window.__texList())).join('\n'));
@@ -123,6 +125,7 @@ for (const tier of TIERS) {
     if (v.name === 'start') { await page.evaluate(() => window.__dino.pause(false)); }
   }
   await page.evaluate(() => window.__dino.pause(false));
+  summary[tier].texList = await page.evaluate(() => window.__texList());
   summary[tier].errors = [...errors, ...(await page.evaluate(() => window.__dino.errors))];
   if (summary[tier].errors.length) console.log('ERRORS', summary[tier].errors);
   await ctx.close();

@@ -19,6 +19,8 @@ interface Variant { lod0: Part[]; lod1: Part[]; bounds: THREE.Box3; height: numb
 interface SpeciesAssets { def: VegSpecies; variants: Variant[]; loaded: boolean; failed: boolean; lod: [number, number, number] }
 
 const STRIDE = 6; // x, y, z, rotY, scale, variantSeed
+/** brightness gain for the conifers' needle-spray cards (their baked crown shading is dark) */
+const CANOPY_GAIN: Record<string, number> = { fir_tree_01: 1.35, pine_tree_01: 1.55, pine_sapling_medium: 1.45 };
 const CELLS = 2;  // cells per chunk side
 const CELL = CHUNK_SIZE / CELLS;
 const BAND = 5;   // CPU bucketing margin (m) around each LOD band
@@ -173,7 +175,7 @@ export class Vegetation {
   private atlas: THREE.WebGLRenderTarget | null = null;
   private natlas: THREE.WebGLRenderTarget | null = null;
   private atlasMat: THREE.ShaderMaterial | null = null;
-  private atlasGrid = 8;
+  private atlasGrid = 5;
   private atlasSlot = 256;
   private nextSlot = 0;
   private loadQueue: string[] = [];
@@ -357,7 +359,10 @@ export class Vegetation {
     attr.setUsage(THREE.DynamicDrawUsage);
     const sphere = new THREE.Sphere(new THREE.Vector3(cx, va.height * 0.5, cz), half * 1.5 + va.height + va.width);
     const parts = k === 'l0' ? va.lod0 : va.lod1;
-    const shadow = sp.def.castShadow && quality.shadows && (k === 'l0' || quality.tier === 'high');
+    // LOD1 trees cast shadows on the high tier, except in dense forest (there the crowns
+    // shade each other anyway and the extra shadow pass would double the cost)
+    let n1 = 0; if (k === 'l1') for (const d of src) n1 += d.length / 5;
+    const shadow = sp.def.castShadow && quality.shadows && (k === 'l0' || (quality.tier === 'high' && n1 < 24));
     const meshes: THREE.InstancedMesh[] = [];
     for (const part of parts) {
       const im = new THREE.InstancedMesh(part.geometry, part.material, cap);
@@ -486,6 +491,7 @@ export class Vegetation {
           const cutout = !!m.alphaMap || m.alphaTest > 0 || m.transparent || sp.def.kind !== 'rock';
           if (cutout) { m.alphaTest = 0.5; m.transparent = false; m.side = THREE.DoubleSide; m.depthWrite = true; }
           m.vertexColors = !!it.geometry.getAttribute('color');
+          if (m.name.startsWith('canopy_') && CANOPY_GAIN[id]) m.color.multiplyScalar(CANOPY_GAIN[id]);
           m.roughness = sp.def.kind === 'rock' ? Math.max(m.roughness, 0.7) : 0.9; m.envMapIntensity = sp.def.kind === 'rock' ? 0.5 : 0.35; m.metalness = 0;
           vegetationHooks(m, range, va.height, windAmt, `${id}-${tag}`, cutout && sp.def.kind !== 'rock');
           it.material = m;

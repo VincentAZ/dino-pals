@@ -224,8 +224,11 @@ export function layerWeightsAt(x: number, z: number, out?: Float32Array): Float3
   const shore = smoothstep(3.2, 0.6, h);
   const wet = smoothstep(1.2, -3, h);
   for (let i = 0; i < LAYER_COUNT; i++) o[i] *= 1 - shore;
-  o[L.sand] += shore * (1 - wet);
-  o[L.wetSand] += shore * wet;
+  // swamp banks are mud and moss, not beach sand
+  const sw = smoothstep(0.25, 0.55, w[4]);
+  o[L.sand] += shore * (1 - wet) * (1 - sw);
+  o[L.wetSand] += shore * wet * (1 - sw);
+  o[L.mud] += shore * sw * 0.7; o[L.swampMoss] += shore * sw * 0.3;
   const snowCap = smoothstep(95, 125, h) * (1 - w[2]);
   for (let i = 0; i < LAYER_COUNT; i++) o[i] *= 1 - snowCap;
   o[L.snow] += snowCap;

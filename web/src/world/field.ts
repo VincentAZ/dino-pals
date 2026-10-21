@@ -51,7 +51,7 @@ PAL[L.grass] = { col: [86, 110, 44], cov: 1.0, reed: 0, tuft: 0, dry: 0.55 };
 PAL[L.grassRock] = { col: [100, 114, 52], cov: 0.8, reed: 0, tuft: 0.1, dry: 0.7 };
 PAL[L.forestFloor] = { col: [62, 88, 36], cov: 0.42, reed: 0, tuft: 0, dry: 0.15 };
 PAL[L.leaves] = { col: [86, 100, 42], cov: 0.3, reed: 0.2, tuft: 0, dry: 0.2 };
-PAL[L.sand] = { col: [150, 146, 88], cov: 0.035, reed: 0, tuft: 1, dry: 0.6 };
+PAL[L.sand] = { col: [156, 150, 92], cov: 0.014, reed: 0, tuft: 1, dry: 0.6 };
 PAL[L.mud] = { col: [92, 104, 48], cov: 0.62, reed: 1, tuft: 0, dry: 0.25 };
 PAL[L.redGround] = { col: [176, 150, 84], cov: 0.11, reed: 0, tuft: 1, dry: 0.9 };
 PAL[L.riverbed] = { col: [140, 132, 80], cov: 0.06, reed: 0, tuft: 1, dry: 0.5 };
@@ -83,6 +83,8 @@ vec4 grassField(vec2 xz, float w[${LAYER_COUNT}]) {
   c *= 0.84 + 0.32 * nB.a;
   c = mix(c, c * vec3(1.08, 1.04, 0.72), smoothstep(0.35, 0.75, nA.b) * 0.6);
   cov *= smoothstep(0.12, 0.42, nA.a * 0.55 + nB.g * 0.45);
+  // nothing grows on snow, fresh volcanic ground or bare cliffs
+  cov *= 1.0 - smoothstep(0.04, 0.3, w[${L.snow}] + w[${L.lavaRock}] + w[${L.ash}] * 0.7 + w[${L.lava}] + w[${L.cliff}] * 0.6 + w[${L.redCliff}] * 0.6);
   return vec4(c, cov);
 }`;
 
@@ -121,6 +123,7 @@ export function grassFieldAt(f: FieldSampler, x: number, z: number, w: ArrayLike
   const br = 0.84 + 0.32 * nB[3]; r *= br; g *= br; b *= br;
   const y = ss(0.35, 0.75, nA[2]) * 0.6; r *= 1 + 0.08 * y; g *= 1 + 0.04 * y; b *= 1 - 0.28 * y;
   cov *= ss(0.12, 0.42, nA[3] * 0.55 + nB[1] * 0.45);
+  cov *= 1 - ss(0.04, 0.3, w[L.snow] + w[L.lavaRock] + w[L.ash] * 0.7 + w[L.lava] + w[L.cliff] * 0.6 + w[L.redCliff] * 0.6);
   out.r = r; out.g = g; out.b = b; out.cov = cov; out.reed = reed; out.tuft = tuft; out.hVar = nB[0] * 0.6 + nA[1] * 0.4;
   return out;
 }

@@ -130,7 +130,9 @@ vec3 gPos; vec3 gNrm;`)
   float thatch = (bi < 0.5 ? 1.0 : 0.0) * (1.0 - reed);
   float d = distance(iPos.xz, cameraPosition.xz);
   float dens = iB.z * smoothstep(uFade.x, uFade.y, d) * (1.0 - smoothstep(uFade.z, uFade.w, d));
-  float alive = step(r5, mix(dens, dens * 1.4, thatch));
+  // sparse ground grows whole tufts here and there instead of scattered single blades
+  float sparse = 1.0 - smoothstep(0.2, 0.55, iB.z);
+  float alive = step(mix(r5, gh(iB.w * 77.7 + 3.3), sparse), mix(dens, dens * 1.4, thatch * (1.0 - sparse)));
   // clump layout: blades spread around the clump centre, leaning outward
   float a = r1 * 6.2831853 + iA.y;
   vec2 outw = vec2(cos(a), sin(a));
@@ -170,7 +172,7 @@ vec3 gPos; vec3 gNrm;`)
   col = mix(col, vec3(0.36, 0.29, 0.13) * (0.75 + 0.5 * r2), step(1.0 - dryP, r4) * 0.8);
   col = mix(col, vec3(0.2, 0.15, 0.07) * (0.7 + 0.6 * r2), thatch * 0.9);
   col = mix(col, col * vec3(1.1, 1.06, 0.78), t2 * 0.4);
-  col *= mix(mix(0.36, 0.85, farK), 1.05, pow(t, 0.6));
+  col *= mix(mix(mix(0.36, 0.85, farK), 0.62, tuft), 1.05, pow(t, 0.6));
   // far blades converge on the ground's own colour so the ring edge has no tonal step
   col = mix(col, iCol * 0.86, farK * 0.75);
   vGrassCol = col; vGrassT = t;
@@ -339,7 +341,7 @@ export class Grass {
     const high = quality.tier === 'high';
     const cfgs: RingCfg[] = high
       ? [
-          { cell: 0.32, n: 72, blades: 9, segs: 3, fade: [-1, 0, 8.0, 11.2], width: 0.026, budget: 700 },
+          { cell: 0.32, n: 72, blades: 8, segs: 3, fade: [-1, 0, 8.0, 11.2], width: 0.028, budget: 700 },
           { cell: 0.6, n: 84, blades: 6, segs: 1, fade: [7.2, 10.5, 19, 25.5], width: 0.05, budget: 500 },
           { cell: 0.8, n: 36, blades: 1, segs: 1, fade: [-1, 0, 20, 26], width: 0, budget: 300, flowers: true },
         ]

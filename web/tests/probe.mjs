@@ -1,6 +1,8 @@
 import { chromium, devices } from 'playwright';
 import { spawn } from 'node:child_process';
-const ROOT = '/home/vincent/Repos/dinos/web';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4600 + Math.floor(Math.random() * 300);
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 server.stderr.on('data', (d) => process.stderr.write(d));
@@ -21,6 +23,6 @@ await page.waitForTimeout(2500);
 if (script) { await page.evaluate(script); await page.waitForFunction(() => !window.__dino.busy(), null, { timeout: 40000 }).catch(() => {}); await page.waitForTimeout(2500); }
 const stats = await page.evaluate(() => window.__dino.stats());
 console.log(JSON.stringify(stats));
-const out = process.argv[3] || '/home/vincent/Repos/dinos/web/tests/shots/probe.png';
+const out = process.argv[3] || path.join(ROOT, 'tests', 'shots', 'probe.png');
 await page.screenshot({ path: out });
 await browser.close(); try { process.kill(-server.pid, 'SIGTERM'); } catch { server.kill(); }
