@@ -67,7 +67,7 @@ interface DinoApi {
   command: (id: string, cmd: { walkTo?: [number, number]; face?: [number, number]; stop?: boolean; release?: boolean; place?: [number, number, number] }) => void;
   dropFoodAt: (x: number, z: number) => void;
   loco: (id: string) => Record<string, unknown> | null;
-  overlaps: () => { dinoDino: number; dinoTree: number; worst: number };
+  overlaps: () => { dinoDino: number; dinoTree: number; worst: number; what: string };
   probeDino: (id: string) => Record<string, unknown> | null;
   probeVis: (id: string) => Record<string, unknown> | null;
   probeMem: () => Record<string, unknown>;
@@ -465,8 +465,8 @@ async function main(): Promise<void> {
     foods: () => foods.map((f) => ({ x: +f.pos.x.toFixed(1), z: +f.pos.z.toFixed(1), amount: +f.amount.toFixed(2), items: f.items.length, eaters: [...f.eaters.keys()] })),
   };
   (window as unknown as { __dino: DinoApi }).__dino = api;
-  const overlapStats = (): { dinoDino: number; dinoTree: number; worst: number } => {
-    let dd = 0, dt = 0, worst = 0;
+  const overlapStats = (): { dinoDino: number; dinoTree: number; worst: number; what: string } => {
+    let dd = 0, dt = 0, worst = 0, worstWhat = '';
     const land = dinos.dinos.filter((d) => d.awake && d.species.kind === 'land');
     const cap = (d: Dino, k = 1): [number, number, number, number, number] => { const b = bodyOf(d); const s = Math.sin(d.heading), c = Math.cos(d.heading); const p = d.root.position; return [p.x - s * b.back, p.z - c * b.back, p.x + s * b.front * k, p.z + c * b.front * k, b.r]; };
     const seg = (px: number, pz: number, ax: number, az: number, bx: number, bz: number): number => { const ex = bx - ax, ez = bz - az; const l2 = ex * ex + ez * ez; const t = l2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * ex + (pz - az) * ez) / l2)) : 0; return Math.hypot(px - ax - ex * t, pz - az - ez * t); };
@@ -476,13 +476,13 @@ async function main(): Promise<void> {
         const co = !!land[i].ai.foodTarget && land[i].ai.foodTarget === land[j].ai.foodTarget;
         const B = cap(land[j], co ? 0.35 : 1); const A2 = co ? cap(land[i], 0.35) : A;
         const dist = Math.min(seg(A2[0], A2[1], B[0], B[1], B[2], B[3]), seg(A2[2], A2[3], B[0], B[1], B[2], B[3]), seg(B[0], B[1], A2[0], A2[1], A2[2], A2[3]), seg(B[2], B[3], A2[0], A2[1], A2[2], A2[3]));
-        const pen = A2[4] + B[4] - dist; if (pen > 0.05) { dd++; worst = Math.max(worst, pen); }
+        const pen = A2[4] + B[4] - dist; if (pen > 0.05) { dd++; if (pen > worst) { worst = pen; worstWhat = `${land[i].root.name}(${land[i].state}${land[i].ai.foodTarget ? ',food' : ''}${land[i].parent ? ',baby' : ''}${land[i].isBusy ? ',busy' : ''}) x ${land[j].root.name}(${land[j].state}${land[j].ai.foodTarget ? ',food' : ''}${land[j].parent ? ',baby' : ''}${land[j].isBusy ? ',busy' : ''}) d=${Math.hypot(land[i].root.position.x - player.pos.x, land[i].root.position.z - player.pos.z).toFixed(0)}m`; } }
       }
       for (const o of obstacles.near(land[i].root.position.x, land[i].root.position.z, 30, [])) {
-        const pen = o.r + A[4] - seg(o.x, o.z, A[0], A[1], A[2], A[3]); if (pen > 0.05) { dt++; worst = Math.max(worst, pen); }
+        const pen = o.r + A[4] - seg(o.x, o.z, A[0], A[1], A[2], A[3]); if (pen > 0.05) { dt++; if (pen > worst) { worst = pen; worstWhat = `${land[i].root.name}(${land[i].state}) x tree r=${o.r.toFixed(1)}`; } }
       }
     }
-    return { dinoDino: dd, dinoTree: dt, worst: +worst.toFixed(2) };
+    return { dinoDino: dd, dinoTree: dt, worst: +worst.toFixed(2), what: worstWhat };
   };
 
   // Resolution governor: unknown iPads (and any iPad warming up over a long session) get a steady frame

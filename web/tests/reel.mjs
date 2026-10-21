@@ -55,6 +55,27 @@ await page.evaluate((id) => { const a = window.__dino; a.teleport(0, 0); a.setVi
 await film(85);
 await page.evaluate((id) => { const a = window.__dino; const xy = a.screenOf(id); if (xy) a.tapAt(xy[0], xy[1]); }, rex);
 await film(85);
+// F. Footprints: a Triceratops crosses bare ground, camera behind and above its trail
+await page.evaluate(() => window.__dino.director(null));
+await clear([tri]);
+await page.evaluate((id) => { const a = window.__dino; a.teleport(-14, -12); a.command(id, { place: [-22, -26, Math.PI / 2], stop: true }); a.step(20); a.command(id, { walkTo: [10, -26] }); a.watch(id, 2.7, 0.55, 12, 0.25); }, tri);
+await film(180);
+// G. Drinking at a river bank
+const spot = await page.evaluate(() => { const a = window.__dino; for (const [cx, cz] of [a.biomes.lake, a.biomes.swamp]) for (let r = 0; r < 260; r += 4) for (let k = 0; k < 36; k++) { const ang = k / 36 * Math.PI * 2; const x = cx + Math.cos(ang) * r, z = cz + Math.sin(ang) * r; const g = a.ground(x, z); if (g.water < 0 || g.kind === 'sea') continue; const dep = g.water - g.h; if (dep < 0.05 || dep > 0.25) continue; const ux = -Math.cos(ang), uz = -Math.sin(ang); const d2 = a.ground(x - ux * 14, z - uz * 14); if (d2.water < 0 && d2.h > 0.4) return { x, z, bx: x - ux * 14, bz: z - uz * 14 }; } return null; });
+if (spot) {
+  await page.evaluate(() => window.__dino.watch(null));
+  await page.evaluate(([id, spot]) => { const a = window.__dino; a.teleport(spot.bx + 6, spot.bz + 6); let k = 0; for (const d of a.dinos) if (d.id !== id && Math.hypot(d.x - spot.bx, d.z - spot.bz) < 80) a.command(d.id, { place: [300 + 30 * (k++), 300, 0], stop: true }); a.command(id, { place: [spot.bx, spot.bz, 0], stop: true }); }, [tri, spot]);
+  await ready([tri]);
+  await page.evaluate(([id, spot]) => { const a = window.__dino; a.command(id, { place: [spot.bx, spot.bz, 0], stop: true }); a.step(10); a.command(id, { release: true }); a.makeThirsty(id); a.watch(id, -1.3, 0.3, 11, 0.3); }, [tri, spot]);
+  await film(300);
+}
+// H. Swimmers ride low; a pterosaur passes overhead
+await page.evaluate(() => { const a = window.__dino; a.watch(null); a.teleportBiome('beach'); });
+await page.waitForFunction(() => !window.__dino.busy(), null, { timeout: 60000 }).catch(() => {});
+const mosa = await idOf('mosasaurus');
+if (mosa) { await page.evaluate((id) => { const a = window.__dino; a.watch(id, -1.57, 0.3, 24, 0.3); }, mosa); await film(150); }
+const ptero = await idOf('ornithocheirus');
+if (ptero) { await page.evaluate((id) => { const a = window.__dino; a.watch(null); a.teleportBiome('meadow'); a.command(id, { place: [20, -20, 0] }); a.flyby(id); a.watch(id, 2.6, -0.25, 16, 0.5); }, ptero); await film(180); }
 console.log('frames', n, 'errors', errors.length, errors.slice(0, 3));
 await browser.close(); try { process.kill(-server.pid, 'SIGTERM'); } catch { server.kill(); }
 execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', '30', '-i', `${FR}/f%04d.jpg`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-vf', 'scale=1280:-2', '-crf', '23', '-preset', 'slow', '-movflags', '+faststart', OUTMP4]);

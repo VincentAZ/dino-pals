@@ -502,6 +502,15 @@ function findWaterEdge(d: Dino, ctx: DinoContext): [THREE.Vector3, THREE.Vector3
       for (let i = 0; i < 12; i++) { const wi = waterAt(ex, ez); if (wi.kind === 'none' || wi.level <= heightAt(ex, ez)) break; ex += ux * 0.5; ez += uz * 0.5; }
       const sx = ex + ux * reach * 0.9, sz = ez + uz * reach * 0.9;
       if (!landOk(sx, sz) || !bodyFree(d, ctx, sx, sz, Math.atan2(-ux, -uz), 0.6)) continue;
+      // not where another animal stands or is going to drink
+      let taken = false; const mb = bodyOf(d);
+      for (const e of ctx.others) {
+        if (e === d || !e.awake || e.species.kind !== 'land') continue;
+        const eb = bodyOf(e); const room = mb.r + eb.r + Math.max(mb.front, eb.front) + 1.5;
+        const ep = e.root.position; const es = e.ai.drinkStand;
+        if (Math.hypot(ep.x - sx, ep.z - sz) < room || (es && Math.hypot(es.x - sx, es.z - sz) < room)) { taken = true; break; }
+      }
+      if (taken) continue;
       const dd = Math.hypot(sx - pos.x, sz - pos.z);
       if (dd < bd) { bd = dd; best = [new THREE.Vector3(ex - ux * 0.3, 0, ez - uz * 0.3), new THREE.Vector3(sx, 0, sz)]; }
     }

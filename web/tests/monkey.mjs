@@ -48,7 +48,7 @@ const sample = async () => page.evaluate(() => {
   const v = a.view();
   return { fps: s.fps, geo: s.geometries, tex: s.textures, tris: s.triangles, player: s.player, bad, view: v, overl: a.overlaps(), foods: a.foods().length, credits: !!document.querySelector('#credits'), errors: a.errors.length, audio: s.audioState, hours: s.hours };
 });
-const t0 = Date.now(); const samples = []; let nextSample = 0, nextShot = 0, shotN = 0, n = 0;
+const t0 = Date.now(); const samples = []; const overlapEvents = []; let nextSample = 0, nextShot = 0, shotN = 0, n = 0;
 const s0 = await sample(); console.log('start', JSON.stringify(s0));
 while (Date.now() - t0 < DURATION * 1000) {
   let r = rnd() * total; let act = actions[0];
@@ -57,6 +57,7 @@ while (Date.now() - t0 < DURATION * 1000) {
   try { await act[2](); } catch (e) { errors.push('driver: ' + e); }
   await sleep(150 + rnd() * 700);
   const el = (Date.now() - t0) / 1000;
+  { const ov = await page.evaluate(() => window.__dino.overlaps()); if (ov.worst > 0) { overlapEvents.push({ t: Math.round((Date.now() - t0) / 1000), ...ov }); console.log('OVERLAP', JSON.stringify(ov)); } }
   if (el > nextSample) { nextSample = el + 10; const s = await sample(); samples.push({ t: Math.round(el), ...s }); console.log(Math.round(el) + 's', JSON.stringify({ fps: s.fps, geo: s.geo, tex: s.tex, p: s.player, view: s.view, ov: s.overl, foods: s.foods, credits: s.credits, h: s.hours })); }
   if (el > nextShot) { nextShot = el + 30; await page.screenshot({ path: `${OUT}/m${String(shotN++).padStart(2, '0')}.jpg`, quality: 70 }); }
 }
@@ -68,8 +69,9 @@ console.log('end', JSON.stringify(s1));
 console.log('actions', n, JSON.stringify(counts));
 const allFinite = samples.every((s) => s.bad.length === 0 && Number.isFinite(s.player.x) && Number.isFinite(s.view.yaw) && Number.isFinite(s.view.pitch) && Number.isFinite(s.view.dist));
 assert(allFinite, 'all positions / camera finite throughout');
-assert(samples.every((s) => s.overl.dinoDino === 0 && s.overl.dinoTree === 0), `no dinosaur overlaps (worst ${Math.max(...samples.map((s) => s.overl.worst)).toFixed(2)})`);
-assert(s1.geo < s0.geo * 1.6 + 200 && s1.tex < s0.tex * 1.6 + 40, `GPU memory bounded (geo ${s0.geo}->${s1.geo}, tex ${s0.tex}->${s1.tex})`);
+assert(overlapEvents.length === 0 && samples.every((s) => s.overl.dinoDino === 0 && s.overl.dinoTree === 0), `no dinosaur overlaps (checked after every action; events ${overlapEvents.length}, worst ${Math.max(0, ...overlapEvents.map((e) => e.worst), ...samples.map((s) => s.overl.worst)).toFixed(2)})`);
+// absolute budget: everything streamed in (all species + every environment set) plateaus near 440 geometries / 340 textures (tests/leak.mjs)
+assert(s1.geo < 650 && s1.tex < 450, `GPU memory within budget (geo ${s0.geo}->${s1.geo}, tex ${s0.tex}->${s1.tex})`);
 assert(Math.min(...samples.map((s) => s.fps)) > 20, `fps stayed > 20 (min ${Math.min(...samples.map((s) => s.fps))})`);
 assert(s1.foods <= 4, 'food piles capped');
 assert(errors.length === 0, `no errors (${errors.length}) ${errors.slice(0, 3).join(' | ')}`);
