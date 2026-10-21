@@ -12,3 +12,6 @@ for f in blender/out/*.glb; do
   printf "%-20s %6.2f MB → %6.2f MB\n" $id $(stat -c %s $f | awk '{print $1/1e6}') $(stat -c %s $OUT/$id.glb | awk '{print $1/1e6}')
   rm -f /tmp/dp_$id.glb
 done
+# GPU-compressed textures (KTX2: ETC1S colour/roughness, UASTC normals), small parts at 256 px, food at 512 px.
+# Keeps dinosaur + food GPU memory ~80 MB instead of ~480 MB of RGBA8 on the iPad. Skips files already in KTX2.
+(cd web && node scripts/compress-dino-textures.mjs public/assets/dinos public/assets/dinos)

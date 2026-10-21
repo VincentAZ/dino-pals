@@ -134,3 +134,23 @@ Brief: the owner wants "detailed assets throughout" and a world that "looks real
 - **Light / atmosphere:** height fog replaces exp² fog for every fogged material (world/atmosphere.ts) — valleys hazy, peaks crisp; wider sun-shadow frustum; swamp water still, dark and weedy; swamp banks mud instead of beach sand. Bloom was not added (a post-processing target at iPad resolution was judged too expensive).
 - **Budgets:** env model textures 512 albedo (KTX2) / 256-512 normals / no ARM maps — env GPU texture memory ~120 MB (models 58 MB, terrain ~46 MB, impostors 17 MB) vs ~620 MB before. Start view high 1.33–1.43 M triangles / 421–429 calls (low 1.01–1.14 M / 239–255; baseline 1.51–1.54 M / 523–531 high, 1.25–1.35 M / 429–437 low). Jungle high 1.46–1.63 M / 422–430 (low 0.95–1.05 M / 320; baseline 2.87 M / 446 high, 1.96 M / 431 low); of that, environment (terrain + vegetation + grass) is ~1.0 M high / ~0.55 M low, the rest is dinosaurs drawn to the anchor. Bytes before the world shows: 5.4 MB of environment textures (+ ~5–6 MB of KTX2 + transcoder streamed afterwards on high). `public/assets/env` 22 MB. Foliage dissolves (dithered) within ~3 m of the camera so a crown at the lens never fills the screen.
 - **Open:** total GPU texture memory is still above 250 MB because the dinosaur and food GLBs carry ~480 MB of uncompressed 1024² textures — the shared KTX2 transcoder (`/basis/`) and GLTFLoader KTX2 support are now in place for them. Untested on a physical iPad.
+
+### Dinosaur and food textures GPU-compressed (KTX2)
+- **Problem:** the environment agent's memory tally showed dinosaur and food models expanding to hundreds of MB of RGBA8 textures. Each 1024 texture costs 5.6 MB with mipmaps, and the Carnotaurus alone had 20, including full 1024 sets for claws, eyes and teeth. On an iPad with 3 to 4 GB of RAM, Safari can kill the tab.
+- **Fix** (`web/scripts/compress-dino-textures.mjs`, now also the last step of `blender/postprocess.sh`):
+  - Colour and roughness/AO become ETC1S. Normal maps become UASTC with rate-distortion tuning and zstd, since ETC1S ruins normals. On the iPad these transcode to ASTC/ETC2 and stay compressed in GPU memory.
+  - The dead "Specular 0" extensions and their textures are stripped.
+  - Textures used only by parts under 3% of a model's triangles (eyes, claws, teeth, horns, tongues) drop to 256 px. Food textures are capped at 512 px.
+  - Geometry is re-encoded with the pipeline's exact Draco settings.
+- **Measured** (`tests/texmem.mjs`, which wraps WebGL texture uploads; shared counter in `tests/gltrack.mjs`):
+
+| | GPU textures before | GPU textures after | Download before | Download after |
+|---|---|---|---|---|
+| Start view | 273 MB | 188 MB | 31.5 MB | 37.5 MB |
+| All 16 species + food loaded | 685 MB | 223 MB | 39.0 MB | 45.9 MB |
+
+- A close-up A/B of T. rex, Triceratops, Stegosaurus, Carnotaurus and Ankylosaurus looks the same. At 2x zoom only faint colour noise shows on the Carnotaurus.
+
+### Stale-asset caching bug (may have affected what the iPad showed)
+- `vercel.json` has served everything under `/assets/` as `immutable, max-age=1 year` since the first commit. That is right for Vite's content-hashed bundles. It is wrong for the data files in `public/assets`: dinosaur models, the dinosaur manifest, food, environment models, ground textures and audio keep the same names between deploys. Once Safari had cached them it could keep using old models and rigs with new code for a year. That may be part of why earlier fixes looked only "a little better" on the iPad.
+- Changing the header cannot evict what Safari already holds, so the URLs now change instead. `vite.config.ts` hashes every file in `public/assets` at build time, and `src/assets.ts` appends `?v=<hash>` to every data URL through the three.js loading manager and a `fetch` wrapper. A deploy re-downloads exactly the files whose content changed, and immutable caching stays safe. `tests/cachebust.mjs` fails if any data request goes out without its hash.

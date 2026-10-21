@@ -17,6 +17,8 @@ import { BIOMES, BIOME_IDS, biomeWeights, type BiomeId } from './world/biomes.ts
 import { heightAt, waterAt } from './world/heightmap.ts';
 import { loadManifest, type Species } from './dinos/manifest.ts';
 import { DinoManager } from './dinos/spawner.ts';
+import { ktx2Loader } from './world/ktx2.ts';
+import { installAssetVersioning } from './assets.ts';
 import { loadSkinDetail } from './dinos/skin.ts';
 import { facePlayer, tapAction } from './dinos/ai.ts';
 import { Dino } from './dinos/dino.ts';
@@ -82,6 +84,7 @@ window.addEventListener('error', (e) => errors.push(String(e.message)));
 window.addEventListener('unhandledrejection', (e) => errors.push(String((e as PromiseRejectionEvent).reason)));
 
 async function main(): Promise<void> {
+  installAssetVersioning();   // before anything loads
   const app = document.getElementById('app')!;
   const forcedQ = params.get('q');
   if (forcedQ === 'low') setQuality({ ...QUALITY_LOW });
@@ -112,6 +115,7 @@ async function main(): Promise<void> {
   // loaders
   const draco = new DRACOLoader(); draco.setDecoderPath('/draco/');   // WebAssembly decoder by default
   const gltf = new GLTFLoader(); gltf.setDRACOLoader(draco); gltf.setMeshoptDecoder(MeshoptDecoder);
+  gltf.setKTX2Loader(ktx2Loader(renderer));   // dinosaur + food textures stay GPU-compressed (ASTC / ETC2 on iPad)
 
   // world
   const workers = new TerrainWorkers(2);
