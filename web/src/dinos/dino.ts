@@ -10,7 +10,7 @@ import { Locomotion } from './locomotion.ts';
 import { applySkinDetail } from './skin.ts';
 import type { Obstacle } from '../world/obstacles.ts';
 
-export type DinoState = 'idle' | 'walk' | 'roar' | 'eat' | 'fly' | 'swim' | 'stomp' | 'sniff' | 'flap' | 'splash';
+export type DinoState = 'idle' | 'walk' | 'roar' | 'eat' | 'fly' | 'swim' | 'stomp' | 'sniff' | 'flap' | 'splash' | 'sleep';
 
 export interface FoodItem { obj: THREE.Object3D; pos: THREE.Vector3; r: number; kind: string; eaten: boolean; taken: number }
 export interface Food { pos: THREE.Vector3; amount: number; mesh: THREE.Object3D; eaters: Map<number, number>; radius: number; items: FoodItem[] }
@@ -21,6 +21,8 @@ export interface DinoContext {
   eye: THREE.Vector3;
   /** camera forward direction on the ground plane (unit) — followers walk where the child can see them */
   view: THREE.Vector3;
+  /** 0 = day … 1 = deep night */
+  night: number;
   obstacles: { near: (x: number, z: number, r: number, out: Obstacle[]) => Obstacle[] };
   others: Dino[];
   /** extra round no-go zones [x, z, r] (the explorer, the camera) */
@@ -28,14 +30,14 @@ export interface DinoContext {
   time: number;
   foods: Food[];
   onFootstep: (d: Dino, big: boolean, at?: THREE.Vector3, heavy?: boolean) => void;
-  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'chew' | 'graze' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap', item?: FoodItem) => void;
+  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'chew' | 'graze' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap' | 'snore' | 'yawn', item?: FoodItem) => void;
 }
 
 export interface AIData {
   home: THREE.Vector3; target: THREE.Vector3 | null; waitUntil: number; followUntil: number; foodTarget: Food | null;
   angle: number; radius: number; altitude: number; glideUntil: number; actionUntil: number; lastStep: number; breachT: number; nextRoar: number; lastChew: number; breachAt: number;
   yawVel: number; avoidSide: number; blocked: number; bestDist: number; progressAt: number;
-  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null; echoAt: number; approachUntil: number; followSide: number; sniffFood: Food | null; sniffed: WeakSet<Food>;
+  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null; echoAt: number; awakeUntil: number; snoreAt: number; approachUntil: number; followSide: number; sniffFood: Food | null; sniffed: WeakSet<Food>;
 }
 
 const GLB_CACHE = new Map<string, Promise<GLTF>>();
@@ -74,7 +76,7 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet() };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, awakeUntil: 0, snoreAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet() };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;
@@ -222,6 +224,8 @@ export class Dino {
       }
       this.loco.captureClipPose();
       this.loco.stomp = this.state === 'stomp';
+      this.loco.crouch = this.state === 'sleep' ? 1 : 0;
+      const idle = this.actions.get('idle'); if (idle) idle.timeScale = this.state === 'sleep' ? 0.4 : 1;
       this.loco.update(dt, this.heading, {
         onPlant: (at, _leg, heavy) => ctx.onFootstep(this, this.sizeM >= 6 || heavy, at, heavy),
       }, this.isBusy);

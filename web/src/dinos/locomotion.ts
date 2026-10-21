@@ -107,6 +107,9 @@ export class Locomotion {
   reachTarget: THREE.Vector3 | null = null;
   reachWeight = 0;
   stomp = false;
+  /** 0 = standing, 1 = lying down (sleep): the pelvis lowers and the IK folds the legs */
+  crouch = 0;
+  private crouchCur = 0;
   stats: LocoStats = { maxSlip: 0, maxReach: 0, steps: 0, gait: 0, settle: 0, emergency: 0 };
   private started = false;
 
@@ -369,8 +372,9 @@ export class Locomotion {
     }
     need = Math.min(need, 0.45 * this.legLen);
     this.reachDrop += (need - this.reachDrop) * Math.min(1, dt * (need > this.reachDrop ? 30 : 3));
-    const dy = bobY - this.reachDrop;
-    if (Math.abs(dy) > 1e-4 || Math.abs(swayX) > 1e-4) {
+    this.crouchCur += (this.crouch - this.crouchCur) * Math.min(1, dt * (this.crouch > this.crouchCur ? 0.7 : 1.6));
+    const dy = bobY - this.reachDrop - this.crouchCur * (this.biped ? 0.36 : 0.42) * this.legLen;
+    if (Math.abs(dy) > 1e-4 || Math.abs(swayX) > 1e-4) {  // (includes crouch)
       const right = _f.set(Math.cos(heading), 0, -Math.sin(heading));
       const pw = wpos(this.pelvis, _g);
       const parent = this.pelvis.parent!;

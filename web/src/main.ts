@@ -26,7 +26,8 @@ import { Player } from './player/player.ts';
 import { TouchInput } from './input/touch.ts';
 import { AudioEngine } from './audio/context.ts';
 import { playVoice } from './audio/voices.ts';
-import { eatCrunch, footstep, pop, sniff, sparkle, splash, thump, wingFlap } from './audio/sfx.ts';
+import { eatCrunch, footstep, pop, sniff, snore, sparkle, splash, thump, wingFlap } from './audio/sfx.ts';
+import { Zzz } from './dinos/zzz.ts';
 import { Ambience } from './audio/ambience.ts';
 import { Music } from './audio/music.ts';
 import { samples } from './audio/samples.ts';
@@ -153,11 +154,12 @@ async function main(): Promise<void> {
     return audio.spatial(d, pan, maxDist);
   };
   const foodSystem = new FoodSystem(scene, gltf, foods);
+  const zzz = new Zzz(); scene.add(zzz.group);
   void foodSystem.load();
   const keepClear: [number, number, number][] = [[0, 0, 1.6], [0, 0, 1.4]];
   const biteLog: { dino: string; dist: number; t: number }[] = [];
   const ctx: DinoContext = {
-    player: player.pos, eye: player.eye, view: new THREE.Vector3(0, 0, -1), time: 0, foods, obstacles, others: dinos.dinos, keepClear,
+    player: player.pos, eye: player.eye, view: new THREE.Vector3(0, 0, -1), night: 0, time: 0, foods, obstacles, others: dinos.dinos, keepClear,
     onFootstep: (d, big, at, heavy) => {
       const p = at ?? d.root.position;
       const s = spatial(p, big ? 120 : 50);
@@ -186,6 +188,14 @@ async function main(): Promise<void> {
           break;
         }
         case 'chew': eatCrunch(audio, s.gain * 0.3, s.pan); break;
+        case 'snore': {
+          const near = d.root.position.distanceTo(player.pos) < 45;
+          if (near) snore(audio, spatial(d.root.position, 45).gain * 0.7, s.pan, d.sizeM);
+          const h = d.snoutPos(new THREE.Vector3()); h.y += 0.3 * d.sizeM * 0.15 + 0.4;
+          zzz.spawn(h, Math.min(2.4, 0.9 + d.sizeM * 0.12));
+          break;
+        }
+        case 'yawn': playVoice(audio, d.species.voice, s.gain * 0.35, s.pan, d.sizeM * 1.15); break;
         case 'graze': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('leaf', sn.x, Math.max(sn.y, p.y + 0.2), sn.z, 5); eatCrunch(audio, s.gain * 0.25, s.pan); break; }
         case 'finished': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('heart', sn.x, sn.y + 0.8, sn.z, 10); sparkle(audio); break; }
         case 'splash': splash(audio, s.gain, s.pan, d.species.lengthM > 8); weather.puffs.spawn('splash', p.x, Math.max(p.y, 0), p.z, 40, Math.min(3, d.species.lengthM / 5)); break;
@@ -439,11 +449,13 @@ async function main(): Promise<void> {
     obstacles.update(clock.t);
     keepClear[0][0] = player.pos.x; keepClear[0][1] = player.pos.z;
     keepClear[1][0] = camera.position.x; keepClear[1][1] = camera.position.z;
+    ctx.night = sky.state.night;
     ctx.view.copy(camDir).setY(0); if (ctx.view.lengthSq() < 1e-6) ctx.view.set(0, 0, -1); ctx.view.normalize();
     const tD = performance.now();
     dinos.update(dt, ctx, shadowCenter, camera);
     const dMs = performance.now() - tD; dinoMs += (dMs - dinoMs) * 0.05; dinoMaxMs = Math.max(dinoMaxMs * 0.995, dMs);
     foodSystem.update(dt);
+    zzz.update(dt);
     ambience.update(dt, biomeW, sky.state.night, weather.rainAmount);
     music.update(sky.state.night);
     hud.setLoading(vegetation.loadedCount < vegetation.species.size || dinos.stats.real + dinos.dinos.filter((d) => d.loaded).length < dinos.dinos.length);

@@ -68,6 +68,20 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       resolveOverlaps(d, ctx);
       return;
     }
+    // night: settle down and sleep (babies next to their parent); dawn: wake up with a big yawn
+    if (d.state === 'sleep') {
+      d.speed = 0; ai.yawVel = 0;
+      if (d.loco) { d.loco.lookTarget = landTmp.set(pos.x + Math.sin(d.heading) * d.sizeM, pos.y - d.sizeM * 0.4, pos.z + Math.cos(d.heading) * d.sizeM); d.loco.lookWeight = 1; }
+      if (ctx.night < 0.35 || ctx.time < ai.awakeUntil || following) { d.setState('idle'); if (!following) { d.setState('roar'); ctx.onEvent(d, 'yawn'); } return; }
+      if (ctx.time > ai.snoreAt) { ai.snoreAt = ctx.time + 2.6 + Math.random() * 1.4; ctx.onEvent(d, 'snore'); }
+      return;
+    }
+    const sleepy = ctx.night > 0.6 && ctx.time > ai.awakeUntil && !following && !ai.foodTarget && !ai.sniffFood && ctx.time > ai.approachUntil && !ai.scripted;
+    if (sleepy && (!d.parent || d.parent.state === 'sleep')) {
+      ai.target = null;
+      if (d.speed < 0.05 && Math.abs(ai.yawVel) < 0.05) { d.setState('sleep'); ai.snoreAt = ctx.time + 1 + Math.random() * 3; return; }
+      brake(d, dt); resolveOverlaps(d, ctx); return;
+    }
     if (ai.scripted) {
       if (ai.target) { const dist = travel(d, ctx, ai.target.x, ai.target.z, dt, sp.speed, 0.6); if (dist <= 0.6 && d.speed === 0) ai.target = null; }
       else brake(d, dt);
@@ -430,6 +444,7 @@ export function triggerAction(d: Dino, action: DinoState, ctx: DinoContext): Din
   d.ai.target = null;
   if (d.ai.foodTarget) { d.ai.foodTarget.eaters.delete(d.index); d.ai.foodTarget = null; }
   d.ai.standAt = null; d.ai.standItem = null;
+  d.ai.awakeUntil = ctx.time + 45;
   d.speed = 0;
   d.setState('idle'); d.setState(action);
   ctx.onEvent(d, action as 'roar' | 'eat' | 'stomp' | 'sniff');

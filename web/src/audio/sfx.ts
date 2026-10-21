@@ -88,3 +88,24 @@ export function wingFlap(a: AudioEngine, gain: number, pan: number): void {
     n.connect(f); f.connect(e); e.connect(out); n.start(t); n.stop(t + 0.32);
   }
 }
+
+/** Soft, slow snore: an inhaled rasp then a long low exhale. */
+export function snore(a: AudioEngine, gain: number, pan: number, sizeM = 6): void {
+  if (!a.unlocked || gain < 0.01) return;
+  const ctx = a.ctx, t = ctx.currentTime + 0.02, k = Math.min(2, Math.max(0.5, sizeM / 6));
+  const p = ctx.createStereoPanner(); p.pan.value = pan; p.connect(a.sfx);
+  const breath = (start: number, dur: number, f0: number, f1: number, amp: number, rasp: boolean) => {
+    const n = a.noise(); const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = rasp ? 5 : 1.2;
+    bp.frequency.setValueAtTime(f0 / k, start); bp.frequency.linearRampToValueAtTime(f1 / k, start + dur);
+    const e = ctx.createGain(); e.gain.setValueAtTime(0, start); e.gain.linearRampToValueAtTime(amp * gain, start + dur * 0.35); e.gain.linearRampToValueAtTime(0, start + dur);
+    n.connect(bp); bp.connect(e); e.connect(p); n.start(start); n.stop(start + dur + 0.05);
+    if (rasp) { // throaty flutter
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 38 / k;
+      const og = ctx.createGain(); og.gain.setValueAtTime(0, start); og.gain.linearRampToValueAtTime(0.18 * amp * gain, start + dur * 0.4); og.gain.linearRampToValueAtTime(0, start + dur);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260 / k;
+      o.connect(lp); lp.connect(og); og.connect(p); o.start(start); o.stop(start + dur + 0.05);
+    }
+  };
+  breath(t, 1.1, 420, 620, 0.5, true);
+  breath(t + 1.25, 1.4, 360, 220, 0.35, false);
+}
