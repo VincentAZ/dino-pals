@@ -309,9 +309,14 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
     } else brake(d, dt);
     resolveOverlaps(d, ctx);
   } else if (sp.kind === 'air') {
-    // circle around home (or the player when following)
-    const center = following ? ctx.player : ai.home;
-    const r = following ? 18 : ai.radius;
+    // circle around home (or the player when following); now and then a low pass around the child
+    if (!following && ctx.time > ai.actionUntil + 70 + (d.index % 5) * 9 && Math.hypot(ctx.player.x - pos.x, ctx.player.z - pos.z) < 150 && Math.random() < dt * 0.05) {
+      ai.actionUntil = ctx.time + 15; ai.altitude = 9 + Math.random() * 5;
+    }
+    const flyby = ctx.time < ai.actionUntil;
+    if (!flyby && !following && ai.altitude < 20 && ctx.time > ai.actionUntil && ctx.time < ai.actionUntil + 1) ai.altitude = 25 + Math.random() * 30;   // climb back up
+    const center = following || flyby ? ctx.player : ai.home;
+    const r = following ? 18 : flyby ? 16 : ai.radius;
     const angSpeed = (sp.speed * d.speedScale) / r;
     ai.angle += angSpeed * dt;
     const tx = center.x + Math.cos(ai.angle) * r, tz = center.z + Math.sin(ai.angle) * r;
@@ -328,7 +333,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
     else if (d.state === 'fly' && ctx.time > ai.glideUntil && Math.random() < dt * 0.1) { d.setState('idle'); ai.glideUntil = ctx.time + 4 + Math.random() * 4; }
     else if (d.state === 'idle' && ctx.time > ai.glideUntil) d.setState('fly');
     pos.y += (targetY - pos.y) * Math.min(1, dt * 1.2);
-    if (following && Math.random() < dt * 0.02) ai.altitude = 12 + Math.random() * 10; else if (!following && ai.altitude < 20 && Math.random() < dt * 0.1) ai.altitude = 25 + Math.random() * 30;
+    if (following && Math.random() < dt * 0.02) ai.altitude = 12 + Math.random() * 10; else if (!following && !flyby && ai.altitude < 20 && Math.random() < dt * 0.1) ai.altitude = 25 + Math.random() * 30;
   } else {
     // water: patrol between random deep spots; breach on request
     const minDepth = Math.max(1.2, sp.heightM * d.scale * 1.05);   // deep enough for the whole body below the surface
