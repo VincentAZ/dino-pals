@@ -75,6 +75,7 @@ interface DinoApi {
   simulateSlow: (ms: number) => void;
   setJawClose: (species: string, deg: number) => void;
   motionSample: () => (string | number)[][];
+  director: (cam: [number, number, number] | null, targetId?: string | null, lookAt?: [number, number, number], height?: number) => void;
   biteLog: () => { dino: string; dist: number; t: number }[];
   audioStats: () => Record<string, unknown>;
   foods: () => unknown[];
@@ -362,6 +363,7 @@ async function main(): Promise<void> {
     },
     overlaps: () => overlapStats(),
     simulateSlow: (ms) => { slowSim = ms; },
+    director: (cam, targetId = null, look = [0, 0, 0], height = 0.5) => { director = cam ? { cam, targetId, look, height } : null; watchId = null; dirLook.set(0, 0, 0); applyWatch(); },
     motionSample: () => {
       const out: (string | number)[][] = []; const v = new THREE.Vector3();
       for (const d of dinos.dinos) {
@@ -508,6 +510,7 @@ async function main(): Promise<void> {
   const pushBuf = new Float32Array(64); const pushNear: [number, Dino][] = [];
 
   let paused = false;
+  let director: { cam: [number, number, number]; targetId: string | null; look: [number, number, number]; height: number } | null = null; const dirLook = new THREE.Vector3();
   let watchId: string | null = null; const watchCfg = { az: 1.57, el: 0.12, dist: 14, height: 0.5, head: false };
   const frame = (): void => {
     if (!running) return;
@@ -522,6 +525,15 @@ async function main(): Promise<void> {
     renderer.render(scene, camera);
   };
   const applyWatch = (): void => {
+    if (director) {
+      // fixed film camera (demo reels): stays put in the world and follows a dinosaur or looks at a point
+      const t = new THREE.Vector3(...director.look);
+      const d = director.targetId ? dinos.dinos.find((x) => x.root.name === director!.targetId) : null;
+      if (d) t.set(d.root.position.x, d.root.position.y + d.species.heightM * d.scale * director.height, d.root.position.z);
+      dirLook.lerp(t, dirLook.lengthSq() ? 0.2 : 1);
+      camera.position.set(...director.cam); camera.lookAt(dirLook);
+      return;
+    }
     if (!watchId) return;
     const d = dinos.dinos.find((x) => x.root.name === watchId);
     if (!d) return;

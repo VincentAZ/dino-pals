@@ -11,3 +11,4 @@ blender/out/*.log
 .vercel/
 .DS_Store
 .claude/
+demo/
