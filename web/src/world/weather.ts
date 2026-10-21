@@ -1,9 +1,10 @@
 // Weather accents & ambient life: rain/snow/sand/fireflies (stateless GPU
 // points), clouds/mist/smoke/butterflies (stateless instanced billboards) and
-// CPU puffs (dust, sparkles, splashes, leaves).
+// CPU puffs (dust, sparkles, splashes, leaves, steam off the lava).
 import * as THREE from 'three';
 import { quality } from '../config.ts';
 import { BIOME_IDS, VOLCANO_CENTER } from './biomes.ts';
+import { heightAt, volcanoAt, type VolcanoInfo } from './heightmap.ts';
 import type { SkyState } from './sky.ts';
 
 // ---------- stateless points ----------
@@ -232,7 +233,7 @@ void main() {
   gl_FragColor = vec4(vColor, a * vAlpha);
 }`;
 
-export type PuffKind = 'dust' | 'sparkle' | 'splash' | 'leaf' | 'heart' | 'snowkick';
+export type PuffKind = 'dust' | 'sparkle' | 'splash' | 'leaf' | 'heart' | 'snowkick' | 'steam';
 interface Puff { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; r: number; g: number; b: number; grav: number; drag: number; alpha: number }
 
 export class Puffs {
@@ -254,7 +255,7 @@ export class Puffs {
     this.points = new THREE.Points(this.geo, m);
     this.points.frustumCulled = false; this.points.renderOrder = 22;
   }
-  spawn(kind: PuffKind, x: number, y: number, z: number, n = 12, scale = 1): void {
+  spawn(kind: PuffKind, x: number, y: number, z: number, n = 12, scale = 1, color?: THREE.Color): void {
     for (let i = 0; i < n; i++) {
       if (this.pool.length >= this.cap) this.pool.shift();
       const a = Math.random() * Math.PI * 2, r = Math.random();
@@ -264,6 +265,8 @@ export class Puffs {
         case 'snowkick': p = { x: x + Math.cos(a) * r * 0.8 * scale, y: y + 0.1, z: z + Math.sin(a) * r * 0.8 * scale, vx: Math.cos(a) * (0.8 + r) * scale, vy: 0.8 + Math.random() * 0.8 * scale, vz: Math.sin(a) * (0.8 + r) * scale, age: 0, life: 0.8 + Math.random() * 0.5, size: (1 + Math.random()) * scale * 8, r: 0.95, g: 0.97, b: 1, grav: -1.5, drag: 1.5, alpha: 0.6 }; break;
         case 'sparkle': p = { x: x + Math.cos(a) * r * 0.6, y: y + Math.random() * 1.2, z: z + Math.sin(a) * r * 0.6, vx: Math.cos(a) * 1.5, vy: 1.2 + Math.random() * 2.5, vz: Math.sin(a) * 1.5, age: 0, life: 0.8 + Math.random() * 0.8, size: 4 + Math.random() * 5, r: 1, g: 0.85 + Math.random() * 0.15, b: 0.4 + Math.random() * 0.6, grav: -1.2, drag: 1, alpha: 1 }; break;
         case 'heart': p = { x: x + Math.cos(a) * r * 0.5, y: y + 0.5, z: z + Math.sin(a) * r * 0.5, vx: Math.cos(a) * 0.4, vy: 0.9 + Math.random(), vz: Math.sin(a) * 0.4, age: 0, life: 1.2 + Math.random() * 0.6, size: 6 + Math.random() * 4, r: 1, g: 0.4, b: 0.6, grav: 0.3, drag: 0.5, alpha: 0.9 }; break;
+        // steam: a slow, swelling, drifting wisp
+        case 'steam': p = { x: x + Math.cos(a) * r * 0.6, y, z: z + Math.sin(a) * r * 0.6, vx: Math.cos(a) * 0.25 + 0.2, vy: 0.55 + Math.random() * 0.5, vz: Math.sin(a) * 0.25 + 0.1, age: 0, life: 3.2 + Math.random() * 2.2, size: (16 + Math.random() * 14) * scale, r: color?.r ?? 0.86, g: color?.g ?? 0.85, b: color?.b ?? 0.83, grav: 0.12, drag: 0.35, alpha: 0.2 }; break;
         case 'splash': p = { x: x + Math.cos(a) * r * 0.5 * scale, y: y, z: z + Math.sin(a) * r * 0.5 * scale, vx: Math.cos(a) * (1 + r * 2) * scale, vy: 2 + Math.random() * 3 * scale, vz: Math.sin(a) * (1 + r * 2) * scale, age: 0, life: 0.7 + Math.random() * 0.5, size: (1.5 + Math.random()) * 6, r: 0.85, g: 0.95, b: 1, grav: -9, drag: 0.3, alpha: 0.8 }; break;
         default: p = { x: x + Math.cos(a) * r * 1.5, y: y + 1 + Math.random() * 1.5, z: z + Math.sin(a) * r * 1.5, vx: Math.cos(a) * 0.5, vy: -0.4, vz: Math.sin(a) * 0.5, age: 0, life: 1.5 + Math.random(), size: 3 + Math.random() * 3, r: 0.5, g: 0.75, b: 0.25, grav: -0.5, drag: 1.5, alpha: 0.9 };
       }
@@ -302,6 +305,9 @@ export class Weather {
   sparkles = new Puffs(400, true);
   private time = 0;
   private rainCycle = 0;
+  private steamAcc = 0;
+  private volc: VolcanoInfo = { h: 0, lava: 0, flow: 0, near: 0, dv: 0 };
+  private steamCol = new THREE.Color();
   rainAmount = 0;
   constructor(noise: THREE.Texture) {
     const pm = quality.particleMul;
@@ -327,7 +333,20 @@ export class Weather {
     this.snow.set(camPos, this.time, Math.min(1, w('snow') * 1.5) * 0.8, pr);
     this.sand.set(playerPos, this.time, Math.min(1, w('canyon') * 1.4) * (0.4 + 0.6 * Math.max(0, Math.sin(this.time * 0.15))) * 0.7, pr);
     this.fireflies.set(playerPos, this.time, Math.min(1, w('swamp') * 1.6) * sky.night, pr);
-    this.embers.set(playerPos, this.time, Math.min(1, Math.max(0, w('volcano') - 0.3) * 2.2) * 0.9, pr);
+    // embers glow at dusk and night; by day the few that show read as grey ash, not as snow
+    this.embers.set(playerPos, this.time, Math.min(1, Math.max(0, w('volcano') - 0.3) * 2.2) * 0.9 * (0.22 + 0.78 * Math.max(sky.night, sky.dusk)), pr);
+    // steam wisps off the lava's edges around the explorer (lit by day, lava-orange from below at night)
+    if (w('volcano') > 0.35) {
+      const glow = Math.max(sky.night, sky.dusk * 0.5), lit = 0.18 + 0.82 * sky.day;
+      this.steamCol.setRGB(0.86 * lit + 0.42 * glow, 0.85 * lit + 0.13 * glow, 0.83 * lit + 0.03 * glow);
+      this.steamAcc += dt * 18 * quality.particleMul;
+      for (; this.steamAcc >= 1; this.steamAcc--) {
+        const a = Math.random() * Math.PI * 2, r = 3 + Math.sqrt(Math.random()) * 45;
+        const x = playerPos.x + Math.cos(a) * r, z = playerPos.z + Math.sin(a) * r;
+        const v = volcanoAt(x, z, this.volc);
+        if (v.lava > 0.12 && v.lava < 0.92) this.puffs.spawn('steam', x, heightAt(x, z) + 0.15, z, 1, 1 + Math.random() * 0.8, this.steamCol);
+      }
+    } else this.steamAcc = 0;
     this.clouds.set(camPos, this.time, 0.92);
     const cu = this.clouds.material.uniforms;
     cu.uColor.value.copy(sky.sunColor).lerp(new THREE.Color(1, 1, 1), 0.5).multiplyScalar(0.25 + 0.75 * sky.day).lerp(new THREE.Color(1, 0.6, 0.4), sky.dusk * 0.5);

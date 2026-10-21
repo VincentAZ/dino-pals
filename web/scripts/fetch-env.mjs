@@ -14,11 +14,11 @@ import {
 } from '@gltf-transform/functions';
 import { MeshoptSimplifier, MeshoptEncoder } from 'meshoptimizer';
 import draco3d from 'draco3dgltf';
-import { buildCardTexture, canopyCards } from './canopy.mjs';
 import { extractLeaves, crownOf, pickLeaves, writeLeafQuads, keepLimbs } from './foliage.mjs';
-import { EXTTextureWebP } from '@gltf-transform/extensions';
 import { encodeToKTX2 } from 'ktx2-encoder';
-import { colourToKtx2 } from './ktx2-env.mjs';
+import { colourToKtx2, dropEmptyPrimitives } from './ktx2-env.mjs';
+import { buildConifer } from './conifer.mjs';
+import { CONIFERS } from './conifer-config.mjs';
 
 const ktxDecoder = async (buf) => { const { data, info } = await sharp(Buffer.from(buf)).ensureAlpha().raw().toBuffer({ resolveWithObject: true }); return { width: info.width, height: info.height, data: new Uint8Array(data) }; };
 /** ETC1S/Basis KTX2 (sRGB, mipmapped) of an RGBA raw image: transcodes to ASTC / ETC2 / BC7 on the GPU. */
@@ -38,8 +38,9 @@ const ONLY = (() => { const i = args.indexOf('--only'); return i >= 0 ? args[i +
 
 /** @type {Record<string, {kind:'tree'|'plant'|'rock', tris:number, lod1:number, tex:number, leafTex?:number}>} */
 const MODELS = {
-  fir_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 512, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 8, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.3, tint: [0.85, 0.9, 0.8] } },
-  pine_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 512, canopy: { key: 'twig', cards0: 700, cards1: 160, copies: 14, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.8, discRadius: 0.36, tint: [0.85, 0.9, 0.8] } },
+  // conifers: needle cards baked from the modelled needles (scripts/conifer.mjs, settings in conifer-config.mjs)
+  fir_tree_01: { kind: 'tree', tex: 512, norTex: 256, conifer: true },
+  pine_tree_01: { kind: 'tree', tex: 512, norTex: 256, conifer: true },
   island_tree_01: { kind: 'tree', tris: 7200, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 480, limbs: 30000, cover: 0.95 } },
   island_tree_02: { kind: 'tree', tris: 7200, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 480, limbs: 30000, cover: 0.95 } },
   island_tree_03: { kind: 'tree', tris: 7200, lod1: 1300, tex: 512, leafTex: 512, foliage: { leaves0: 2600, leaves1: 480, limbs: 30000, cover: 0.95 } },
@@ -50,7 +51,8 @@ const MODELS = {
   quiver_tree_01: { kind: 'tree', tris: 8000, lod1: 1000, tex: 512, leafTex: 512 },
   dead_quiver_trunk: { kind: 'tree', tris: 5000, lod1: 1000, tex: 512 },
   tree_stump_01: { kind: 'rock', tris: 1500, lod1: 300, tex: 512 },
-  pine_sapling_medium: { kind: 'plant', tris: 2500, lod1: 600, tex: 512, norTex: 256, leafTex: 512, canopy: { key: 'twig', cards0: 160, cards1: 50, copies: 12, copyScale: [0.3, 0.5], maxSprites: 12, sizeMul: 0.85, tint: [0.85, 0.9, 0.8] } },
+  pine_sapling_medium: { kind: 'plant', tex: 512, norTex: 256, conifer: true },
+  fir_sapling_medium: { kind: 'tree', tex: 512, norTex: 256, conifer: true },
   searsia_lucida: { kind: 'plant', tris: 2000, lod1: 500, tex: 512, norTex: 256, leafTex: 512 },
   fern_02: { kind: 'plant', tris: 1500, lod1: 400, tex: 512, norTex: 256, leafTex: 512 },
   shrub_01: { kind: 'plant', tris: 2400, lod1: 600, tex: 512, leafTex: 512, foliage: { leaves0: 1100, leaves1: 260, limbs: 0, cover: 0.85, leafMat: 'shrub' } },
@@ -69,13 +71,18 @@ const MODELS = {
   namaqualand_boulder_02: { kind: 'rock', tris: 1500, lod1: 300, tex: 512 },
   moon_rock_03: { kind: 'rock', tris: 1500, lod1: 300, tex: 512 },
   rock_face_01: { kind: 'rock', tris: 3000, lod1: 600, tex: 512 },
+  // volcanic scatter: Poly Haven's porous lunar-basalt scans, darkened to basalt / rusty scoria
+  volcanic_rock_a: { kind: 'rock', source: 'moon_rock_06', tris: 520, lod1: 140, tex: 512, recolour: { tint: [0.03, 0.028, 0.027], contrast: 2.4, aoPow: 1.8, cavity: 5 } },
+  volcanic_rock_b: { kind: 'rock', source: 'moon_rock_07', tris: 520, lod1: 140, tex: 512, recolour: { tint: [0.05, 0.03, 0.023], contrast: 2.2, aoPow: 1.6, mottle: 0.5, cavity: 5 } },
+  volcanic_boulder: { kind: 'rock', source: 'moon_rock_02', tris: 1600, lod1: 360, tex: 512, recolour: { tint: [0.03, 0.028, 0.027], contrast: 2.5, aoPow: 2.0, mottle: 0.25, cavity: 5 } },
+  volcanic_pebbles: { kind: 'rock', source: 'moon_rock_05', tris: 110, lod1: 48, tex: 256, norTex: 256, recolour: { tint: [0.07, 0.042, 0.033], contrast: 2.2, aoPow: 1.5, mottle: 0.4, cavity: 4 } },
 };
 
 // Ground layers (order = GROUND_LAYERS in src/world/biomes.ts) + the near-camera detail texture.
 const TEXTURES = [
   'grass_ground', 'aerial_grass_rock', 'forest_floor', 'forest_leaves_02', 'aerial_sand', 'damp_beach_sand',
   'brown_mud_03', 'cracked_red_ground', 'dark_rock', 'dry_riverbed_rock', 'snow_02', 'aerial_rocks_02',
-  'rock_ground_02', 'cliff_side', 'brown_mud_leaves_01', 'floor_pebbles_01',
+  'rock_ground_02', 'cliff_side', 'brown_mud_leaves_01', 'gravel_stones', 'gray_rocks', 'floor_pebbles_01',
 ];
 
 async function fetchJson(url) {
@@ -144,7 +151,7 @@ async function simplifyTo(doc, target, startError = 0.02) {
   const opaquePrims = () => { const out = []; for (const m of doc.getRoot().listMeshes()) for (const p of m.listPrimitives()) { const mat = p.getMaterial(); if ((!mat || mat.getAlphaMode() === 'OPAQUE') && p.getIndices()) out.push(p); } return out; };
   const triCount = (p) => p.getIndices().getCount() / 3;
   const cardTris = () => countTris(doc) - opaquePrims().reduce((n, p) => n + triCount(p), 0);
-  const budget = Math.max(200, target - cardTris());
+  const budget = Math.max(60, target - cardTris());
   for (const error of [startError, 0.05, 0.12, 0.3]) {
     const prims = opaquePrims(); const tris = prims.reduce((n, p) => n + triCount(p), 0);
     if (tris <= budget * 1.08) return;
@@ -176,9 +183,8 @@ function countTris(doc) {
   return n;
 }
 
-async function processModel(name, cfg, io, credits) {
-  const outFile = path.join(OUT, `${name}.glb`);
-  if (!FORCE) { try { await fs.stat(outFile); console.log(`skip ${name}`); return; } catch {} }
+/** Downloads a Poly Haven model's 1k glTF (+ textures, + the alpha maps the glTF leaves out) into TMP. */
+async function fetchSource(name) {
   const info = await fetchJson(`https://api.polyhaven.com/files/${name}`);
   const g = info.gltf?.['1k']?.gltf; if (!g) throw new Error(`${name}: no 1k gltf`);
   const dir = path.join(TMP, name);
@@ -186,9 +192,23 @@ async function processModel(name, cfg, io, credits) {
   await download(g.url, gltfPath);
   const includes = Object.entries(g.include || {});
   await Promise.all(includes.map(([rel, f]) => download(f.url, path.join(dir, rel))));
-  const meta = await fetchJson(`https://api.polyhaven.com/info/${name}`).catch(() => ({}));
-  credits[name] = { type: 'model', name: meta.name || name, authors: meta.authors || {}, license: 'CC0', url: `https://polyhaven.com/a/${name}` };
+  for (const key of Object.keys(info)) {
+    if (!/alpha$/i.test(key)) continue;
+    const url = info[key]?.['1k']?.jpg?.url; if (url) await download(url, path.join(dir, 'textures', `${name}_${key}_1k.jpg`));
+  }
+  return { info, dir, gltfPath };
+}
 
+async function processModel(id, cfg, io, credits) {
+  // `id` names the output (= vegetation species); `cfg.source` lets one Poly Haven model serve several species
+  const name = cfg.source ?? id;
+  const outFile = path.join(OUT, `${id}.glb`);
+  if (!FORCE) { try { await fs.stat(outFile); console.log(`skip ${id}`); return; } catch {} }
+  const { info, dir, gltfPath } = await fetchSource(name);
+  const meta = await fetchJson(`https://api.polyhaven.com/info/${name}`).catch(() => ({}));
+  credits[name] = { type: 'model', name: meta.name || name, authors: meta.authors || {}, license: 'CC0', url: `https://polyhaven.com/a/${name}`, ...(id !== name ? { usedAs: [...new Set([...(credits[name]?.usedAs ?? []), id])] } : {}) };
+
+  if (cfg.conifer) return processConifer(name, cfg, io, gltfPath, dir, outFile);
   const doc = await io.read(gltfPath);
   const before = countTris(doc);
   await doc.transform(dedup(), prune());
@@ -249,11 +269,11 @@ async function processModel(name, cfg, io, credits) {
   // join() merges meshes inside each V*_LOD0 group (it keeps separate parents separate)
   const nvar = Math.max(1, lod0Nodes.length * 0.6);
   const rnd0 = mulberry(1234);
-  let canopyMat = null, cardCount = 0;
+  let cardCount = 0;
   // real-leaf foliage: one fitted quad per modelled leaf, outer-weighted subset, bent normals + crown AO
   const leafSets = [];
   const leafRx = new RegExp(cfg.foliage?.leafMat ?? 'leaf|leaves|frond', 'i');
-  const isLeafMat = (mat) => mat && (mat.getAlphaMode() !== 'OPAQUE' || /^canopy_/.test(mat.getName()) === false && cfg.foliage?.leafMat) && leafRx.test(mat.getName());
+  const isLeafMat = (mat) => mat && (mat.getAlphaMode() !== 'OPAQUE' || cfg.foliage?.leafMat) && leafRx.test(mat.getName());
   if (cfg.foliage) {
     const f = cfg.foliage;
     const sets = [];
@@ -276,38 +296,11 @@ async function processModel(name, cfg, io, credits) {
     await doc.transform(prune());
     console.log(`${name}: foliage ${sets.map((x) => `${x.leaves.length}->${x.n0}/${x.n1} x${x.s0.toFixed(1)}/${x.s1.toFixed(1)}`).join(' ')}`);
   }
-  if (cfg.canopy) {
-    // download the alpha map, compose a cluster texture, swap leaf geometry for cards
-    const alphaUrl = info[`${cfg.canopy.key}_alpha`]?.['1k']?.jpg?.url;
-    const diffRel = Object.keys(g.include || {}).find((k) => k.includes(`${cfg.canopy.key}_diff`));
-    if (alphaUrl && diffRel) {
-      const alphaPath = path.join(dir, 'textures', `${name}_${cfg.canopy.key}_alpha_1k.jpg`);
-      await download(alphaUrl, alphaPath);
-      const webp = await buildCardTexture(await fs.readFile(path.join(dir, diffRel)), await fs.readFile(alphaPath), cfg.canopy, mulberry(7));
-      doc.createExtension(EXTTextureWebP).setRequired(true);
-      const tex = doc.createTexture(`canopy_${name}`).setImage(new Uint8Array(webp)).setMimeType('image/webp').setURI(`canopy_${name}.webp`);
-      canopyMat = doc.createMaterial(`canopy_${name}`).setBaseColorTexture(tex).setAlphaMode('MASK').setAlphaCutoff(0.5).setDoubleSided(true).setMetallicFactor(0).setRoughnessFactor(0.9);
-      if (cfg.canopy.tint) canopyMat.setBaseColorFactor([...cfg.canopy.tint, 1]);
-      for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
-        const mat = prim.getMaterial();
-        const leafy = mat && mat !== canopyMat && (mat.getAlphaMode() !== 'OPAQUE' || /twig|leaf|leaves|needle|foliage/i.test(mat.getName()));
-        if (leafy) cardCount += canopyCards(doc, prim, cfg.canopy.cards0, canopyMat, rnd0, cfg.canopy.sizeMul ?? 1.0);
-      }
-      await doc.transform(prune());
-    }
-  }
-  if (!canopyMat && !cfg.foliage) thinCards(doc, cfg.tris * nvar * 0.75, 1.6, rnd0);
+  if (!cfg.foliage) thinCards(doc, cfg.tris * nvar * 0.75, 1.6, rnd0);
   await simplifyTo(doc, cfg.tris * nvar);
   const lod0Tris = countTris(doc);
   const lodDoc = cloneDocument(doc);
-  if (canopyMat) {
-    const rnd1 = mulberry(99);
-    const lodMat = lodDoc.getRoot().listMaterials().find((m) => m.getName() === `canopy_${name}`);
-    for (const mesh of lodDoc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
-      if (prim.getMaterial() === lodMat) canopyCards(lodDoc, prim, cfg.canopy.cards1, lodMat, rnd1, 1.7 * (cfg.canopy.sizeMul ?? 1.0));
-    }
-    await lodDoc.transform(prune());
-  } else if (cfg.foliage) {
+  if (cfg.foliage) {
     const rnd1 = mulberry(99); let k = 0;
     for (const mesh of lodDoc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
       if (!isLeafMat(prim.getMaterial()) || k >= leafSets.length) continue;
@@ -333,16 +326,53 @@ async function processModel(name, cfg, io, credits) {
     if (/disp|displacement/i.test(uri)) tex.dispose();
   }
   await doc.transform(prune());
-  // texture diet: no ARM maps (constant roughness), smaller normals on small plants
+  // re-coloured rocks: the scan's dusty grey albedo gets the tint, more contrast and its own cavity
+  // occlusion (ARM red) baked in, so pits and seams read as porous scoria / basalt rather than a flat colour
+  if (cfg.recolour) for (const mat of doc.getRoot().listMaterials()) {
+    const bt = mat.getBaseColorTexture(); const arm = mat.getOcclusionTexture() ?? mat.getMetallicRoughnessTexture(); if (!bt) continue;
+    const { data, info } = await sharp(Buffer.from(bt.getImage())).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const ao = arm ? await sharp(Buffer.from(arm.getImage())).resize(info.width, info.height).extractChannel(0).raw().toBuffer() : null;
+    const { tint, contrast = 2.2, aoPow = 1.6, mottle = 0, cavity = 0 } = cfg.recolour;
+    const W = info.width, H = info.height;
+    let mean = 0; for (let i = 0; i < W * H; i++) mean += (data[i * 3] + data[i * 3 + 1] + data[i * 3 + 2]) / 765;
+    mean /= W * H;
+    // surface curvature from the scan's normal map (divergence of the normal): pores and seams dark, ridges light
+    let curv = null;
+    const nt = mat.getNormalTexture();
+    if (cavity > 0 && nt) {
+      const n = await sharp(Buffer.from(nt.getImage())).resize(W, H).removeAlpha().raw().toBuffer();
+      const c0 = new Float32Array(W * H);
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        c0[i] = (n[(i + 1) * 3] - n[(i - 1) * 3]) / 127.5 - (n[(i + W) * 3 + 1] - n[(i - W) * 3 + 1]) / 127.5;
+      }
+      curv = new Float32Array(W * H); // light blur so it reads at the 512 px the texture ships at
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { let s = 0; for (let j = -1; j <= 1; j++) for (let k = -1; k <= 1; k++) s += c0[(y + j) * W + x + k]; curv[y * W + x] = s / 9; }
+    }
+    const out = Buffer.alloc(W * H * 3);
+    for (let i = 0; i < W * H; i++) {
+      const l = (data[i * 3] + data[i * 3 + 1] + data[i * 3 + 2]) / 765;
+      const lc = Math.max(0.05, mean + (l - mean) * contrast) / Math.max(mean, 1e-3) * (curv ? Math.min(1.35, Math.max(0.6, 1 + curv[i] * cavity)) : 1);
+      const occ = ao ? Math.pow(ao[i] / 255, aoPow) : 1;
+      // rusty oxidation follows the brighter (exposed) parts of the scan
+      const rust = mottle * Math.min(1, Math.max(0, (l - mean) * 6));
+      for (let k = 0; k < 3; k++) {
+        const c = tint[k] * lc * occ * (k === 0 ? 1 + rust * 0.9 : k === 1 ? 1 + rust * 0.25 : 1 - rust * 0.2);
+        out[i * 3 + k] = Math.max(0, Math.min(255, Math.round(Math.pow(Math.min(1, c), 1 / 2.2) * 255)));
+      }
+    }
+    bt.setImage(new Uint8Array(await sharp(out, { raw: { width: info.width, height: info.height, channels: 3 } }).png().toBuffer())).setMimeType('image/png');
+  }
+  // texture diet: no ARM maps (constant roughness), smaller normals on small plants; optional colour tint
   for (const mat of doc.getRoot().listMaterials()) {
     mat.setOcclusionTexture(null).setMetallicRoughnessTexture(null).setMetallicFactor(0);
+    if (cfg.tint) mat.setBaseColorFactor([...cfg.tint, 1]);
     if (!cfg.foliage) mat.setRoughnessFactor(cfg.kind === 'rock' ? 0.85 : 0.9);
   }
   await doc.transform(prune());
   const leafRe = /twig|leaf|leaves|needle|branch|plant|grass|flower|fern|frond|shrub|bush|nettle|weed|card|sapling|searsia/i;
   for (const tex of doc.getRoot().listTextures()) {
     const uri = tex.getURI() || tex.getName();
-    if (uri.startsWith('canopy_')) continue;
     const isLeaf = cfg.leafTex && leafRe.test(uri);
     const isNor = /nor_gl|normal|_nor/i.test(uri);
     const size = isNor && cfg.norTex ? cfg.norTex : isLeaf ? cfg.leafTex : cfg.tex;
@@ -352,6 +382,16 @@ async function processModel(name, cfg, io, credits) {
   await doc.transform(prune(), resample());
   // colour textures ship as Basis/KTX2 (stay compressed on the GPU); normals stay WebP
   await colourToKtx2(doc);
+  await writePacked(doc, io, outFile, name);
+  const bin = await fs.readFile(outFile);
+  console.log(`${name}: ${before}→${lod0Tris}/${lod1Tris} tris, ${lod0Nodes.length} variants, ${cardCount} cards, ${(bin.byteLength / 1024).toFixed(0)} KB`);
+}
+
+/** meshopt-compressed GLB. Primitives that simplification emptied are dropped first: an empty
+ *  accessor gets a NaN byte stride in EXT_meshopt_compression and the encoder asserts. */
+async function writePacked(doc, io, outFile, name) {
+  dropEmptyPrimitives(doc);
+  await doc.transform(prune({ keepAttributes: true })); // conifer needle UVs have no texture in the GLB (shared atlas)
   let bin;
   try {
     const packed = cloneDocument(doc);
@@ -362,7 +402,40 @@ async function processModel(name, cfg, io, credits) {
     bin = await io.writeBinary(doc);
   }
   await fs.writeFile(outFile, bin);
-  console.log(`${name}: ${before}→${lod0Tris}/${lod1Tris} tris, ${lod0Nodes.length} variants, ${cardCount} cards, ${(bin.byteLength / 1024).toFixed(0)} KB`);
+}
+
+const ktxImageDecoder = async (buf) => { const { data, info } = await sharp(Buffer.from(buf)).ensureAlpha().raw().toBuffer({ resolveWithObject: true }); return { width: info.width, height: info.height, data: new Uint8Array(data) }; };
+/** Modelled-needle conifer -> baked needle cards + simplified wood (scripts/conifer.mjs). */
+async function processConifer(name, cfg, io, gltfPath, dir, outFile) {
+  const src = await io.read(gltfPath);
+  const ccfg = { ...CONIFERS[name], name };
+  // a species may borrow (and share at runtime) another model's needle sprites
+  let atlasFrom = null;
+  if (ccfg.atlasFrom) {
+    const other = await fetchSource(ccfg.atlasFrom);
+    atlasFrom = { src: await io.read(other.gltfPath), dir: other.dir, cfg: { ...CONIFERS[ccfg.atlasFrom], name: ccfg.atlasFrom } };
+  }
+  const { doc, albedoPng, normalPng, atlasName, ownAtlas } = await buildConifer(src, dir, ccfg, atlasFrom);
+  // wood textures: the usual diet (WebP, colour cfg.tex, normals cfg.norTex) before KTX2
+  for (const tex of doc.getRoot().listTextures()) {
+    const uri = tex.getURI() || tex.getName();
+    const isNor = /nor_gl|normal|_nor/i.test(uri);
+    const size = isNor ? cfg.norTex : cfg.tex;
+    await doc.transform(textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [size, size], quality: isNor ? 90 : 82, pattern: new RegExp(path.basename(uri).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
+  }
+  // needle atlas (written by its owner only): colour + alpha as high-quality ETC1S, needle normals as UASTC + RDO
+  // (ETC1S ruins normals). Separate files, so species that share an atlas download and upload it once.
+  if (ownAtlas) {
+    const common = { isKTX2File: true, generateMipmap: true, imageDecoder: ktxImageDecoder };
+    await fs.writeFile(path.join(OUT, `${atlasName}.ktx2`), await encodeToKTX2(new Uint8Array(albedoPng), { ...common, isUASTC: false, qualityLevel: 255, compressionLevel: 3, isPerceptual: true, isSetKTX2SRGBTransferFunc: true }));
+    await fs.writeFile(path.join(OUT, `${atlasName}_nor.ktx2`), await encodeToKTX2(new Uint8Array(normalPng), { ...common, isUASTC: true, uastcLDRQualityLevel: 2, enableRDO: true, rdoQualityLevel: 1.5, needSupercompression: true, isNormalMap: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }));
+  }
+  await colourToKtx2(doc);
+  await doc.transform(dedup(), prune({ keepAttributes: true }));
+  await writePacked(doc, io, outFile, name);
+  const st = await fs.stat(outFile);
+  const at = ownAtlas ? await Promise.all([`${atlasName}.ktx2`, `${atlasName}_nor.ktx2`].map((f) => fs.stat(path.join(OUT, f)))) : [];
+  console.log(`${name}: conifer, ${(st.size / 1024).toFixed(0)} KB${ownAtlas ? ` + atlas ${at.map((a) => (a.size / 1024).toFixed(0)).join(' + ')} KB` : ` (atlas ${atlasName})`}`);
 }
 
 /** Packs a Poly Haven texture set into two maps per ground layer:

@@ -56,13 +56,14 @@ const tmpW = new Float32Array(BIOME_IDS.length);
 const LAVA_CHANNELS: { a: number; len: number }[] = [
   { a: 1.43, len: 292 }, { a: 1.96, len: 252 }, { a: 3.72, len: 262 }, { a: 5.3, len: 238 }, { a: 0.42, len: 222 },
 ];
-export interface VolcanoInfo { h: number; lava: number; flow: number; dv: number }
+/** h: relief (m), lava: molten mask, flow: old lava-flow lobes, near: fresh basalt banks beside a channel, dv: distance to the crater centre */
+export interface VolcanoInfo { h: number; lava: number; flow: number; near: number; dv: number }
 const sq = (v: number) => v * v;
 /** Shape of the volcano at (x,z): relief (m), molten lava mask, old basalt-flow mask. */
-export function volcanoAt(x: number, z: number, out: VolcanoInfo = { h: 0, lava: 0, flow: 0, dv: 0 }): VolcanoInfo {
+export function volcanoAt(x: number, z: number, out: VolcanoInfo = { h: 0, lava: 0, flow: 0, near: 0, dv: 0 }): VolcanoInfo {
   const dx = x - VOLCANO_CENTER[0], dz = z - VOLCANO_CENTER[1];
   const dv = Math.hypot(dx, dz); out.dv = dv;
-  if (dv > 390) { out.h = 0; out.lava = 0; out.flow = 0; return out; }
+  if (dv > 390) { out.h = 0; out.lava = 0; out.flow = 0; out.near = 0; return out; }
   const ang = Math.atan2(dz, dx);
   let h = Math.pow(smoothstep(340, 22, dv), 1.35) * 176;
   // crater bowl with a raised, broken rim
@@ -85,7 +86,7 @@ export function volcanoAt(x: number, z: number, out: VolcanoInfo = { h: 0, lava:
   const flow = smoothstep(0.08, 0.32, flowN) * smoothstep(380, 150, dv);
   h += flow * (2.2 + n2.noise(x * 0.04, z * 0.04) * 1.5) * smoothstep(60, 140, dv);
   // lava channels running from the rim, with raised levees either side
-  let lava = 0;
+  let lava = 0, near = 0;
   for (const ch of LAVA_CHANNELS) {
     let da = ang - ch.a; if (da > Math.PI) da -= Math.PI * 2; if (da < -Math.PI) da += Math.PI * 2;
     if (Math.abs(da) > 0.7) continue;
@@ -96,12 +97,14 @@ export function volcanoAt(x: number, z: number, out: VolcanoInfo = { h: 0, lava:
     const w = 4.2 + dv * 0.013;
     h += (2.6 * Math.exp(-sq((d - w * 1.1) / 2.8)) - 3.4 * smoothstep(w * 1.2, w * 0.2, d)) * along;
     lava = Math.max(lava, smoothstep(w * 0.95, w * 0.4, d) * along);
+    near = Math.max(near, smoothstep(w * 3.6, w * 1.2, d) * smoothstep(50, 80, dv) * smoothstep(ch.len + 25, ch.len - 30, dv));
   }
   lava = Math.max(lava, smoothstep(27, 15, dv)); // crater lava lake
-  out.h = h; out.lava = lava; out.flow = flow;
+  near = Math.max(near, smoothstep(40, 26, dv)); // the crater lake's frozen rim
+  out.h = h; out.lava = lava; out.flow = flow; out.near = near;
   return out;
 }
-const tmpV: VolcanoInfo = { h: 0, lava: 0, flow: 0, dv: 0 };
+const tmpV: VolcanoInfo = { h: 0, lava: 0, flow: 0, near: 0, dv: 0 };
 
 /** Terrain height in metres at world (x,z). Sea level is 0. */
 export function heightAt(x: number, z: number): number {
@@ -215,9 +218,24 @@ export function layerWeightsAt(x: number, z: number, out?: Float32Array): Float3
   o[L.grass] += w[4] * 0.1;
   o[L.redGround] += w[6] * (0.7 + varn * 0.2);
   o[L.riverbed] += w[6] * (0.3 - varn * 0.2);
+  // volcano: fine ash on the apron (weathered, with grass creeping up from the meadow), black scoria
+  // cinders on the cone and in the gullies, a'a clinker on the old flow lobes and smooth fresh
+  // pahoehoe basalt along the live channels and around the crater lake
   const vol = volcanoAt(x, z, tmpV);
-  o[L.ash] += w[2] * 1.4 * (0.8 - vol.flow * 0.6);
-  o[L.lavaRock] += w[2] * 1.4 * (0.2 + vol.flow * 0.6);
+  if (w[2] > 0) {
+    const patch = n2.fbm(x * 0.021 + 7.3, z * 0.021 - 3.1, 3) * 0.5 + 0.5;
+    const fleck = n3.fbm(x * 0.09 - 2.2, z * 0.09 + 5.4, 2) * 0.5 + 0.5;
+    const apron = smoothstep(215, 300, vol.dv), rim = smoothstep(115, 65, vol.dv);
+    const flow = vol.flow * (1 - vol.near), near = vol.near;
+    const free = (1 - flow) * (1 - near);
+    const ash = free * (0.25 + 0.75 * apron) * (0.55 + 0.9 * smoothstep(0.62, 0.3, patch));
+    const cinder = free * (0.45 + 0.45 * rim) * (1 - 0.7 * apron) * (0.35 + 1.1 * smoothstep(0.35, 0.7, patch)) + flow * 0.12;
+    const aa = flow * (0.8 + 0.4 * fleck);
+    const sheet = near * 1.2 + free * 0.06 * (1 - apron);
+    const grassy = apron * smoothstep(0.5, 0.75, fleck * 0.6 + (1 - patch) * 0.4) * 0.45 * (1 - flow);
+    const k = w[2] * 1.4 / Math.max(1e-3, ash + cinder + aa + sheet + grassy);
+    o[L.ash] += ash * k; o[L.cinder] += cinder * k; o[L.aa] += aa * k; o[L.lavaRock] += sheet * k; o[L.grassRock] += grassy * k;
+  }
   o[L.snow] += w[5] * 0.8;
   o[L.cliff] += w[5] * 0.2;
   // height rules: shoreline sand, snow caps, lava near crater
@@ -237,8 +255,9 @@ export function layerWeightsAt(x: number, z: number, out?: Float32Array): Float3
   const bed = smoothstep(16, 5, r.d) * (1 - w[2]);
   for (let i = 0; i < LAYER_COUNT; i++) o[i] *= 1 - bed;
   o[L.riverbed] += bed * 0.7; o[L.wetSand] += bed * 0.3;
-  // slope -> cliff rock (strong), volcano slopes stay dark rock
-  const steep = smoothstep(0.42, 0.7, slope);
+  // slope -> cliff rock (strong), volcano slopes stay dark rock; the volcano's loose cinders and ash
+  // hold up to their angle of repose (~35 deg), so only steeper ground there is bare basalt
+  const steep = smoothstep(lerp(0.42, 0.6, w[2]), lerp(0.7, 0.84, w[2]), slope);
   const cliffLayer = w[2] > 0.45 ? L.lavaRock : w[6] > 0.4 ? L.redCliff : L.cliff;
   for (let i = 0; i < LAYER_COUNT; i++) o[i] *= 1 - steep;
   o[cliffLayer] += steep;

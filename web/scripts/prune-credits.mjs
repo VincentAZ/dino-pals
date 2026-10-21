@@ -8,8 +8,10 @@ const file = path.join(ENV, 'credits.json');
 const credits = JSON.parse(await fs.readFile(file, 'utf8'));
 const shipped = new Set();
 for (const f of await fs.readdir(ENV)) if (f.endsWith('.glb')) shipped.add(f.replace('.glb', ''));
-for (const f of await fs.readdir(path.join(ENV, 'ground'))) shipped.add(f.replace(/_(a|b)_\d+\.webp$/, ''));
+for (const f of await fs.readdir(path.join(ENV, 'ground'))) shipped.add(f.replace(/_(a|b)_\d+\.(webp|ktx2)$/, ''));
 const before = Object.keys(credits.assets).length;
-credits.assets = Object.fromEntries(Object.entries(credits.assets).filter(([k]) => shipped.has(k)));
+// a source model can ship under other names (fetch-env.mjs `source`, recorded as usedAs)
+credits.assets = Object.fromEntries(Object.entries(credits.assets).filter(([k, v]) => shipped.has(k) || (v.usedAs ?? []).some((u) => shipped.has(u))));
 await fs.writeFile(file, JSON.stringify(credits, null, 2));
-console.log(`credits: ${before} -> ${Object.keys(credits.assets).length}`, [...shipped].filter((k) => !credits.assets[k]));
+const aliased = new Set(Object.values(credits.assets).flatMap((v) => v.usedAs ?? []));
+console.log(`credits: ${before} -> ${Object.keys(credits.assets).length}`, 'uncredited:', [...shipped].filter((k) => !credits.assets[k] && !aliased.has(k)));

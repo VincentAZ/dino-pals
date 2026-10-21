@@ -448,6 +448,90 @@
       },
       "license": "CC0",
       "url": "https://polyhaven.com/a/floor_pebbles_01"
+    },
+    "fir_sapling_medium": {
+      "type": "model",
+      "name": "Fir Sapling Medium",
+      "authors": {
+        "Rob Tuytel": "photography",
+        "Rico Cilliers": "modeling"
+      },
+      "license": "CC0",
+      "url": "https://polyhaven.com/a/fir_sapling_medium"
+    },
+    "gravel_stones": {
+      "type": "texture",
+      "name": "Gravel Stones",
+      "authors": {
+        "Amal Kumar": "All"
+      },
+      "license": "CC0",
+      "url": "https://polyhaven.com/a/gravel_stones"
+    },
+    "gray_rocks": {
+      "type": "texture",
+      "name": "Gray Rocks",
+      "authors": {
+        "Dimitrios Savva": "All"
+      },
+      "license": "CC0",
+      "url": "https://polyhaven.com/a/gray_rocks"
+    },
+    "moon_rock_02": {
+      "type": "model",
+      "name": "Moon Rock 02",
+      "authors": {
+        "Rico Cilliers": "Photography",
+        "Greg Zaal": "Photography",
+        "Jenelle van Heerden": "Processing"
+      },
+      "license": "CC0",
+      "url": "https://polyhaven.com/a/moon_rock_02",
+      "usedAs": [
+        "volcanic_boulder"
+      ]
+    },
+    "moon_rock_06": {
+      "type": "model",
+      "name": "Moon Rock 06",
+      "authors": {
+        "Greg Zaal": "Photography",
+        "Jenelle van Heerden": "Processing",
+        "Rico Cilliers": "Photography"
+      },
+      "license": "CC0",
+      "url": "https://polyhaven.com/a/moon_rock_06",
+      "usedAs": [
+        "volcanic_rock_a"
+      ]
+    },
+    "moon_rock_07": {
+      "type": "model",
+      "name": "Moon Rock 07",
+      "authors": {
+        "Greg Zaal": "Photography",
+        "Rico Cilliers": "Photography",
+        "Jenelle van Heerden": "Processing"
+      },
+      "license": "CC0",
+      "url": "https://polyhaven.com/a/moon_rock_07",
+      "usedAs": [
+        "volcanic_rock_b"
+      ]
+    },
+    "moon_rock_05": {
+      "type": "model",
+      "name": "Moon Rock 05",
+      "authors": {
+        "Greg Zaal": "Photography",
+        "Rico Cilliers": "Photography",
+        "Jenelle van Heerden": "Processing"
+      },
+      "license": "CC0",
+      "url": "https://polyhaven.com/a/moon_rock_05",
+      "usedAs": [
+        "volcanic_pebbles"
+      ]
     }
   }
 }
