@@ -73,9 +73,9 @@ uniform sampler2D uField;
 uniform vec3 uGrassCol[${LAYER_COUNT}]; uniform float uGrassCov[${LAYER_COUNT}]; uniform float uGrassDry[${LAYER_COUNT}]; uniform vec3 uDryCol;
 // rgb: grass colour (linear), a: coverage 0..1
 vec4 grassField(vec2 xz, float w[${LAYER_COUNT}]) {
-  vec3 c = vec3(0.0); float cov = 0.0; float dryAmt = 0.0;
-  for (int i = 0; i < ${LAYER_COUNT}; i++) { float k = w[i] * uGrassCov[i]; c += k * uGrassCol[i]; cov += k; dryAmt += k * uGrassDry[i]; }
-  c /= max(cov, 1e-4); dryAmt /= max(cov, 1e-4);
+  vec3 c = vec3(0.0); float cov = 0.0; float dryAmt = 0.0; float cw = 0.0;
+  for (int i = 0; i < ${LAYER_COUNT}; i++) { float k = w[i] * uGrassCov[i]; float kc = w[i] * sqrt(uGrassCov[i]); c += kc * uGrassCol[i]; cov += k; dryAmt += kc * uGrassDry[i]; cw += kc; }
+  c /= max(cw, 1e-4); dryAmt /= max(cw, 1e-4);
   vec4 nA = texture(uField, xz / ${FIELD_SCALE_A.toFixed(1)});
   vec4 nB = texture(uField, xz / ${FIELD_SCALE_B.toFixed(1)});
   float dry = smoothstep(0.5, 0.78, nA.g * 0.65 + nB.r * 0.35) * dryAmt;
@@ -109,13 +109,14 @@ const ss = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max
 export interface FieldResult { r: number; g: number; b: number; cov: number; reed: number; tuft: number; hVar: number }
 /** Same as grassField() in GLSL, plus blade-type weights and a height-variation term. */
 export function grassFieldAt(f: FieldSampler, x: number, z: number, w: ArrayLike<number>, out: FieldResult): FieldResult {
-  let r = 0, g = 0, b = 0, cov = 0, dryAmt = 0, reed = 0, tuft = 0;
+  let r = 0, g = 0, b = 0, cov = 0, dryAmt = 0, reed = 0, tuft = 0, cw = 0;
   for (let i = 0; i < LAYER_COUNT; i++) {
     const k = w[i] * GRASS_COV[i]; if (k <= 0) continue;
-    r += k * GRASS_COL_LIN[i][0]; g += k * GRASS_COL_LIN[i][1]; b += k * GRASS_COL_LIN[i][2]; cov += k; dryAmt += k * GRASS_DRY[i];
-    reed += k * GRASS_REED[i]; tuft += k * GRASS_TUFT[i];
+    const kc = w[i] * Math.sqrt(GRASS_COV[i]);
+    r += kc * GRASS_COL_LIN[i][0]; g += kc * GRASS_COL_LIN[i][1]; b += kc * GRASS_COL_LIN[i][2]; cov += k; dryAmt += kc * GRASS_DRY[i];
+    reed += kc * GRASS_REED[i]; tuft += kc * GRASS_TUFT[i]; cw += kc;
   }
-  const inv = 1 / Math.max(cov, 1e-4); r *= inv; g *= inv; b *= inv; dryAmt *= inv; reed *= inv; tuft *= inv;
+  const inv = 1 / Math.max(cw, 1e-4); r *= inv; g *= inv; b *= inv; dryAmt *= inv; reed *= inv; tuft *= inv;
   const nA = sampleField(f, x / FIELD_SCALE_A, z / FIELD_SCALE_A, tmp4a);
   const nB = sampleField(f, x / FIELD_SCALE_B, z / FIELD_SCALE_B, tmp4b);
   const dry = ss(0.5, 0.78, nA[1] * 0.65 + nB[0] * 0.35) * dryAmt * 0.75;

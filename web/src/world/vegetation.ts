@@ -13,6 +13,7 @@ import { VEG, type VegSpecies } from './vegrules.ts';
 import type { VegPlacement } from './terrain.ts';
 import { CHUNK_SIZE, quality } from '../config.ts';
 import { HALF } from './biomes.ts';
+import { ktx2Loader } from './ktx2.ts';
 
 interface Part { geometry: THREE.BufferGeometry; material: THREE.Material; depth?: THREE.Material }
 interface Variant { lod0: Part[]; lod1: Part[]; bounds: THREE.Box3; height: number; width: number; slot: number }
@@ -191,6 +192,8 @@ export class Vegetation {
 
   constructor(renderer: THREE.WebGLRenderer, loader: GLTFLoader) {
     this.renderer = renderer; this.loader = loader;
+    // the env models ship GPU-compressed (KHR_texture_basisu) colour textures
+    loader.setKTX2Loader(ktx2Loader(renderer));
     this.group.name = 'vegetation';
     for (const v of VEG) {
       const k = quality.tier === 'high' ? 1 : 0.8;

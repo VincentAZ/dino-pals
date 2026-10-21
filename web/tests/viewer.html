@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 const q = new URLSearchParams(location.search);
 const ids = (q.get('species') || 'island_tree_01').split(',');
 const lod = q.get('lod') || '0';
@@ -27,7 +28,7 @@ sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -60
 scene.add(sun, new THREE.HemisphereLight(0xbcd2f0, 0x5a5a40, 1.1));
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x5f6f3a, roughness: 1 }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder); loader.setKTX2Loader(new KTX2Loader().setTranscoderPath('/basis/').detectSupport(renderer));
 let x = 0; let maxH = 1;
 const placed = [];
 for (const id of ids) {

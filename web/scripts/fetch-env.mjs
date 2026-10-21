@@ -18,6 +18,7 @@ import { buildCardTexture, canopyCards } from './canopy.mjs';
 import { extractLeaves, crownOf, pickLeaves, writeLeafQuads, keepLimbs } from './foliage.mjs';
 import { EXTTextureWebP } from '@gltf-transform/extensions';
 import { encodeToKTX2 } from 'ktx2-encoder';
+import { colourToKtx2 } from './ktx2-env.mjs';
 
 const ktxDecoder = async (buf) => { const { data, info } = await sharp(Buffer.from(buf)).ensureAlpha().raw().toBuffer({ resolveWithObject: true }); return { width: info.width, height: info.height, data: new Uint8Array(data) }; };
 /** ETC1S/Basis KTX2 (sRGB, mipmapped) of an RGBA raw image: transcodes to ASTC / ETC2 / BC7 on the GPU. */
@@ -349,6 +350,8 @@ async function processModel(name, cfg, io, credits) {
     await doc.transform(textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [size, size], quality: isNormal ? 90 : 82, pattern: new RegExp(path.basename(uri).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
   }
   await doc.transform(prune(), resample());
+  // colour textures ship as Basis/KTX2 (stay compressed on the GPU); normals stay WebP
+  await colourToKtx2(doc);
   let bin;
   try {
     const packed = cloneDocument(doc);

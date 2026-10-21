@@ -6,7 +6,7 @@
 // and puddled; volcanic channels hold flowing, glowing lava. Geometry (with
 // baked horizon + contact ambient occlusion) is generated in a worker pool.
 import * as THREE from 'three';
-import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+import { ktx2Loader } from './ktx2.ts';
 import { CHUNK_LOAD_RADIUS, CHUNK_LOD_DIST, CHUNK_SEGMENTS, CHUNK_SIZE, CHUNKS_PER_SIDE, quality } from '../config.ts';
 import { DETAIL_TEXTURE, GROUND_LAYERS, HALF, LAYER_COUNT, LAYER_DETAIL, LAYER_ROUGH, LAYER_TILE, LAYER_TINT, TEX_LAYERS } from './biomes.ts';
 import { heightAt } from './heightmap.ts';
@@ -89,7 +89,7 @@ async function loadLayerArray(renderer: THREE.WebGLRenderer, urls: string[], siz
 
 /** Loads N KTX2 (Basis) layers and stacks them into one compressed 2D array texture. */
 async function loadKtx2Array(renderer: THREE.WebGLRenderer, urls: string[], size: number, aniso: number): Promise<THREE.CompressedArrayTexture | null> {
-  const loader = new KTX2Loader().setTranscoderPath('/basis/').detectSupport(renderer);
+  const loader = ktx2Loader(renderer);
   try {
     const texs = await Promise.all(urls.map((u) => loader.loadAsync(u)));
     const first = texs[0] as THREE.CompressedTexture;
@@ -106,7 +106,7 @@ async function loadKtx2Array(renderer: THREE.WebGLRenderer, urls: string[], size
     arr.needsUpdate = true;
     for (const t of texs) t.dispose();
     return arr;
-  } catch { return null; } finally { loader.dispose(); }
+  } catch { return null; }
 }
 
 async function loadTexture2D(url: string, srgb: boolean, aniso: number): Promise<THREE.Texture> {

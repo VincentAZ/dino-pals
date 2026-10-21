@@ -82,12 +82,12 @@ vec3 gPos; vec3 gNrm;`)
     col = vec3(0.09, 0.15, 0.04); t = tt * 0.6;
     n = normalize(cross(wdir, normalize(top - iPos)));
   } else {
-    float R = (0.03 + 0.02 * r3) * mix(1.0, 0.75, step(1.5, iB.x));
+    float R = (0.04 + 0.025 * r3) * mix(1.0, 0.75, step(1.5, iB.x));
     vec2 tilt = vec2(cos(r2 * 6.28), sin(r2 * 6.28)) * 0.35 + lean * 0.6;
     if (position.y < 0.5) { gPos = top + vec3(0.0, 0.006, 0.0); col = vec3(0.85, 0.55, 0.04); }
     else {
       float k = floor(position.x * 0.5); float sd = position.x - k * 2.0;
-      float ang = (k + (sd - 0.5) * 0.62) * 1.0471976 + r1 * 6.28;
+      float ang = (k + (sd - 0.5) * 0.86) * 1.0471976 + r1 * 6.28;
       vec2 dv = vec2(cos(ang), sin(ang)) * R;
       gPos = top + vec3(dv.x, dot(dv, tilt) - 0.004, dv.y);
       col = iCol;
@@ -288,13 +288,15 @@ class GrassRing {
           // flower patches on grassland: clustered by the field noise, one dominant kind per patch
           const meadowish = (this.wbuf[0] + this.wbuf[1] * 0.6) * (1 - fr.tuft) * (1 - fr.reed);
           const patch = Math.max(0, (fr.hVar - 0.45) * 3.2);
-          const p = cov * meadowish * (0.025 + 0.55 * Math.min(1, patch * patch));
+          const p = cov * meadowish * (0.08 + 0.85 * Math.min(1, patch * 1.4));
           const alive = hash2(cx, cz, 11) < p;
           const kindN = hash2(Math.floor(x / 23), Math.floor(z / 23), 12);
           const kind = hash2(cx, cz, 13) < 0.7 ? Math.floor(kindN * 4) : Math.floor(hash2(cx, cz, 14) * 4);
           const COLS = [[0.92, 0.92, 0.88], [0.95, 0.68, 0.04], [0.42, 0.22, 0.75], [0.9, 0.35, 0.55]];
           const c = COLS[kind];
-          bl.a[li * 4] = 0.16 + 0.22 * hash2(cx, cz, 15); bl.a[li * 4 + 1] = 0;
+          // stems rise just above the local grass
+          const gh = (0.26 + 0.34 * fr.hVar) * 1.25;
+          bl.a[li * 4] = gh + 0.06 + 0.16 * hash2(cx, cz, 15); bl.a[li * 4 + 1] = 0;
           bl.b[li * 4] = kind; bl.b[li * 4 + 1] = 0; bl.b[li * 4 + 2] = alive ? 1 : 0; bl.b[li * 4 + 3] = hash2(cx, cz, 16);
           bl.col[li * 3] = c[0]; bl.col[li * 3 + 1] = c[1]; bl.col[li * 3 + 2] = c[2];
         } else if (cov > 0.01) {

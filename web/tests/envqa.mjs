@@ -107,9 +107,12 @@ for (const tier of TIERS) {
   await page.touchscreen.tap(590, 410);
   await page.waitForFunction(() => window.__dino && window.__dino.ready, null, { timeout: 60000 });
   const tReady = Date.now() - t0;
+  // bytes fetched by the time the world is shown, split by kind
+  const initial = await page.evaluate(() => { const out = { total: 0, env: 0, dinos: 0, code: 0, other: 0 }; for (const e of performance.getEntriesByType('resource')) { const b = e.encodedBodySize || e.transferSize || 0; out.total += b; if (e.name.includes('/assets/env/') || e.name.includes('/basis/')) out.env += b; else if (e.name.includes('/assets/dinos/') || e.name.includes('/draco/')) out.dinos += b; else if (/\.(js|css|wasm)/.test(e.name)) out.code += b; else out.other += b; } for (const k in out) out[k] = +(out[k] / 1048576).toFixed(2); return out; });
+  console.log(tier, 'initial MB before world shown', JSON.stringify(initial));
   const settle = async (ms = 2500) => { await page.waitForFunction(() => !window.__dino.busy(), null, { timeout: 40000 }).catch(() => {}); await page.waitForTimeout(ms); };
   await settle(3500);
-  summary[tier] = { readyMs: tReady, views: {} };
+  summary[tier] = { readyMs: tReady, initialMB: initial, views: {} };
   for (const v of VIEWS) {
     if (ONLY && !ONLY.includes(v.name)) continue;
     await page.evaluate(() => { window.__dino.pause(false); window.__dino.setTime(10); });
