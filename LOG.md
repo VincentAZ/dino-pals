@@ -270,3 +270,12 @@ Measured as the child sees them (`tests/shortfalls.mjs`: tall firs at 3, 6 and 1
   - GPU textures unchanged at 197 MB at start and 232 MB with everything loaded.
 - **Tall pines** had the same bare-pole problem (crown base 5 to 7 m up). They get the open-grown treatment too, sparser than the fir's and keeping a short bare trunk as pines do: whorls every 1.9 m down to about 2 to 3.5 m, 12% longer per step. Their crown base for obstacles is 10% of height. The pine and young-fir saplings were already full to the ground. Smoke, WebKit (0 errors, 0 warnings), collide and forest-crossing all pass.
 - **Measuring performance properly.** The six-times-throttle figure from `perf_throttle.mjs` is one smoothed reading at a single instant, and it swung from 14 to 53 fps across runs. `tests/perf_median.mjs` reports the median and 90th-percentile frame time over a 6-second window. Old and new pines are indistinguishable: median 24 to 37 ms against 31 to 33 ms, and start-view triangles 1.498M against 1.499M.
+
+### README and public repository
+- New README:
+  - a hero shot, an animated WebP preview and the 67 s demo video (`docs/media/dino-pals-demo.mp4`, 14 MB);
+  - nine screenshots staged with the director camera (`web/tests/readme_shots.mjs`);
+  - a how-to-play table, a feature tour, iPad notes, run, test and rebuild instructions;
+  - credits tables generated from the dinosaur manifest (15 CC BY 4.0 models with authors and links) and the audio credits.
+- Before going public: the full git history was scanned for tokens and keys (none found). 45 test and script files that hard-coded a local home path now resolve paths from their own location.
+- The repository is now public: https://github.com/VincentAZ/dino-pals. All 10 README images load for a signed-out visitor.
