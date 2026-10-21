@@ -144,7 +144,9 @@ async function main(): Promise<void> {
       const p = d.root.position;
       switch (ev) {
         case 'roar': playVoice(audio, d.species.voice, s.gain, s.pan, d.species.lengthM); weather.sparkles.spawn('sparkle', p.x, p.y + d.species.heightM * 0.8, p.z, 18); break;
-        case 'eat': eatCrunch(audio, s.gain * 0.7, s.pan); weather.puffs.spawn('leaf', p.x + Math.sin(d.heading) * d.species.lengthM * 0.4, p.y, p.z + Math.cos(d.heading) * d.species.lengthM * 0.4, 10); break;
+        case 'eat': break;
+        case 'bite': { eatCrunch(audio, s.gain * 0.8, s.pan); const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('leaf', sn.x, sn.y, sn.z, 14); break; }
+        case 'finished': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('heart', sn.x, sn.y + 0.8, sn.z, 10); sparkle(audio); break; }
         case 'splash': splash(audio, s.gain, s.pan, d.species.lengthM > 8); weather.puffs.spawn('splash', p.x, Math.max(p.y, 0), p.z, 40, Math.min(3, d.species.lengthM / 5)); break;
         case 'stomp': thump(audio, s.gain, s.pan); break;
         case 'sniff': sniff(audio, s.gain, s.pan); break;
@@ -193,6 +195,11 @@ async function main(): Promise<void> {
 
   const fruitMats = [0xe8383a, 0xf28c28, 0x8e44ad, 0xd6c13a].map((c) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.18, roughness: 0.45 }));
   const leafMats = [0x3f8a3a, 0x5aa04a, 0x2f7030].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, side: THREE.DoubleSide }));
+  let foodProto: THREE.Object3D | null = null;
+  gltf.loadAsync('/assets/dinos/food.glb').then((g) => {
+    g.scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+    foodProto = g.scene;
+  }).catch(() => { foodProto = null; });
   const dropFood = (): void => {
     // 7 m ahead of the camera, on the ground
     const dir = new THREE.Vector3().subVectors(player.eye, camera.position).setY(0).normalize();
@@ -200,7 +207,12 @@ async function main(): Promise<void> {
     const ob = player.obstacleAt?.(px, pz);
     if (ob) { const dx = px - ob.x, dz = pz - ob.z; const dd = Math.hypot(dx, dz) || 1; px = ob.x + (dx / dd) * (ob.r + 0.8); pz = ob.z + (dz / dd) * (ob.r + 0.8); }
     const w = waterAt(px, pz); const y = w.kind !== 'none' ? Math.max(heightAt(px, pz), w.level) : heightAt(px, pz);
-    const g = new THREE.Group(); g.position.set(px, y, pz);
+    const g = new THREE.Group(); g.position.set(px, y, pz); g.rotation.y = Math.random() * Math.PI * 2;
+    if (foodProto) {
+      const pile = foodProto.clone(true); pile.scale.setScalar(2.4); g.add(pile);
+      const fruit: THREE.Object3D[] = []; pile.traverse((o) => { if (/^(fruit|stem)/.test(o.name)) fruit.push(o); });
+      g.userData.fruit = fruit;
+    } else {
     // leaf pile: a low mound of overlapping leaves
     const mound = new THREE.Mesh(new THREE.SphereGeometry(1.0, 18, 10), leafMats[0]); mound.scale.set(1, 0.38, 1); mound.position.y = -0.02; mound.castShadow = true; g.add(mound);
     for (let i = 0; i < 26; i++) {
@@ -216,7 +228,7 @@ async function main(): Promise<void> {
       const a = Math.random() * Math.PI * 2, r = Math.random() * 0.75;
       m.position.set(Math.cos(a) * r, 0.36 * Math.sqrt(Math.max(0, 1 - r * r)) + rad * 0.6, Math.sin(a) * r); m.castShadow = true; g.add(m);
     }
-    const light = new THREE.PointLight(0xffb060, 1.5, 7, 2); light.position.y = 0.9; g.add(light);
+    }
     scene.add(g);
     const food: Food = { pos: new THREE.Vector3(px, y, pz), amount: 1, mesh: g };
     foods.push(food);
@@ -328,7 +340,14 @@ async function main(): Promise<void> {
     grass.update(dt, player.pos.x, player.pos.z, light, sky.state.night > 0.5 ? sky.state.moonDir : sky.state.sunDir);
     weather.update(dt, camera.position, player.pos, biomeW, sky.state, renderer.getPixelRatio());
     dinos.update(dt, ctx, shadowCenter, camera);
-    for (let i = foods.length - 1; i >= 0; i--) { const f = foods[i]; if (f.amount <= 0) { scene.remove(f.mesh); foods.splice(i, 1); } else f.mesh.rotation.y += dt * 0.3; }
+    for (let i = foods.length - 1; i >= 0; i--) {
+      const f = foods[i];
+      if (f.amount <= 0) { scene.remove(f.mesh); foods.splice(i, 1); continue; }
+      // the pile visibly shrinks and fruit disappears as it is eaten
+      const k = 0.3 + 0.7 * f.amount; f.mesh.scale.set(k, 0.45 + 0.55 * f.amount, k);
+      const fruit = f.mesh.userData.fruit as THREE.Object3D[] | undefined;
+      if (fruit) { const keep = Math.ceil(f.amount * fruit.length); fruit.forEach((o, j) => { o.visible = j < keep; }); }
+    }
     ambience.update(dt, biomeW, sky.state.night, weather.rainAmount);
     music.update(sky.state.night);
     hud.setLoading(vegetation.loadedCount < vegetation.species.size || dinos.stats.real + dinos.dinos.filter((d) => d.loaded).length < dinos.dinos.length);

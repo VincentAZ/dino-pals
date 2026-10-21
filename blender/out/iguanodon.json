@@ -15,8 +15,9 @@
   "legs [(-0.43, -0.98, 2604), (0.44, -0.95, 1895), (0.45, 0.94, 3028), (-0.44, 0.94, 3075)]",
   "bones 25",
   "weights smoothed",
-  "walk stride/cycle 1.558 m, clip 1.56 s \u2192 speed 1.0 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 48}",
+  "eat reach: EAT_K 0.68 snout z at full pose 0.41",
+  "walk stride/cycle 1.541 m, clip 1.54 s \u2192 speed 1.0 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 47}",
   "exported blender/out/iguanodon.glb 1.91 MB",
   "preview done"
  ],
@@ -29,10 +30,12 @@
   "idle": 91,
   "roar": 67,
   "eat": 97,
-  "walk": 48
+  "walk": 47
  },
- "stride": 1.5581061840057373,
- "walkSeconds": 1.5666666666666667,
+ "snout": 3.105968952178955,
+ "headZ": 2.714559555053711,
+ "stride": 1.5406124591827393,
+ "walkSeconds": 1.5333333333333334,
  "bones": [
   "root",
   "spine1",

@@ -504,7 +504,7 @@ def idle(t, s):
 
 def walk(t, s):
     # stride: 1 cycle per clip
-    bob = 0.012 * H * (0.5 - 0.5 * math.cos(4 * math.pi * t))
+    bob = (0.007 if big else 0.012) * H * (0.5 - 0.5 * math.cos(4 * math.pi * t))
     rootb.location.z = bob
     tail_sway(t, 9 * amp, 0.25, 1.0)
     for sb in spines: rot_world(sb, 'Z', 1.5 * S(t))
@@ -520,8 +520,8 @@ def walk(t, s):
         lift = max(0.0, S(t, ph + 0.25))   # swing phase: knee folds, foot lifts
         rot_world(lo, 'X', 30 * amp * lift ** 1.5 + 3 * amp * sw)
         rot_world(ft, 'X', -14 * amp * lift + 6 * amp * max(0.0, -S(t, ph + 0.25)))
-    rot_world(rootb, 'Z', 2.0 * S(t))     # hip sway
-    rot_world(rootb, 'Y', 1.5 * S(t))
+    rot_world(rootb, 'Z', 1.2 * S(t))     # hip yaw
+    for sb in spines: rot_world(sb, 'X', 0.6)   # slight forward lean while walking
 
 def roar(t, s):
     k = ease(t / 0.25) * (1 - ease((t - 0.75) / 0.25))
@@ -532,16 +532,32 @@ def roar(t, s):
     tail_sway(t, 7 * amp, 0.0, 2.0)
     rootb.location.z = -0.01 * H * k
 
+EAT_K = 1.0   # pitch multiplier solved below so the snout reaches the food
+def eat_pose(k):
+    for nb in necks: rot_world(nb, 'X', EAT_K * 22 * k)
+    rot_world(head, 'X', EAT_K * 12 * k)
+    for sb in spines: rot_world(sb, 'X', EAT_K * 6 * k)
 def eat(t, s):
     k = ease(t / 0.3) * (1 - ease((t - 0.7) / 0.3))
-    down = 24 if SPECIES_ID != "paluxysaurus" else 20
-    for nb in necks: rot_world(nb, 'X', down * k / n_neck * 1.2)
-    rot_world(head, 'X', 14 * k)
-    rot_world(spines[-1], 'X', 3 * k)
+    eat_pose(k)
     chew = max(0.0, S(4 * t)) * (1 if 0.3 < t < 0.7 else 0)
     rot_world(jawb, 'X', 10 * chew)
     tail_sway(t, 4 * amp, 0.0, 1.0)
-    for sb in spines: rot_world(sb, 'X', 4 * k)
+def solve_eat_reach(target_z):
+    """scan the pitch multiplier upward until the snout reaches the target height (monotonic region only)"""
+    global EAT_K
+    best = None
+    k = 0.2
+    while k <= 3.0:
+        EAT_K = k; reset_pose(); eat_pose(1.0); bpy.context.view_layer.update()
+        z = (arm.matrix_world @ head.tail).z
+        if best is None or z < best[1]: best = (k, z)
+        if z <= target_z: best = (k, z); break
+        k += 0.1
+    EAT_K = best[0]
+    reset_pose(); bpy.context.view_layer.update()
+    log("eat reach: EAT_K", round(EAT_K, 2), "snout z at full pose", round(best[1], 2))
+if KIND == "land": solve_eat_reach(0.35 + 0.02 * H)
 
 def fly(t, s):
     for side, w1, w2 in wing_bones:
@@ -693,6 +709,7 @@ if PREVIEW:
     log("preview done")
 
 json.dump(dict(species=SPECIES_ID, log=LOG, size=[float(x) for x in size], clips={k: v[1] for k, v in CLIPS.items()},
+               snout=float(-mn[1]), headZ=float(arm_data.bones["head"].tail_local.z) if "head" in arm_data.bones else None,
                stride=STRIDE, walkSeconds=((CLIPS["walk"][1] - 1) / FPS) if "walk" in CLIPS else None,
                bones=[b.name for b in arm_data.bones]), open(os.path.join(OUT_DIR, f"{SPECIES_ID}.json"), "w"), indent=1)
 log("total", round(time.time() - t0, 1), "s")

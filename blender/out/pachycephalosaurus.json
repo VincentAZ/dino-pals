@@ -17,8 +17,9 @@
   "legs [(-0.32, -0.03, 2701), (0.32, -0.02, 3766)]",
   "bones 19",
   "weights smoothed",
-  "walk stride/cycle 1.702 m, clip 1.42 s \u2192 speed 1.195 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 44}",
+  "eat reach: EAT_K 0.9 snout z at full pose 0.39",
+  "walk stride/cycle 1.678 m, clip 1.4 s \u2192 speed 1.195 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 43}",
   "exported blender/out/pachycephalosaurus.glb 2.81 MB",
   "preview done"
  ],
@@ -31,10 +32,12 @@
   "idle": 91,
   "roar": 67,
   "eat": 97,
-  "walk": 44
+  "walk": 43
  },
- "stride": 1.7017821073532104,
- "walkSeconds": 1.4333333333333333,
+ "snout": 1.5942836999893188,
+ "headZ": 1.7661447525024414,
+ "stride": 1.6780351400375366,
+ "walkSeconds": 1.4,
  "bones": [
   "root",
   "spine1",

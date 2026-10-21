@@ -45,6 +45,8 @@ for s in species:
     meta = os.path.join(root, "blender", "out", f"{s['id']}.json")
     if os.path.exists(meta):
         j = json.load(open(meta)); sz = j["size"]; s["heightM"] = round(sz[2], 2); s["widthM"] = round(sz[0], 2)
+        if j.get("snout"): s["snoutM"] = round(j["snout"], 2)
+        if j.get("headZ"): s["headM"] = round(j["headZ"], 2)
         if j.get("stride") and j.get("walkSeconds"):
             s["strideM"] = round(j["stride"], 3); s["walkSeconds"] = round(j["walkSeconds"], 3)
             s["speed"] = round(j["stride"] / j["walkSeconds"], 3)   # natural speed: no foot sliding at timeScale 1

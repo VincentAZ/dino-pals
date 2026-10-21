@@ -21,8 +21,9 @@
   "legs [(-0.76, -4.14, 1084), (1.15, -2.68, 705), (1.17, -0.41, 1454), (-1.09, 1.34, 4279)]",
   "bones 27",
   "weights smoothed",
-  "walk stride/cycle 2.986 m, clip 2.98 s \u2192 speed 1.001 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 90}",
+  "eat reach: EAT_K 0.65 snout z at full pose 0.56",
+  "walk stride/cycle 2.946 m, clip 2.94 s \u2192 speed 1.001 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 89}",
   "exported blender/out/paluxysaurus.glb 4.56 MB",
   "preview done"
  ],
@@ -35,10 +36,12 @@
   "idle": 91,
   "roar": 67,
   "eat": 97,
-  "walk": 90
+  "walk": 89
  },
- "stride": 2.9863429069519043,
- "walkSeconds": 2.966666666666667,
+ "snout": 9.79310417175293,
+ "headZ": 9.187837600708008,
+ "stride": 2.9457035064697266,
+ "walkSeconds": 2.933333333333333,
  "bones": [
   "root",
   "spine1",

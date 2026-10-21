@@ -8,7 +8,7 @@
    "kind": "land",
    "diet": "carnivore",
    "lengthM": 12,
-   "speed": 1.29,
+   "speed": 1.306,
    "voice": "bigTheropod",
    "biomes": [
     "meadow",
@@ -30,8 +30,10 @@
    },
    "heightM": 3.87,
    "widthM": 2.85,
-   "strideM": 1.936,
-   "walkSeconds": 1.5
+   "snoutM": 4.86,
+   "headM": 2.65,
+   "strideM": 1.916,
+   "walkSeconds": 1.467
   },
   {
    "id": "triceratops",
@@ -40,7 +42,7 @@
    "kind": "land",
    "diet": "herbivore",
    "lengthM": 8.5,
-   "speed": 1.194,
+   "speed": 1.206,
    "voice": "ceratopsian",
    "biomes": [
     "meadow"
@@ -61,8 +63,10 @@
    },
    "heightM": 3.91,
    "widthM": 2.83,
-   "strideM": 2.269,
-   "walkSeconds": 1.9
+   "snoutM": 3.73,
+   "headM": 2.51,
+   "strideM": 2.212,
+   "walkSeconds": 1.833
   },
   {
    "id": "stegosaurus",
@@ -71,7 +75,7 @@
    "kind": "land",
    "diet": "herbivore",
    "lengthM": 8,
-   "speed": 0.9,
+   "speed": 0.901,
    "voice": "ceratopsian",
    "biomes": [
     "meadow",
@@ -93,8 +97,10 @@
    },
    "heightM": 3.48,
    "widthM": 1.74,
-   "strideM": 2.22,
-   "walkSeconds": 2.467
+   "snoutM": 3.47,
+   "headM": 1.23,
+   "strideM": 2.193,
+   "walkSeconds": 2.433
   },
   {
    "id": "paluxysaurus",
@@ -103,7 +109,7 @@
    "kind": "land",
    "diet": "herbivore",
    "lengthM": 20,
-   "speed": 1.007,
+   "speed": 1.004,
    "voice": "sauropod",
    "biomes": [
     "meadow",
@@ -126,8 +132,10 @@
    },
    "heightM": 10.24,
    "widthM": 4.86,
-   "strideM": 2.986,
-   "walkSeconds": 2.967
+   "snoutM": 9.79,
+   "headM": 9.19,
+   "strideM": 2.946,
+   "walkSeconds": 2.933
   },
   {
    "id": "velociraptor",
@@ -136,7 +144,7 @@
    "kind": "land",
    "diet": "carnivore",
    "lengthM": 2.6,
-   "speed": 1.238,
+   "speed": 1.225,
    "voice": "raptor",
    "biomes": [
     "canyon",
@@ -158,7 +166,9 @@
    },
    "heightM": 1.36,
    "widthM": 0.66,
-   "strideM": 0.66,
+   "snoutM": 0.87,
+   "headM": 1.2,
+   "strideM": 0.653,
    "walkSeconds": 0.533
   },
   {
@@ -168,7 +178,7 @@
    "kind": "land",
    "diet": "herbivore",
    "lengthM": 5.5,
-   "speed": 0.796,
+   "speed": 0.806,
    "voice": "ceratopsian",
    "biomes": [
     "jungle",
@@ -190,8 +200,10 @@
    },
    "heightM": 1.47,
    "widthM": 1.76,
-   "strideM": 1.194,
-   "walkSeconds": 1.5
+   "snoutM": 1.91,
+   "headM": 0.91,
+   "strideM": 1.182,
+   "walkSeconds": 1.467
   },
   {
    "id": "ankylosaurus",
@@ -200,7 +212,7 @@
    "kind": "land",
    "diet": "herbivore",
    "lengthM": 7,
-   "speed": 0.801,
+   "speed": 0.793,
    "voice": "ceratopsian",
    "biomes": [
     "canyon",
@@ -222,7 +234,9 @@
    },
    "heightM": 2.76,
    "widthM": 1.87,
-   "strideM": 1.656,
+   "snoutM": 2.15,
+   "headM": 1.26,
+   "strideM": 1.638,
    "walkSeconds": 2.067
   },
   {
@@ -232,7 +246,7 @@
    "kind": "land",
    "diet": "herbivore",
    "lengthM": 9,
-   "speed": 0.995,
+   "speed": 1.005,
    "voice": "ceratopsian",
    "biomes": [
     "meadow",
@@ -255,8 +269,10 @@
    },
    "heightM": 3.2,
    "widthM": 1.57,
-   "strideM": 1.558,
-   "walkSeconds": 1.567
+   "snoutM": 3.11,
+   "headM": 2.71,
+   "strideM": 1.541,
+   "walkSeconds": 1.533
   },
   {
    "id": "ornithocheirus",
@@ -286,7 +302,9 @@
     "fly": "fly"
    },
    "heightM": 0.65,
-   "widthM": 5.0
+   "widthM": 5.0,
+   "snoutM": 1.36,
+   "headM": 0.19
   },
   {
    "id": "spinosaurus",
@@ -295,7 +313,7 @@
    "kind": "land",
    "diet": "piscivore",
    "lengthM": 14,
-   "speed": 1.109,
+   "speed": 1.102,
    "voice": "bigTheropod",
    "biomes": [
     "swamp",
@@ -317,8 +335,10 @@
    },
    "heightM": 6.75,
    "widthM": 5.59,
-   "strideM": 2.92,
-   "walkSeconds": 2.633
+   "snoutM": 10.28,
+   "headM": 3.05,
+   "strideM": 2.828,
+   "walkSeconds": 2.567
   },
   {
    "id": "carnotaurus",
@@ -327,7 +347,7 @@
    "kind": "land",
    "diet": "carnivore",
    "lengthM": 8,
-   "speed": 1.396,
+   "speed": 1.407,
    "voice": "bigTheropod",
    "biomes": [
     "volcano",
@@ -349,8 +369,10 @@
    },
    "heightM": 3.49,
    "widthM": 3.46,
-   "strideM": 2.886,
-   "walkSeconds": 2.067
+   "snoutM": 4.31,
+   "headM": 2.93,
+   "strideM": 2.861,
+   "walkSeconds": 2.033
   },
   {
    "id": "allosaurus",
@@ -359,7 +381,7 @@
    "kind": "land",
    "diet": "carnivore",
    "lengthM": 9,
-   "speed": 1.311,
+   "speed": 1.297,
    "voice": "bigTheropod",
    "biomes": [
     "jungle",
@@ -381,7 +403,9 @@
    },
    "heightM": 2.88,
    "widthM": 1.82,
-   "strideM": 1.748,
+   "snoutM": 4.88,
+   "headM": 2.3,
+   "strideM": 1.729,
    "walkSeconds": 1.333
   },
   {
@@ -391,7 +415,7 @@
    "kind": "land",
    "diet": "herbivore",
    "lengthM": 4.5,
-   "speed": 1.187,
+   "speed": 1.199,
    "voice": "chirp",
    "biomes": [
     "meadow",
@@ -413,8 +437,10 @@
    },
    "heightM": 2.2,
    "widthM": 1.07,
-   "strideM": 1.702,
-   "walkSeconds": 1.433
+   "snoutM": 1.59,
+   "headM": 1.77,
+   "strideM": 1.678,
+   "walkSeconds": 1.4
   },
   {
    "id": "pistosaurus",
@@ -443,7 +469,9 @@
     "swim": "swim"
    },
    "heightM": 0.66,
-   "widthM": 1.69
+   "widthM": 1.69,
+   "snoutM": 1.75,
+   "headM": 0.03
   },
   {
    "id": "mosasaurus",
@@ -471,7 +499,9 @@
     "swim": "swim"
    },
    "heightM": 1.98,
-   "widthM": 4.04
+   "widthM": 4.04,
+   "snoutM": 6.5,
+   "headM": -0.03
   }
  ],
  "note": "All dinosaur models are third-party CC-BY works, processed (cleaned, rigged, animated, optimized) in Blender for Dino Pals. See attribution per species."

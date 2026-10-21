@@ -10,8 +10,9 @@
   "legs [(-0.28, -0.54, 913), (0.29, -0.54, 913), (0.31, 0.49, 1011), (-0.29, 0.52, 1867)]",
   "bones 25",
   "weights smoothed",
-  "walk stride/cycle 1.194 m, clip 1.49 s \u2192 speed 0.8 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 46}",
+  "eat reach: EAT_K 0.27 snout z at full pose 0.38",
+  "walk stride/cycle 1.182 m, clip 1.48 s \u2192 speed 0.799 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 45}",
   "exported blender/out/sauropelta.glb 3.35 MB",
   "preview done"
  ],
@@ -24,10 +25,12 @@
   "idle": 91,
   "roar": 67,
   "eat": 97,
-  "walk": 46
+  "walk": 45
  },
- "stride": 1.194408118724823,
- "walkSeconds": 1.5,
+ "snout": 1.9084155559539795,
+ "headZ": 0.913352370262146,
+ "stride": 1.181616187095642,
+ "walkSeconds": 1.4666666666666666,
  "bones": [
   "root",
   "spine1",

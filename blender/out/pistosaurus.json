@@ -26,6 +26,8 @@
   "swim": 61,
   "roar": 61
  },
+ "snout": 1.7499998807907104,
+ "headZ": 0.026357857510447502,
  "stride": null,
  "walkSeconds": null,
  "bones": [

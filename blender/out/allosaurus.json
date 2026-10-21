@@ -12,9 +12,10 @@
   "legs [(0.56, -0.52, 3794), (-0.61, 0.5, 2296)]",
   "bones 19",
   "weights smoothed",
-  "walk stride/cycle 1.748 m, clip 1.34 s \u2192 speed 1.302 m/s",
+  "eat reach: EAT_K 0.58 snout z at full pose 0.41",
+  "walk stride/cycle 1.729 m, clip 1.33 s \u2192 speed 1.302 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 41}",
-  "exported blender/out/allosaurus.glb 2.68 MB",
+  "exported blender/out/allosaurus.glb 2.69 MB",
   "preview done"
  ],
  "size": [
@@ -28,7 +29,9 @@
   "eat": 97,
   "walk": 41
  },
- "stride": 1.7483514547348022,
+ "snout": 4.880856990814209,
+ "headZ": 2.299354314804077,
+ "stride": 1.7287123799324036,
  "walkSeconds": 1.3333333333333333,
  "bones": [
   "root",

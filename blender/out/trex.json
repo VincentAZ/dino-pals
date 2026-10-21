@@ -10,8 +10,9 @@
   "legs [(0.36, -1.27, 2869), (-0.38, 1.29, 2803)]",
   "bones 19",
   "weights smoothed",
-  "walk stride/cycle 1.936 m, clip 1.48 s \u2192 speed 1.304 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 46}",
+  "eat reach: EAT_K 0.55 snout z at full pose 0.43",
+  "walk stride/cycle 1.916 m, clip 1.47 s \u2192 speed 1.301 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 45}",
   "exported blender/out/trex.glb 2.64 MB",
   "preview done"
  ],
@@ -24,10 +25,12 @@
   "idle": 91,
   "roar": 67,
   "eat": 97,
-  "walk": 46
+  "walk": 45
  },
- "stride": 1.935546875,
- "walkSeconds": 1.5,
+ "snout": 4.8575520515441895,
+ "headZ": 2.6500673294067383,
+ "stride": 1.9156346321105957,
+ "walkSeconds": 1.4666666666666666,
  "bones": [
   "root",
   "spine1",

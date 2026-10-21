@@ -10,7 +10,8 @@
   "legs [(-0.46, -0.56, 1130), (0.46, -0.56, 1144), (-0.46, 0.53, 1156), (0.46, 0.54, 1148)]",
   "bones 25",
   "smooth failed smoothing disabled for this species",
-  "walk stride/cycle 1.656 m, clip 2.07 s \u2192 speed 0.799 m/s",
+  "eat reach: EAT_K 0.4 snout z at full pose 0.38",
+  "walk stride/cycle 1.638 m, clip 2.05 s \u2192 speed 0.799 m/s",
   "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 63}",
   "exported blender/out/ankylosaurus.glb 3.87 MB",
   "preview done"
@@ -26,7 +27,9 @@
   "eat": 97,
   "walk": 63
  },
- "stride": 1.6557044982910156,
+ "snout": 2.148134231567383,
+ "headZ": 1.2613340616226196,
+ "stride": 1.6384701132774353,
  "walkSeconds": 2.066666666666667,
  "bones": [
   "root",

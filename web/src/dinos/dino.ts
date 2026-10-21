@@ -8,19 +8,19 @@ import { heightAt, waterAt } from '../world/heightmap.ts';
 
 export type DinoState = 'idle' | 'walk' | 'roar' | 'eat' | 'fly' | 'swim' | 'stomp' | 'sniff' | 'flap' | 'splash';
 
-export interface Food { pos: THREE.Vector3; amount: number; mesh: THREE.Object3D }
+export interface Food { pos: THREE.Vector3; amount: number; mesh: THREE.Object3D; eaters?: Map<number, number> }
 
 export interface DinoContext {
   player: THREE.Vector3;
   time: number;
   foods: Food[];
   onFootstep: (d: Dino, big: boolean) => void;
-  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'splash' | 'stomp' | 'sniff' | 'flap') => void;
+  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap') => void;
 }
 
 export interface AIData {
   home: THREE.Vector3; target: THREE.Vector3 | null; waitUntil: number; followUntil: number; foodTarget: Food | null;
-  angle: number; radius: number; altitude: number; glideUntil: number; actionUntil: number; lastStep: number; breachT: number; nextRoar: number; breachAt: number;
+  angle: number; radius: number; altitude: number; glideUntil: number; actionUntil: number; lastStep: number; breachT: number; nextRoar: number; lastChew: number; breachAt: number;
 }
 
 export class Dino {
@@ -52,7 +52,7 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1 };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1 };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;
@@ -202,6 +202,12 @@ export class Dino {
     }
   }
 
+  /** World position of the snout (near the ground when eating, else at head height). */
+  snoutPos(out: THREE.Vector3): THREE.Vector3 {
+    const sp = this.species; const snout = (sp.snoutM ?? sp.lengthM * 0.45) * this.scale;
+    const h = this.state === 'eat' ? 0.5 : (sp.headM ?? sp.heightM * 0.8) * this.scale;
+    return out.set(this.root.position.x + Math.sin(this.heading) * snout, this.root.position.y + h, this.root.position.z + Math.cos(this.heading) * snout);
+  }
   setBlobVisible(v: boolean): void { this.blob.visible = v && this.species.kind === 'land'; }
   private castShadowOn = true;
   setCastShadow(v: boolean): void {

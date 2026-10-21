@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Dino, type DinoContext } from './dino.ts';
 import type { Species } from './manifest.ts';
-import { updateAI, findSpot } from './ai.ts';
+import { updateAI, findSpot, separate } from './ai.ts';
 import { BIOMES, type BiomeId } from '../world/biomes.ts';
 import { heightAt, slopeAt, waterAt } from '../world/heightmap.ts';
 import { DINO_SLEEP_DIST, MAX_ANIMATED_DINOS } from '../config.ts';
@@ -111,6 +111,7 @@ export class DinoManager {
     this.frustum.setFromProjectionMatrix(this.projView);
     // distance sort for budgets
     const sorted = this.dinos.map((d) => ({ d, dist: Math.hypot(d.root.position.x - p.x, d.root.position.z - p.z) })).sort((a, b) => a.dist - b.dist);
+    separate(this.dinos);
     let animated = 0;
     for (const { d, dist } of sorted) {
       const awake = dist < DINO_SLEEP_DIST;

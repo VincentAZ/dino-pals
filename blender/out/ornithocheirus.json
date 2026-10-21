@@ -23,6 +23,8 @@
   "fly": 31,
   "roar": 61
  },
+ "snout": 1.3616353273391724,
+ "headZ": 0.1907317340373993,
  "stride": null,
  "walkSeconds": null,
  "bones": [

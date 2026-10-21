@@ -12,8 +12,9 @@
   "legs [(1.63, -0.98, 2294), (-0.48, 0.36, 3817)]",
   "bones 19",
   "weights smoothed",
-  "walk stride/cycle 2.92 m, clip 2.65 s \u2192 speed 1.102 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 80}",
+  "eat reach: EAT_K 0.47 snout z at full pose 0.49",
+  "walk stride/cycle 2.828 m, clip 2.57 s \u2192 speed 1.102 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 78}",
   "exported blender/out/spinosaurus.glb 3.46 MB",
   "preview done"
  ],
@@ -26,10 +27,12 @@
   "idle": 91,
   "roar": 67,
   "eat": 97,
-  "walk": 80
+  "walk": 78
  },
- "stride": 2.9195845127105713,
- "walkSeconds": 2.6333333333333333,
+ "snout": 10.27652359008789,
+ "headZ": 3.0546741485595703,
+ "stride": 2.8284727334976196,
+ "walkSeconds": 2.566666666666667,
  "bones": [
   "root",
   "spine1",
