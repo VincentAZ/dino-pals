@@ -176,6 +176,6 @@ cd web && node scripts/fetch-env.mjs                  # environment from Poly Ha
 
 ## License
 
-The code is released under the [MIT License](LICENSE). The bundled third-party assets keep their own licenses, listed under Credits above and at the end of [LICENSE](LICENSE): the dinosaur models are CC BY 4.0 (please keep the attributions), the environment is CC0, and the animal recordings are public domain or CC0.
+The code is released under the [MIT License](LICENSE). The bundled third-party assets keep their own licenses, listed under Credits above and in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): the dinosaur models are CC BY 4.0 (please keep the attributions), the environment is CC0, and the animal recordings are public domain or CC0.
 
 <p align="center"><sub>Made with love for one small explorer.</sub></p>
