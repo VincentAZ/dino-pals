@@ -96,7 +96,7 @@ export const VEG_BY_ID: Record<string, VegSpecies> = Object.fromEntries(VEG.map(
  * Where the foliage starts, as a fraction of the tree's height (default 1/3). Low-crowned conifers keep
  * branches near the ground (the firs' skirt whorls), so even small animals must walk around them.
  */
-export const CROWN_BASE: Record<string, number> = { fir_tree_01: 0.08, fir_sapling_medium: 0.05 };
+export const CROWN_BASE: Record<string, number> = { fir_tree_01: 0.08, fir_sapling_medium: 0.05, pine_tree_01: 0.1 };
 
 /** Ground contact-occlusion footprint (crown / rock radius in m at scale 1) for the baked terrain AO. */
 export const AO_RADIUS: Record<string, number> = {

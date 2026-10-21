@@ -13,7 +13,9 @@ export const CONIFERS = {
     closeup: { x0: -3.0, x1: -0.6, y0: 6.0, y1: 8.4 },
   },
   pine_tree_01: {
-    mode: 'cross', cell0: 0.45, cell1: 1.2, max0: 1400, max1: 290, sprites0: 12, sprites1: 6, density0: 640, density1: 240, atlas: [2048, 1024],
+    mode: 'cross', cell0: 0.45, cell1: 1.2, max0: 1900, max1: 390, sprites0: 12, sprites1: 6, density0: 640, density1: 240, atlas: [2048, 1024],
+    // open-grown pines keep lower limbs too, sparser than a fir's and with a short bare trunk
+    skirt: { slab: 2.6, step: 1.9, minY: 1.7, grow: 0.12, droop: 0.04 },
     trunk0: 600, trunk1: 160, branch0: 1700, branch1: 380, twiglet0: 0.3, twiglet1: 1.5, sigma: 0.012, cardScale0: 1.12, cardScale1: 1.1, grade: { sat: 1.15, mul: [1.2, 1.6, 1.4] },
     closeup: { x0: -3.5, x1: -0.5, y0: 9.0, y1: 12.0 },
   },

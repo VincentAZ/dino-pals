@@ -19,15 +19,20 @@ const settle = async () => { for (let i = 0; i < 200; i++) { const b = await pag
 // --- tall firs
 await page.evaluate(() => { const a = window.__dino; a.pause(true); a.setTime(12); a.teleportBiome('snow'); });
 await settle();
-const fir = await page.evaluate(() => window.__dino.vegNear('fir_tree_01'));
-console.log('fir', JSON.stringify(fir));
+const TREES = (process.env.TREES || 'fir_tree_01').split(',');
+for (const tree of TREES) {
+const fir = await page.evaluate((t) => window.__dino.vegNear(t), tree);
+console.log(tree, JSON.stringify(fir));
+if (!fir) continue;
 for (const d of [3, 6, 12]) {
   await page.evaluate(([f, d]) => { const a = window.__dino; a.teleport(f[0] + d * 0.8, f[2] + d * 0.6); a.step(4); const g = a.ground(f[0] + d * 0.8, f[2] + d * 0.6); a.clearFx(); a.director([f[0] + d * 0.8, g.h + 2.4, f[2] + d * 0.6], null, [f[0], g.h + 2.6 + d * 0.12, f[2]]); a.step(2); }, [fir, d]);
   await settle();
   await page.evaluate(() => { window.__dino.clearFx(); window.__dino.step(1, 0); });
-  await page.screenshot({ path: `${OUT}/fir_${String(d).padStart(2, '0')}m.png` });
+  await page.screenshot({ path: `${OUT}/${tree === 'fir_tree_01' ? 'fir' : tree}_${String(d).padStart(2, '0')}m.png` });
+}
 }
 await page.evaluate(() => window.__dino.director(null));
+if (process.env.TREES_ONLY) { await browser.close(); try { process.kill(-server.pid, 'SIGTERM'); } catch { server.kill(); } process.exit(0); }
 // --- the snow biome as the child arrives (game camera), noon and dusk
 for (const [name, h] of [['snow_arrive', 12], ['snow_arrive_dusk', 19.3]]) {
   await page.evaluate((h) => { const a = window.__dino; a.setTime(h); a.teleportBiome('snow'); }, h);
