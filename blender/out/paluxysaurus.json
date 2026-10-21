@@ -17,6 +17,7 @@
   "tris after decimate 49999",
   "voxels (49, 177, 95) vox 0.1176 solid 52691 fill 3.21",
   "spine curve samples 170 y range -9.74 10.15",
+  "snout tip [ 0.07 -9.79  8.89] (most-forward vertex y -9.79 )",
   "feet found 4 \u2192 using 4 [(81, 5), (74, 5), (70, 5), (65, 5)]",
   "  leg BR: hip [ 0.95 -0.32  3.33] knee [ 1.23 -0.3   1.94] ankle [ 1.2  -0.29  0.88] ball [ 1.2  -0.5   0.05] toe [ 1.2  -1.15  0.05] traced 17 slices",
   "  leg BL: hip [-0.84  0.64  3.53] knee [-1.1   0.59  2.29] ankle [-1.06  1.37  1.  ] ball [-1.08  1.18  0.05] toe [-1.12  0.62  0.05] traced 19 slices",
@@ -27,9 +28,9 @@
   "bones 39 neck 5 tail 7 legs ['BR', 'BL', 'FL', 'FR']",
   "geodesic weights 1.8 s",
   "jaw vertices 496",
-  "eat reach: EAT_K 0.9 snout z at full pose 0.31",
+  "eat reach: EAT_K 0.9 snout z at full pose 0.39",
   "walk stride/cycle 3.376 m, clip 3.2 s \u2192 speed 1.055 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 97}",
+  "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 97}",
   "exported blender/out/paluxysaurus.glb 4.61 MB"
  ],
  "size": [
@@ -40,14 +41,14 @@
  "clips": {
   "idle": 91,
   "roar": 67,
-  "eat": 97,
+  "eat": 109,
   "walk": 97
  },
  "snout": 9.79310417175293,
- "headZ": 9.038912773132324,
+ "headZ": 8.886603355407715,
  "eatReach": [
-  8.428869247436523,
-  0.30616337060928345
+  8.304855346679688,
+  0.3945966958999634
  ],
  "stride": 3.3760693073272705,
  "walkSeconds": 3.2,

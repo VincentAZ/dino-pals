@@ -60,6 +60,7 @@ interface DinoApi {
   dropFoodAt: (x: number, z: number) => void;
   loco: (id: string) => Record<string, unknown> | null;
   overlaps: () => { dinoDino: number; dinoTree: number; worst: number };
+  probeDino: (id: string) => Record<string, unknown> | null;
   biteLog: () => { dino: string; dist: number; t: number }[];
   foods: () => unknown[];
 }
@@ -170,12 +171,13 @@ async function main(): Promise<void> {
           const f = d.ai.foodTarget;
           if (f && f.items.length) {
             const it = foodSystem.bite(d, f, item ?? null, sn);
-            if (it) biteLog.push({ dino: d.root.name, dist: +sn.distanceTo(it.pos).toFixed(3), t: +clock.t.toFixed(2) });
+            if (it) biteLog.push({ dino: d.root.name, dist: +sn.distanceTo(it.pos).toFixed(3), t: +clock.t.toFixed(2), snout: [+sn.x.toFixed(2), +sn.y.toFixed(2), +sn.z.toFixed(2)], item: [+it.pos.x.toFixed(2), +it.pos.y.toFixed(2), +it.pos.z.toFixed(2)], root: [+d.root.position.x.toFixed(2), +d.root.position.z.toFixed(2)], heading: +d.heading.toFixed(2), reach: +d.eatReach.toFixed(2), hasSnout: !!d.loco?.snout, reachW: +(d.loco?.reachWeight ?? -1).toFixed(2), tgt: d.loco?.reachTarget ? [+d.loco.reachTarget.x.toFixed(2), +d.loco.reachTarget.y.toFixed(2), +d.loco.reachTarget.z.toFixed(2)] : null, ph: +d.clipPhase.toFixed(2) } as never);
           }
           eatCrunch(audio, s.gain * 0.9, s.pan);
           weather.puffs.spawn('leaf', sn.x, sn.y, sn.z, 10);
           break;
         }
+        case 'chew': eatCrunch(audio, s.gain * 0.35, s.pan); break;
         case 'finished': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('heart', sn.x, sn.y + 0.8, sn.z, 10); sparkle(audio); break; }
         case 'splash': splash(audio, s.gain, s.pan, d.species.lengthM > 8); weather.puffs.spawn('splash', p.x, Math.max(p.y, 0), p.z, 40, Math.min(3, d.species.lengthM / 5)); break;
         case 'stomp': thump(audio, s.gain, s.pan); break;
@@ -239,7 +241,7 @@ async function main(): Promise<void> {
   const dropFood = (): void => {
     // in front of the explorer, on the ground
     const dir = new THREE.Vector3().subVectors(player.eye, camera.position).setY(0).normalize();
-    placeFood(player.pos.x + dir.x * 8, player.pos.z + dir.z * 8);
+    placeFood(player.pos.x + dir.x * 5.5, player.pos.z + dir.z * 5.5);
   };
 
   const MAGIC_TIMES = [6.3, 12, 19.7, 23.2];
@@ -310,9 +312,21 @@ async function main(): Promise<void> {
     dropFoodAt: (x, z) => placeFood(x, z),
     loco: (id) => {
       const d = dinos.dinos.find((x) => x.root.name === id || x.species.id === id); if (!d || !d.loco) return null;
-      return { ...d.loco.stats, legs: d.loco.legs.length, legLen: +d.loco.legLen.toFixed(2), maxSpeed: +d.loco.maxSpeed.toFixed(2), maxTurn: +d.loco.maxTurnRate.toFixed(2), speed: +d.speed.toFixed(2), gait: +d.loco.gaitSpeed.toFixed(2), state: d.state, eatReach: +d.eatReach.toFixed(2), heading: +d.heading.toFixed(3), pos: [+d.root.position.x.toFixed(2), +d.root.position.z.toFixed(2)], target: d.ai.target ? [+d.ai.target.x.toFixed(1), +d.ai.target.z.toFixed(1)] : null, detour: d.ai.detour ? [+d.ai.detour.x.toFixed(1), +d.ai.detour.z.toFixed(1)] : null, yawVel: +d.ai.yawVel.toFixed(2), scripted: d.ai.scripted, busy: d.isBusy, animated: d.animated, awake: d.awake };
+      return { ...d.loco.stats, legs: d.loco.legs.length, legLen: +d.loco.legLen.toFixed(2), maxSpeed: +d.loco.maxSpeed.toFixed(2), maxTurn: +d.loco.maxTurnRate.toFixed(2), speed: +d.speed.toFixed(2), gait: +d.loco.gaitSpeed.toFixed(2), state: d.state, eatReach: +d.eatReach.toFixed(2), heading: +d.heading.toFixed(3), pos: [+d.root.position.x.toFixed(2), +d.root.position.z.toFixed(2)], target: d.ai.target ? [+d.ai.target.x.toFixed(1), +d.ai.target.z.toFixed(1)] : null, detour: d.ai.detour ? [+d.ai.detour.x.toFixed(1), +d.ai.detour.z.toFixed(1)] : null, yawVel: +d.ai.yawVel.toFixed(2), scripted: d.ai.scripted, busy: d.isBusy, animated: d.animated, awake: d.awake, food: !!d.ai.foodTarget, steerSpeed: +d.ai.steerSpeed.toFixed(2), steerDir: +d.ai.steerDir.toFixed(2), route: d.ai.route ? d.ai.route.map((p) => [+p.x.toFixed(1), +p.z.toFixed(1)]) : null, routeIdx: d.ai.routeIdx, blocked: +d.ai.blocked.toFixed(1), real: d.real, follow: d.ai.followUntil > clock.t, face: !!d.ai.faceTarget, standAt: d.ai.standAt ? [+d.ai.standAt.x.toFixed(2), +d.ai.standAt.z.toFixed(2)] : null, standItem: d.ai.standItem ? [+d.ai.standItem.pos.x.toFixed(2), +d.ai.standItem.pos.z.toFixed(2), d.ai.standItem.eaten] : null, biteItem: d.ai.biteItem ? d.ai.biteItem.kind : null, repo: d.ai.repositions, trim: +d.eatTrim.toFixed(2), slot: d.ai.foodTarget?.eaters.get(d.index) ?? null, ph: +d.clipPhase.toFixed(2), progressAge: +(clock.t - d.ai.progressAt).toFixed(1) };
     },
     overlaps: () => overlapStats(),
+    probeDino: (id: string) => {
+      const d = dinos.dinos.find((x) => x.root.name === id || x.species.id === id); if (!d || !d.loco) return null;
+      const v = new THREE.Vector3(); const out: Record<string, unknown> = { eatReach: d.eatReach, eatHeight: d.eatHeight };
+      d.root.updateMatrixWorld(true);
+      for (const n of ['root', 'head', 'snout', 'jaw', 'neck1', 'spine1']) { const b = d.loco.bones.get(n); if (b) { b.getWorldPosition(v); d.root.worldToLocal(v); out[n] = [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)]; } }
+      out.bones = [...d.loco.bones.keys()].length;
+      const cur = (d as unknown as { current: THREE.AnimationAction | null }).current;
+      out.clip = cur ? { name: cur.getClip().name, time: +cur.time.toFixed(2), w: +cur.getEffectiveWeight().toFixed(2), running: cur.isRunning() } : null;
+      out.state = d.state; out.stateTime = +d.stateTime.toFixed(2); out.reachW = +d.loco.reachWeight.toFixed(2);
+      if (d.loco.snoutWorld(v)) out.snoutWorldY = +(v.y - d.root.position.y).toFixed(2);
+      return out;
+    },
     biteLog: () => biteLog,
     foods: () => foods.map((f) => ({ x: +f.pos.x.toFixed(1), z: +f.pos.z.toFixed(1), amount: +f.amount.toFixed(2), items: f.items.length, eaters: [...f.eaters.keys()] })),
   };
@@ -320,14 +334,15 @@ async function main(): Promise<void> {
   const overlapStats = (): { dinoDino: number; dinoTree: number; worst: number } => {
     let dd = 0, dt = 0, worst = 0;
     const land = dinos.dinos.filter((d) => d.awake && d.species.kind === 'land');
-    const cap = (d: Dino): [number, number, number, number, number] => { const b = bodyOf(d); const s = Math.sin(d.heading), c = Math.cos(d.heading); const p = d.root.position; return [p.x - s * b.back, p.z - c * b.back, p.x + s * b.front, p.z + c * b.front, b.r]; };
+    const cap = (d: Dino, k = 1): [number, number, number, number, number] => { const b = bodyOf(d); const s = Math.sin(d.heading), c = Math.cos(d.heading); const p = d.root.position; return [p.x - s * b.back, p.z - c * b.back, p.x + s * b.front * k, p.z + c * b.front * k, b.r]; };
     const seg = (px: number, pz: number, ax: number, az: number, bx: number, bz: number): number => { const ex = bx - ax, ez = bz - az; const l2 = ex * ex + ez * ez; const t = l2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * ex + (pz - az) * ez) / l2)) : 0; return Math.hypot(px - ax - ex * t, pz - az - ez * t); };
     for (let i = 0; i < land.length; i++) {
       const A = cap(land[i]);
       for (let j = i + 1; j < land.length; j++) {
-        const B = cap(land[j]);
-        const dist = Math.min(seg(A[0], A[1], B[0], B[1], B[2], B[3]), seg(A[2], A[3], B[0], B[1], B[2], B[3]), seg(B[0], B[1], A[0], A[1], A[2], A[3]), seg(B[2], B[3], A[0], A[1], A[2], A[3]));
-        const pen = A[4] + B[4] - dist; if (pen > 0.05) { dd++; worst = Math.max(worst, pen); }
+        const co = !!land[i].ai.foodTarget && land[i].ai.foodTarget === land[j].ai.foodTarget;
+        const B = cap(land[j], co ? 0.35 : 1); const A2 = co ? cap(land[i], 0.35) : A;
+        const dist = Math.min(seg(A2[0], A2[1], B[0], B[1], B[2], B[3]), seg(A2[2], A2[3], B[0], B[1], B[2], B[3]), seg(B[0], B[1], A2[0], A2[1], A2[2], A2[3]), seg(B[2], B[3], A2[0], A2[1], A2[2], A2[3]));
+        const pen = A2[4] + B[4] - dist; if (pen > 0.05) { dd++; worst = Math.max(worst, pen); }
       }
       for (const o of obstacles.near(land[i].root.position.x, land[i].root.position.z, 30, [])) {
         const pen = o.r + A[4] - seg(o.x, o.z, A[0], A[1], A[2], A[3]); if (pen > 0.05) { dt++; worst = Math.max(worst, pen); }

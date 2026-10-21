@@ -13,7 +13,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 const IDENT = new THREE.Quaternion();
 const _p = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3();
 const _d = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _g = new THREE.Vector3();
-const _q = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _t = new THREE.Quaternion();
+const _q = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _t = new THREE.Quaternion(), _w = new THREE.Quaternion();
 const _s = new THREE.Vector3(), _m = new THREE.Matrix4();
 
 function wpos(o: THREE.Object3D, out: THREE.Vector3): THREE.Vector3 { return out.setFromMatrixPosition(o.matrixWorld); }
@@ -33,7 +33,7 @@ function aim(bone: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3, weigh
   _a.subVectors(from, p); _b.subVectors(to, p);
   if (_a.lengthSq() < 1e-10 || _b.lengthSq() < 1e-10) return;
   _q.setFromUnitVectors(_a.normalize(), _b.normalize());
-  if (weight < 1) _q.slerpQuaternions(IDENT, _q, weight);
+  if (weight < 1) _q.copy(_w.copy(IDENT).slerp(_q, weight));
   rotateWorld(bone, _q);
 }
 function rotateAxis(bone: THREE.Object3D, axis: THREE.Vector3, angle: number): void {
@@ -48,7 +48,8 @@ interface Leg {
   a: number; b: number;                 // thigh, shin lengths
   restHip: THREE.Vector3; restBall: THREE.Vector3; restAnkleOff: THREE.Vector3; restToeOff: THREE.Vector3; // root space
   poleLocal: THREE.Vector3; hipH: number;
-  offset: number;                       // gait phase offset
+  offset: number;                       // gait phase offset (blended walk → trot)
+  walkOffset: number; trotOffset: number;
   plant: THREE.Vector3; plantYaw: number;
   swinging: boolean; t: number; dur: number; from: THREE.Vector3; to: THREE.Vector3; fromYaw: number; toYaw: number; lift: number;
   lastK: number; ball: THREE.Vector3; yaw: number; initialised: boolean;
@@ -77,8 +78,12 @@ export class Locomotion {
   footRadius: number;                     // mean horizontal distance of feet from the root origin
   baseCycle: number;
   duty: number;
+  private walkDuty = 0.3;
+  private trotK = 0;
   vRef: number;
   maxSpeed: number;
+  /** top speed in a trot (diagonal pairs for quadrupeds, shorter stance for bipeds) */
+  trotSpeed: number;
   maxTurnRate: number;
   bodyHalfWidth: number;
   phase = 0;
@@ -141,6 +146,8 @@ export class Locomotion {
         restHip: hip, restBall: new THREE.Vector3(ball.x, 0, ball.z), restAnkleOff: ankle.clone().sub(new THREE.Vector3(ball.x, 0, ball.z)),
         restToeOff: new THREE.Vector3(toe.x - ball.x, 0, toe.z - ball.z), poleLocal: pole, hipH: hip.y,
         offset: this.biped ? (tag.startsWith('L') ? 0 : 0.5) : (quadOffsets[tag.slice(0, 2)] ?? 0),
+        walkOffset: this.biped ? (tag.startsWith('L') ? 0 : 0.5) : (quadOffsets[tag.slice(0, 2)] ?? 0),
+        trotOffset: this.biped ? (tag.startsWith('L') ? 0 : 0.5) : ({ BL: 0, FR: 1, BR: 0.5, FL: 0.5 } as Record<string, number>)[tag.slice(0, 2)] ?? 0,
         plant: new THREE.Vector3(), plantYaw: 0, swinging: false, t: 0, dur: 0.4, from: new THREE.Vector3(), to: new THREE.Vector3(),
         fromYaw: 0, toYaw: 0, lift: 0, lastK: -99, ball: new THREE.Vector3(), yaw: 0, initialised: false, stanceStart: new THREE.Vector3(), slip: 0,
       });
@@ -151,15 +158,33 @@ export class Locomotion {
     this.bodyHalfWidth = Math.max(...this.legs.map((l) => Math.abs(l.restBall.x))) + 0.15 * this.legLen;
     this.baseCycle = (this.biped ? 2 : 2.5) * (0.26 + 0.17 * Math.sqrt(this.legLen));
     this.duty = this.biped ? 0.42 : 0.3;
+    this.walkDuty = this.duty;
     this.vRef = 0.35 * Math.sqrt(9.81 * this.legLen);
     const maxStride = (this.biped ? 1.05 : 0.85) * this.legLen;
     this.maxSpeed = maxStride / (this.baseCycle * 0.75);
     this.maxTurnRate = Math.min(1.4, (0.55 * maxStride) / (Math.max(0.3, this.footRadius) * this.baseCycle));
+    this.trotSpeed = this.maxSpeed * (this.biped ? 1.45 : 1.6);
   }
 
-  /** Called before the animation mixer: restore the bind pose so clips + procedural layers start clean. */
+  /** Last pose written by the animation mixer (three.js only writes a bone when its value changes,
+   *  so the procedural layers must be undone by restoring this, not the bind pose). */
+  private base = new Map<THREE.Bone, { q: THREE.Quaternion; p: THREE.Vector3 }>();
+  /** Bind pose (used for measurements). */
   resetPose(): void {
     for (const [b, r] of this.rest) { b.quaternion.copy(r.q); b.position.copy(r.p); }
+    this.base.clear();
+  }
+  /** Before the mixer: undo last frame's procedural offsets by restoring the clip pose. */
+  restoreClipPose(): void {
+    for (const [b, r] of this.base) { b.quaternion.copy(r.q); b.position.copy(r.p); }
+  }
+  /** After the mixer: remember the clip pose. */
+  captureClipPose(): void {
+    for (const b of this.rest.keys()) {
+      let r = this.base.get(b);
+      if (!r) { r = { q: new THREE.Quaternion(), p: new THREE.Vector3() }; this.base.set(b, r); }
+      r.q.copy(b.quaternion); r.p.copy(b.position);
+    }
   }
 
   private homeAt(leg: Leg, x: number, z: number, heading: number, out: THREE.Vector3): THREE.Vector3 {
@@ -225,8 +250,13 @@ export class Locomotion {
     const turnSpeed = Math.abs(this.yawRate) * this.footRadius;
     this.speedEff = Math.max(v, turnSpeed);
     const moving = this.speedEff > 0.04 && !busy;
-    const sf = THREE.MathUtils.clamp(this.speedEff / Math.max(0.3, this.vRef), 0, 1.4);
-    const cycle = this.baseCycle * THREE.MathUtils.clamp(1.15 - 0.35 * sf, 0.7, 1.15);
+    const sf = THREE.MathUtils.clamp(this.speedEff / Math.max(0.3, this.vRef), 0, 2.2);
+    const cycle = this.baseCycle * THREE.MathUtils.clamp(1.15 - 0.35 * sf, 0.62, 1.15);
+    // gait transition: walk → trot as the speed rises past the walking range
+    const trot = THREE.MathUtils.smoothstep(this.speedEff / Math.max(0.2, this.maxSpeed), 0.85, 1.15);
+    if (!this.legs.some((l) => l.swinging) || Math.abs(trot - this.trotK) > 0.25) this.trotK = trot;
+    for (const l of this.legs) l.offset = THREE.MathUtils.lerp(l.walkOffset, l.trotOffset, this.trotK);
+    this.duty = THREE.MathUtils.lerp(this.walkDuty, this.biped ? 0.48 : 0.44, this.trotK);
     if (moving) { this.phase += dt / cycle; this.stillTime = 0; } else this.stillTime += dt;
     const stance = (1 - this.duty) * cycle;
 
@@ -393,21 +423,27 @@ export class Locomotion {
 
   private reach(): void {
     if (!this.reachTarget || this.reachWeight < 0.01 || !this.snout || !this.head) return;
-    const chain = [...this.spine.slice(-1), ...this.neck, this.head];
+    const chain = [...this.spine.slice(-2), ...this.neck, this.head];
+    const n = chain.length;
+    // total rotation each joint may add on top of the clip pose (no folding the head back)
+    const cap = (i: number) => (i === n - 1 ? 0.6 : i < 2 ? 0.12 : 0.35) * this.reachWeight;
+    const used = new Float32Array(n);
     const eff = new THREE.Vector3();
-    for (let it = 0; it < 4; it++) {
-      for (let i = chain.length - 1; i >= 0; i--) {
+    for (let it = 0; it < 6; it++) {
+      for (let i = n - 1; i >= 0; i--) {
         wpos(this.snout, eff);
         if (eff.distanceToSquared(this.reachTarget) < 0.0004) return;
+        const left = cap(i) - used[i]; if (left <= 1e-4) continue;
         const p = wpos(chain[i], _p);
         _a.subVectors(eff, p); _b.subVectors(this.reachTarget, p);
         if (_a.lengthSq() < 1e-8 || _b.lengthSq() < 1e-8) continue;
         _q.setFromUnitVectors(_a.normalize(), _b.normalize());
         const ang = 2 * Math.acos(Math.min(1, Math.abs(_q.w)));
-        const lim = (i === chain.length - 1 ? 0.5 : 0.22) / Math.max(1e-6, ang);
-        const w = Math.min(1, lim) * this.reachWeight;
-        if (w < 1) _q.slerpQuaternions(IDENT, _q, w);
+        if (ang < 1e-5) continue;
+        const step = Math.min(ang, left, i === n - 1 ? 0.3 : 0.15);
+        if (step < ang) _q.copy(_w.copy(IDENT).slerp(_q, step / ang));
         rotateWorld(chain[i], _q);
+        used[i] += step;
       }
     }
   }

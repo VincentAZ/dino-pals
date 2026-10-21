@@ -8,6 +8,7 @@
   "tris after decimate 49999",
   "voxels (75, 178, 90) vox 0.0824 solid 60506 fill 2.82",
   "spine curve samples 171 y range -10.23 3.77",
+  "snout tip [ -0.25 -10.28   3.05] (most-forward vertex y -10.28 )",
   "feet found 3 \u2192 using 2 [(67, 5), (11, 5)]",
   "  leg L: hip [-0.37 -1.42  2.85] knee [-0.47 -1.7   1.93] ankle [-0.52 -0.35  1.11] ball [-0.52 -0.49  0.03] toe [-0.52 -0.69  0.03] traced 22 slices",
   "  leg R: hip [ 1.39 -1.    2.79] knee [ 1.51 -1.03  1.55] ankle [ 1.61 -1.04  0.51] ball [ 1.61 -1.18  0.03] toe [ 1.61 -1.38  0.03] traced 4 slices",
@@ -16,10 +17,10 @@
   "bones 26 neck 2 tail 7 legs ['L', 'R']",
   "geodesic weights 1.9 s",
   "jaw vertices 1276",
-  "eat reach: EAT_K 0.7 snout z at full pose 0.44",
+  "eat reach: EAT_K 0.7 snout z at full pose 0.43",
   "walk stride/cycle 4.211 m, clip 3.2 s \u2192 speed 1.316 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 97}",
-  "exported blender/out/spinosaurus.glb 3.49 MB"
+  "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 97}",
+  "exported blender/out/spinosaurus.glb 3.5 MB"
  ],
  "size": [
   5.592247009277344,
@@ -29,14 +30,14 @@
  "clips": {
   "idle": 91,
   "roar": 67,
-  "eat": 97,
+  "eat": 109,
   "walk": 97
  },
  "snout": 10.27652359008789,
- "headZ": 3.0710489749908447,
+ "headZ": 3.053658962249756,
  "eatReach": [
-  8.978026390075684,
-  0.44425666332244873
+  8.964109420776367,
+  0.4338216781616211
  ],
  "stride": 4.211493343114853,
  "walkSeconds": 3.2,

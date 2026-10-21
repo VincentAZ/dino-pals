@@ -28,7 +28,7 @@ export class FoodSystem {
       this.proto = g.scene; this.meta = meta as FoodMeta | null;
       // legacy pile (fern + fruit spheres) was authored small
       let hasItems = false; g.scene.traverse((o) => { if (/^item_/.test(o.name)) hasItems = true; });
-      this.scale = hasItems ? 1 : 2.4;
+      this.scale = hasItems ? 1.5 : 2.4;   // a dinosaur-sized heap (real produce reads too small from the child's camera)
     } catch { this.proto = null; }
   }
 

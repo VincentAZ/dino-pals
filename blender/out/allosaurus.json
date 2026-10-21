@@ -10,18 +10,19 @@
   "tris after decimate 40000",
   "voxels (42, 178, 62) vox 0.0529 solid 40889 fill 2.64",
   "spine curve samples 171 y range -4.86 4.14",
+  "snout tip [ 0.03 -4.88  2.17] (most-forward vertex y -4.88 )",
   "feet found 2 \u2192 using 2 [(171, 4), (162, 4)]",
   "  leg L: hip [-0.43  0.3   1.89] knee [-0.62  0.18  1.4 ] ankle [-0.58  1.25  0.5 ] ball [-0.59  1.04  0.02] toe [-0.61  0.38  0.02] traced 27 slices",
   "  leg R: hip [ 0.47 -0.5   1.91] knee [ 0.69 -0.54  1.51] ankle [0.52 0.16 0.5 ] ball [ 0.53 -0.05  0.02] toe [ 0.56 -0.67  0.02] traced 30 slices",
   "landmarks y: snout -4.88 head base -3.89 neck base -3.17 hip -0.1 tail 4.12",
   "mouth line samples 16 open-mouth fraction 0.38",
   "bones 26 neck 2 tail 7 legs ['L', 'R']",
-  "geodesic weights 0.8 s",
-  "jaw vertices 744",
-  "eat reach: EAT_K 1.0 snout z at full pose 0.32",
+  "geodesic weights 0.7 s",
+  "jaw vertices 746",
+  "eat reach: EAT_K 1.0 snout z at full pose 0.3",
   "walk stride/cycle 2.768 m, clip 2.12 s \u2192 speed 1.304 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 65}",
-  "exported blender/out/allosaurus.glb 2.72 MB"
+  "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 65}",
+  "exported blender/out/allosaurus.glb 2.73 MB"
  ],
  "size": [
   1.8158175945281982,
@@ -31,14 +32,14 @@
  "clips": {
   "idle": 91,
   "roar": 67,
-  "eat": 97,
+  "eat": 109,
   "walk": 65
  },
  "snout": 4.880856990814209,
- "headZ": 2.260380506515503,
+ "headZ": 2.1702964305877686,
  "eatReach": [
-  3.7890617847442627,
-  0.3210034966468811
+  3.70094895362854,
+  0.3014681339263916
  ],
  "stride": 2.767907500267029,
  "walkSeconds": 2.1333333333333333,

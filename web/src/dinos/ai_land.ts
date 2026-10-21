@@ -61,10 +61,12 @@ function segSeg(a0x: number, a0z: number, a1x: number, a1z: number, b0x: number,
   return best;
 }
 
-function capsule(d: Dino, x = d.root.position.x, z = d.root.position.z, h = d.heading): [number, number, number, number] {
+function capsule(d: Dino, x = d.root.position.x, z = d.root.position.z, h = d.heading, frontK = 1): [number, number, number, number] {
   const b = bodyOf(d); const s = Math.sin(h), c = Math.cos(h);
-  return [x - s * b.back, z - c * b.back, x + s * b.front, z + c * b.front];
+  return [x - s * b.back, z - c * b.back, x + s * b.front * frontK, z + c * b.front * frontK];
 }
+/** Two animals eating from the same pile may put their heads close together. */
+function coEaters(a: Dino, b: Dino): boolean { return !!a.ai.foodTarget && a.ai.foodTarget === b.ai.foodTarget; }
 
 const near: Obstacle[] = [];
 const P = { x: 0, z: 0, t: 0 }, Q = { x: 0, z: 0, t: 0 };
@@ -111,8 +113,9 @@ export function pivotToward(d: Dino, tx: number, tz: number, dt: number): number
 /** Time until two moving circles touch (0 if they already overlap, Infinity if never within reach). */
 function ttc(px: number, pz: number, wx: number, wz: number, R: number): number {
   const c = px * px + pz * pz - R * R;
-  if (c <= 0) return 0;
   const bb = px * wx + pz * wz;
+  // already inside the margin: only moving closer counts as a collision (moving out is always allowed)
+  if (c <= 0) return bb < -1e-6 ? 0 : Infinity;
   if (bb >= 0) return Infinity;
   const aa = wx * wx + wz * wz;
   const disc = bb * bb - aa * c;
@@ -145,7 +148,8 @@ function chooseVelocity(d: Dino, ctx: DinoContext, dx: number, dz: number, pref:
     const vx = moving ? s * e.speed : 0, vz = moving ? c * e.speed : 0;
     // lower-priority animals treat moving higher-priority ones as moving; the others only half
     const share = e.index < d.index || !moving ? 1 : 0.5;
-    circles.push({ x: ep.x + s * eb.front * 0.55, z: ep.z + c * eb.front * 0.55, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
+    const fk = coEaters(d, e) ? 0.35 : 1;
+    circles.push({ x: ep.x + s * eb.front * 0.55 * fk, z: ep.z + c * eb.front * 0.55 * fk, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
     circles.push({ x: ep.x - s * eb.back * 0.55, z: ep.z - c * eb.back * 0.55, r: eb.r + 0.5, vx: vx * share, vz: vz * share, hard: false });
   }
   for (const [ox, oz, rr] of ctx.keepClear) circles.push({ x: ox, z: oz, r: rr + 0.6, vx: 0, vz: 0, hard: true });
@@ -187,12 +191,14 @@ function chooseVelocity(d: Dino, ctx: DinoContext, dx: number, dz: number, pref:
  */
 export function drive(d: Dino, ctx: DinoContext, tx: number, tz: number, dt: number, maxSpeed: number, stopDist: number, through = false): number {
   const ai = d.ai; const pos = d.root.position; const b = bodyOf(d);
-  maxSpeed = Math.min(maxSpeed, d.maxSpeed * (maxSpeed > d.species.speed ? 1.25 : 1));
+  maxSpeed = Math.min(maxSpeed, maxSpeed > d.species.speed * d.scale * 1.05 ? d.trotSpeed : d.maxSpeed);
   let dx = tx - pos.x, dz = tz - pos.z;
   const dist = Math.hypot(dx, dz);
   if (dist <= stopDist) { brake(d, dt); return dist; }
   dx /= dist; dz /= dist;
-  const arrive = through ? 1 : THREE.MathUtils.clamp((dist - stopDist) / Math.max(1.5, d.species.lengthM * 0.35), 0.2, 1);
+  // brake with a constant deceleration (v = √(2·a·d)), so the last metres aren't a crawl
+  const decel = d.species.lengthM > 8 ? 0.7 : 1.2;
+  const arrive = through ? 1 : THREE.MathUtils.clamp(Math.sqrt(2 * decel * Math.max(0, dist - stopDist)) / Math.max(0.2, maxSpeed), 0.15, 1);
   ai.steerT -= dt;
   if (ai.steerT <= 0) {
     ai.steerT = 0.1;
@@ -247,7 +253,9 @@ export function resolveOverlaps(d: Dino, ctx: DinoContext): void {
       if (e === d || !e.awake || e.species.kind !== 'land') continue;
       const ep = e.root.position;
       if (Math.abs(ep.x - pos.x) > 40 || Math.abs(ep.z - pos.z) > 40) continue;
-      const [ex0, ez0, ex1, ez1] = capsule(e);
+      const k = coEaters(d, e) ? 0.35 : 1;
+      const [ex0, ez0, ex1, ez1] = capsule(e, ep.x, ep.z, e.heading, k);
+      const [ax, az, bx, bz] = capsule(d, pos.x, pos.z, d.heading, k);
       const dd = segSeg(ax, az, bx, bz, ex0, ez0, ex1, ez1, P, Q);
       const min = b.r + bodyOf(e).r;
       if (dd < min && dd > 1e-4) {

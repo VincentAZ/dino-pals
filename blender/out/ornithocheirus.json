@@ -9,10 +9,11 @@
   "hollow voxelisation \u2192 closing harder",
   "voxels (178, 100, 30) vox 0.0294 solid 9890 fill 1.3",
   "spine curve samples 93 y range -1.35 1.36",
+  "snout tip [ 0.   -1.36  0.17] (most-forward vertex y -1.36 )",
   "landmarks y: snout -1.36 head base -0.54 neck base -0.22 hip 0.27 tail 1.36",
   "mouth line samples 23 open-mouth fraction 0.0",
   "bones 20 neck 2 tail 7 legs []",
-  "geodesic weights 0.9 s",
+  "geodesic weights 0.8 s",
   "jaw vertices 3580",
   "clips {'idle': 73, 'fly': 31, 'roar': 61}",
   "exported blender/out/ornithocheirus.glb 1.66 MB"
@@ -28,7 +29,7 @@
   "roar": 61
  },
  "snout": 1.3616353273391724,
- "headZ": 0.2021404206752777,
+ "headZ": 0.17202390730381012,
  "eatReach": null,
  "stride": null,
  "walkSeconds": null,

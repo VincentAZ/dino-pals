@@ -82,13 +82,14 @@ tgt = Vector((0, 0, 0.22))
 views = {
     "eye": (Vector((0.0, -4.0, 1.2)), 50),
     "close": (Vector((0.9, -1.75, 0.95)), 45),
-    "high": (Vector((-2.9, -2.9, 4.2)), 50),
+    "high": (Vector((-3.0, -3.0, 4.45)), 50),
 }
+suffix = f"_eaten{args.hide}" if args.hide else ""
 for name in args.views.split(","):
     pos, lens = views[name]
     co.location = pos; cam.lens = lens
     d = tgt - pos
     co.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
-    sc.render.filepath = f"{args.out}{name}.png"
+    sc.render.filepath = f"{args.out}{name}{suffix}.png"
     bpy.ops.render.render(write_still=True)
     print("wrote", sc.render.filepath)

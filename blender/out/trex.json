@@ -8,18 +8,19 @@
   "tris after decimate 47998",
   "voxels (48, 178, 62) vox 0.0706 solid 38498 fill 2.66",
   "spine curve samples 171 y range -4.82 7.18",
+  "snout tip [ 0.15 -4.86  2.68] (most-forward vertex y -4.86 )",
   "feet found 2 \u2192 using 2 [(129, 4), (128, 4)]",
   "  leg R: hip [ 0.44 -0.47  2.55] knee [ 0.55 -0.49  1.73] ankle [ 0.37 -0.45  0.95] ball [ 0.37 -0.8   0.03] toe [ 0.36 -1.58  0.03] traced 25 slices",
   "  leg L: hip [-0.13  0.62  2.74] knee [-0.31  0.54  2.01] ankle [-0.22  1.63  0.81] ball [-0.3   1.4   0.03] toe [-0.54  0.68  0.03] traced 30 slices",
   "landmarks y: snout -4.86 head base -3.42 neck base -2.58 hip 0.07 tail 7.14",
   "mouth line samples 17 open-mouth fraction 0.0",
   "bones 26 neck 2 tail 7 legs ['R', 'L']",
-  "geodesic weights 0.9 s",
-  "jaw vertices 7587",
-  "eat reach: EAT_K 1.0 snout z at full pose 0.43",
+  "geodesic weights 1.6 s",
+  "jaw vertices 7606",
+  "eat reach: EAT_K 1.0 snout z at full pose 0.4",
   "walk stride/cycle 3.825 m, clip 2.93 s \u2192 speed 1.303 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 89}",
-  "exported blender/out/trex.glb 2.68 MB"
+  "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 89}",
+  "exported blender/out/trex.glb 2.69 MB"
  ],
  "size": [
   2.8527069091796875,
@@ -29,14 +30,14 @@
  "clips": {
   "idle": 91,
   "roar": 67,
-  "eat": 97,
+  "eat": 109,
   "walk": 89
  },
  "snout": 4.8575520515441895,
- "headZ": 2.7672762870788574,
+ "headZ": 2.681459426879883,
  "eatReach": [
-  3.3559834957122803,
-  0.4274805784225464
+  3.2736239433288574,
+  0.4033623933792114
  ],
  "stride": 3.8248215317726135,
  "walkSeconds": 2.933333333333333,

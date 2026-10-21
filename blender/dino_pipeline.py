@@ -21,7 +21,7 @@ FPS = 30
 # length = nose-to-tail length in metres (for flyers: wingspan). flip = force head direction override.
 SPECIES = {
     "trex":              dict(head=0.12, neck=0.07, length=12.0, walk_speed=1.3, kind="land", gait="biped",  tris=48000, remove=[]),
-    "triceratops":       dict(head=0.26, neck=0.03, jaw=0.5, length=8.5, walk_speed=1.2,  kind="land", gait="quad",   tris=45000, remove=["Object_14", "Object_8", "Cube"], fix_normals=True, clear_normals=True),
+    "triceratops":       dict(head=0.26, neck=0.03, jaw=0.5, length=8.5, walk_speed=1.2,  kind="land", gait="quad",   tris=45000, remove=["Object_14", "Cube"], analysis_only=["Object_8"], fix_normals=True, clear_normals=True),
     "stegosaurus":       dict(head=0.06, neck=0.08, jaw=0.85, length=8.0, walk_speed=0.9,  kind="land", gait="quad",   tris=40000, remove=[]),
     "paluxysaurus":      dict(head=0.04, neck=0.28, jaw=0.8, length=20.0, walk_speed=1.0, amp=0.4, kind="land", gait="quad",   tris=50000, remove=[]),
     "velociraptor":      dict(head=0.10, neck=0.09, length=2.6, walk_speed=1.2, amp=1.3,  kind="land", gait="biped",  tris=30000, remove=[]),
@@ -81,6 +81,12 @@ for a in list(bpy.data.actions): bpy.data.actions.remove(a)
 # flatten parents (keep world transform), join
 for o in all_meshes():
     mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
+# meshes used only to build the rig (e.g. an inner shell that makes the voxel solid watertight):
+# tag their vertices so they can be deleted again right before export
+for o in all_meshes():
+    if o.name in CFG.get("analysis_only", []):
+        g = o.vertex_groups.new(name="__analysis"); g.add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
+        log("analysis-only mesh", o.name, len(o.data.vertices), "verts")
 for o in list(bpy.data.objects):
     if o.type not in ('MESH',): bpy.data.objects.remove(o)
 meshes = all_meshes()
@@ -184,6 +190,17 @@ def sp_at(y): return R2.curve_at(CURVE, y)
 y_snout, y_tail = float(mn[1]), float(mx[1])
 HEAD_F = CFG.get("head", 0.11); NECK_F = CFG.get("neck", 0.09)
 y_hb = y_snout + HEAD_F * L          # head base (skull/neck junction)
+# the real snout / beak tip: front-most point of the LOWER part of the head on the centre line
+# (the most-forward vertex can be a horn, a crest or a frill spike)
+Hv = V[V[:, 1] < y_hb]
+SNOUT_TIP = None
+if len(Hv) > 50:
+    hz0, hz1 = Hv[:, 2].min(), Hv[:, 2].max(); hxc = float(np.median(Hv[:, 0])); hw = float(np.ptp(Hv[:, 0]))
+    cand = Hv[(Hv[:, 2] < hz0 + CFG.get("mouth_band", 0.55) * (hz1 - hz0)) & (np.abs(Hv[:, 0] - hxc) < 0.3 * hw)]
+    if len(cand) > 10:
+        ytip = float(cand[:, 1].min()); tipv = cand[cand[:, 1] < ytip + 0.015 * L]
+        SNOUT_TIP = np.array([float(np.median(tipv[:, 0])), ytip, float(np.mean(tipv[:, 2]))])
+        log("snout tip", np.round(SNOUT_TIP, 2), "(most-forward vertex y", round(y_snout, 2), ")")
 y_nb = y_hb + NECK_F * L             # neck base (neck/chest junction)
 
 # ---------------------------------------------------------------- legs (traced through the solid)
@@ -298,16 +315,18 @@ NK = R2.curve_between(CURVE, y_nb, y_hb, n_neck)
 neck = []
 for i in range(n_neck):
     bn = add_bone(f"neck{i+1}", NK[i], NK[i + 1], prev, connect=True); neck.append(bn); prev = bn
-snout_tip = sp_at(max(y_snout + 0.01 * L, CURVE[0, 1])); snout_tip[1] = y_snout
+if SNOUT_TIP is not None: snout_tip = SNOUT_TIP.copy()
+else: snout_tip = sp_at(max(y_snout + 0.01 * L, CURVE[0, 1])); snout_tip[1] = y_snout
+y_mouth = float(snout_tip[1])
 head_b = add_bone("head", NK[-1], snout_tip, prev, connect=True)
 add_bone("snout", snout_tip, snout_tip + np.array([0, -0.02 * L, 0]), head_b, connect=True, deform=False)
-headL = y_hb - y_snout
-y_hinge = y_snout + CFG.get("jaw", 0.8) * headL
-MY, MZ, gapfrac = R2.mouth_line(G, SOLID, CURVE, y_hinge, y_snout + 0.02 * headL, CFG.get("jaw_h", 0.4))
+headL = y_hb - y_mouth
+y_hinge = y_mouth + CFG.get("jaw", 0.8) * headL
+MY, MZ, gapfrac = R2.mouth_line(G, SOLID, CURVE, y_hinge, y_mouth + 0.02 * headL, CFG.get("jaw_h", 0.4))
 log("mouth line samples", len(MY), "open-mouth fraction", round(float(gapfrac), 2))
 def mouth_z(y): return float(np.interp(y, MY[::-1] if MY[0] > MY[-1] else MY, MZ[::-1] if MY[0] > MY[-1] else MZ)) if len(MY) else sp_at(y)[2] - 0.2 * rad_at(y)
 jaw_hinge = np.array([sp_at(y_hinge)[0], y_hinge, mouth_z(y_hinge)])
-jaw_tip = np.array([snout_tip[0], y_snout + 0.05 * headL, mouth_z(y_snout + 0.05 * headL) - 0.04 * headL])
+jaw_tip = np.array([snout_tip[0], y_mouth + 0.05 * headL, mouth_z(y_mouth + 0.05 * headL) - 0.04 * headL])
 jaw = add_bone("jaw", jaw_hinge, jaw_tip, head_b)
 TL = R2.curve_between(CURVE, y_hip, y_tail, n_tail)
 tail = []; prev = root
@@ -368,7 +387,7 @@ log("geodesic weights", round(time.time() - t_w, 1), "s")
 # jaw: everything below the mouth line, in front of the hinge, belongs to the jaw
 hi_idx = names.index("head")
 yv, zv = V[:, 1], V[:, 2]
-mz = np.array([mouth_z(y) for y in np.clip(yv, y_snout, y_hinge)])
+mz = np.array([mouth_z(y) for y in np.clip(yv, y_mouth, y_hinge)])
 below = np.clip((mz - zv) / (1.2 * VOX) + 0.5, 0, 1)
 front = np.clip((y_hinge - yv) / (0.12 * headL), 0, 1)
 s_jaw = below * front * (yv < y_hinge + 0.02 * headL)
@@ -551,10 +570,17 @@ def eat_pose(k):
     rot_world(head, 'X', EAT_K * 12 * k)
     for sb in spines: rot_world(sb, 'X', EAT_K * 6 * k)
 def eat(t, s):
-    k = ease(t / 0.3) * (1 - ease((t - 0.7) / 0.3))
+    # 0.00-0.30 lower the head | 0.30-0.42 open + bite | 0.42-0.62 lift (to 35 %) | 0.62-1.00 chew, head up
+    if t < 0.30: k = ease(t / 0.30)
+    elif t < 0.42: k = 1.0
+    elif t < 0.62: k = 1.0 - 0.65 * ease((t - 0.42) / 0.20)
+    else: k = 0.35 * (1 - ease((t - 0.85) / 0.15))
     eat_pose(k)
-    chew = max(0.0, S(4 * t)) * (1 if 0.3 < t < 0.7 else 0)
-    rot_world(jawb, 'X', 10 * chew)
+    jaw = 0.0
+    if 0.26 < t < 0.42: jaw = 22 * math.sin(math.pi * (t - 0.26) / 0.16)            # open wide, snap shut on the food
+    elif t > 0.6: jaw = 7 * max(0.0, math.sin(2 * math.pi * (t - 0.6) / 0.095))       # chewing
+    rot_world(jawb, 'X', jaw)
+    if t > 0.6: rot_world(head, 'X', 2.0 * math.sin(2 * math.pi * (t - 0.6) / 0.095))
     tail_sway(t, 4 * amp, 0.0, 1.0)
 def solve_eat_reach(target_z):
     """scan the pitch multiplier upward until the snout reaches the target height (monotonic region only)"""
@@ -609,7 +635,7 @@ def swim_idle(t, s):
 
 if KIND == "land":
     make_clip("idle", 3.0, idle); make_clip("walk", 0.9 if CFG["length"] < 4 else (1.3 if not big else 1.8), walk)
-    make_clip("roar", 2.2, roar, loop=False); make_clip("eat", 3.2, eat, loop=False)
+    make_clip("roar", 2.2, roar, loop=False); make_clip("eat", 3.6, eat, loop=False)
 elif KIND == "air":
     make_clip("idle", 2.4, glide); make_clip("fly", 1.0, fly); make_clip("roar", 2.0, roar, loop=False)
 else:
@@ -673,6 +699,29 @@ for m in bpy.data.materials:
                 mi.default_value = 0.0
         if getattr(m, "surface_render_method", None) == 'BLENDED' and m.name not in ("eyeTransparentColor", "cornea"):
             m.surface_render_method = 'DITHERED'
+
+# ---------------------------------------------------------------- inner shell follows the skin
+# An inner shell (covering holes in a perforated outer skin) must deform exactly like the skin over it:
+# copy every shell vertex's weights from its nearest outer-skin vertex.
+if "__analysis" in body.vertex_groups:
+    from mathutils import kdtree
+    gi = body.vertex_groups["__analysis"].index
+    me = body.data
+    shell = [v.index for v in me.vertices if any(g.group == gi and g.weight > 0.5 for g in v.groups)]
+    sset = set(shell)
+    kd = kdtree.KDTree(len(me.vertices) - len(shell))
+    for v in me.vertices:
+        if v.index not in sset: kd.insert(v.co, v.index)
+    kd.balance()
+    bone_groups = {g.index for g in body.vertex_groups if g.name != "__analysis"}
+    for vi in shell:
+        _, src, _ = kd.find(me.vertices[vi].co)
+        for g in list(me.vertices[vi].groups):
+            if g.group in bone_groups: body.vertex_groups[g.group].remove([vi])
+        for g in me.vertices[src].groups:
+            if g.group in bone_groups: body.vertex_groups[g.group].add([vi], g.weight, 'REPLACE')
+    body.vertex_groups.remove(body.vertex_groups["__analysis"])
+    log("inner shell weights copied from skin", len(shell))
 
 # ---------------------------------------------------------------- export
 os.makedirs(OUT_DIR, exist_ok=True)

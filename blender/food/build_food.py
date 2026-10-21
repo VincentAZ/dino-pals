@@ -1,20 +1,29 @@
 """Dino Pals - photoreal food pile for the herbivores, built only from Poly Haven CC0 scans.
 
-A settled heap of real produce (banana bunches, bananas, pomegranates, apples, avocados,
-lemons, a lime, sweet potatoes, Asian pears) lying in a nest of fern and broad-leaf greenery.
+A settled heap of real produce (banana bunches, bananas, pomegranates, apples, an avocado, lemons,
+a lime, sweet potatoes, Asian pears) at real-world scale, lying in a thatch of cut fern fronds and
+broad calathea / anthurium leaves.
 
     blender -b --python blender/food/build_food.py -- \
         --src  <download dir, one subfolder per Poly Haven asset; missing files are fetched with curl> \
-        [--out  web/public/assets/dinos/food.glb] [--json web/public/assets/dinos/food.json] \
-        [--work <scratch dir>] [--seed 11] [--blend <debug .blend>] [--no-optimize]
+        [--out web/public/assets/dinos/food.glb] [--json <out>.json] [--work <scratch dir>] \
+        [--seed 11] [--frames 150] [--blend <debug .blend>] [--no-optimize] [--litter]
 
-Pipeline: fetch -> import scans -> rebuild plain PBR materials (baseColor[+alpha], normal, ORM)
--> decimate -> rigid-body settle the produce on a hidden mound collider (convex hulls, 120+ frames)
--> drape greenery over the mound, pressing leaves under the fruit -> export GLB (Y up)
--> gltf-transform dedup/prune/resize/webp/draco -> sidecar JSON.
+Pipeline
+  1. fetch    1k glTF of every scan + the maps the glTF does not wire up (foliage Alpha, arm = AO/rough/metal)
+  2. import   welded (merge_vertices) so decimation cannot open cracks along UV seams
+  3. material plain glTF PBR rebuilt per scan: baseColor (+Alpha packed into A, alphaMode MASK 0.5 for
+              foliage), normal, ORM; texels outside the UV islands are push-pull padded
+  4. meshes   produce decimated per item; foliage scans split into single fronds / leaves, decimated each
+  5. settle   produce dropped in waves (big items first) into the lowest hollows of the heap and settled
+              with Blender rigid bodies (convex hulls, hidden mound collider + ground plane, `--frames`
+              per wave, earlier waves frozen as passive); anything that rolls off is re-dropped
+  6. nest     leaves draped in layers over scaled copies of the mound, pressed down under the produce
+  7. export   GLB (Y up) -> gltf-transform dedup / prune / resize 1024 / webp / draco -> sidecar JSON
 
-Nodes: item_00..item_NN (edible, origin = item centre, item_00 = top of the heap),
-leaf_00..leaf_NN (greenery + leaf-litter skin). Pile origin = ground centre.
+Nodes: item_00..item_NN (edible, origin = item centre, item_00 = top of the heap, i.e. eat in order),
+leaf_00..leaf_NN (greenery joined per material). Pile origin = ground centre.
+QA: blender/food/render_food.py (Cycles renders), blender/food/verify_food.py (budgets, sidecar).
 """
 import bpy, bmesh, sys, os, json, math, random, subprocess, argparse, glob, shutil
 import numpy as np
@@ -58,12 +67,11 @@ GREEN = [
     ("anthurium_botany_01", "anthurium_botany_01_a", 110, 0.3), ("anthurium_botany_01", "anthurium_botany_01_b", 110, 0.3),
 ]
 GREEN_TEX = {"fern_02": 1024, "anthurium_botany_01": 1024, "calathea_orbifolia_01": 1024}
-LITTER = "forest_leaves_02"      # Poly Haven texture for the leaf-litter skin under the nest
+LITTER = "forest_leaves_02"      # optional (--litter) Poly Haven texture for a leaf-litter core under the nest
 LITTER_TEX = 256                # buried under the foliage: only glimpsed through gaps, in shade
 LITTER_RES, LITTER_CROP, LITTER_M = "1k", 0.5, 1.5   # 1k scan of 3 x 3 m, keep the central 1.5 m
 
 MODEL_ASSETS = sorted({p[0] for p in PRODUCE} | {g[0] for g in GREEN})
-TEXTURE_ASSETS = [LITTER]
 
 
 # --------------------------------------------------------------------------------------------
@@ -488,10 +496,6 @@ def obj_world_verts(o):
     return v @ mw[:3, :3].T + mw[:3, 3]
 
 
-def rot_matrix(yaw, tilt_axis, tilt):
-    return (Matrix.Rotation(yaw, 3, 'Z') @ Matrix.Rotation(tilt, 3, Vector(tilt_axis)))
-
-
 # --------------------------------------------------------------------------------------------
 # Main build
 # --------------------------------------------------------------------------------------------
@@ -547,8 +551,10 @@ def main():
                 o.data.materials.clear()
                 o.data.materials.append(mats[aid])
     src_coll.hide_render = True
-    lit_mat = None if not args.litter else build_material(LITTER, litter_maps["Diffuse"], litter_maps["nor_gl"], litter_maps["arm"], None, LITTER_TEX, work,
-                             crop=LITTER_CROP)
+    lit_mat = None
+    if args.litter:
+        lit_mat = build_material(LITTER, litter_maps["Diffuse"], litter_maps["nor_gl"], litter_maps["arm"], None,
+                                 LITTER_TEX, work, crop=LITTER_CROP)
 
     # ---- prototypes ----------------------------------------------------------------------------
     protos = {}
@@ -563,7 +569,7 @@ def main():
         log(f"  {oname}: {len(parts)} leaves/fronds, avg {np.mean([p[2] for p in parts]):.0f} tris, "
             f"length {min(p[1] for p in parts):.2f}-{max(p[1] for p in parts):.2f} m")
 
-    # ---- mound collider + leaf-litter skin -------------------------------------------------------
+    # ---- hidden mound collider (the compressed leaf bed) + ground ----------------------------------
     mound = Mound(rnd)
     LEAF_BED = 0.022            # thickness of the flattened leaf layer the produce rests on
     HEAP_R = 0.6                # produce further out than this has rolled off the leafy heap
@@ -572,38 +578,24 @@ def main():
     ground = link(bpy.data.objects.new("ground", bpy.data.meshes.new("ground")), scene.collection)
     ground.data.from_pydata([(-6, -6, 0), (6, -6, 0), (6, 6, 0), (-6, 6, 0)], [], [(0, 1, 2, 3)])
 
-    # ---- produce: drop in a cluster and settle -------------------------------------------------
+    # ---- produce: dropped in waves onto the heap and settled with rigid-body physics ---------------
     items = []
-    order = []
     for aid, oname, kind, cnt, tgt, _ in PRODUCE:
         for k in range(cnt):
-            order.append((aid, oname, kind))
-    # biggest first so they land first and small fruit ends up resting on/among them
-    sizes = {o: float(np.linalg.norm(verts_np(protos[o]), axis=1).max()) for o in protos}
-    order.sort(key=lambda t: -sizes[t[1]])
-    placed = []       # (pos, radius)
-    golden = math.pi * (3 - math.sqrt(5))
-    for i, (aid, oname, kind) in enumerate(order):
-        me = protos[oname]
-        sc = rnd.uniform(1.0, 1.12)
-        rad = sizes[oname] * sc
-        ob = link(bpy.data.objects.new(f"tmp_{i:02d}", me), pile)
-        ob["kind"] = kind
-        ob["src"] = aid
-        ob.scale = (sc, sc, sc)
-        if kind in ("banana", "banana_bunch"):
-            ob.rotation_euler = (rnd.uniform(-0.25, 0.25), rnd.uniform(-0.25, 0.25), rnd.uniform(0, 6.283))
-        else:
-            ob.rotation_euler = (rnd.uniform(0, 6.283), rnd.uniform(0, 6.283), rnd.uniform(0, 6.283))
-        a = i * golden + rnd.uniform(-0.3, 0.3)
-        rr = 0.17 * math.sqrt((i + 0.5) / len(order)) + rnd.uniform(-0.02, 0.02)
-        x, y = rr * math.cos(a), rr * math.sin(a)
-        z = float(mound.h(x, y)) + LEAF_BED + rad + 0.01
-        while any((Vector((x, y, z)) - p).length < rad + pr + 0.005 for p, pr in placed):
-            z += 0.02
-        placed.append((Vector((x, y, z)), rad))
-        ob.location = (x, y, z)
-        items.append(ob)
+            me = protos[oname]
+            ob = link(bpy.data.objects.new(f"tmp_{len(items):02d}", me), pile)
+            ob["kind"] = kind
+            ob["src"] = aid
+            sc = rnd.uniform(1.0, 1.12)                      # real-world size, +0..12 % natural variation
+            ob.scale = (sc, sc, sc)
+            items.append(ob)
+    radius = {o.name: float(np.linalg.norm(verts_np(o.data), axis=1).max()) * o.scale.x for o in items}
+    rnd.shuffle(items)
+    # roughly biggest first (they form the base of the heap), jittered so the kinds mix
+    jit = {o.name: radius[o.name] * rnd.uniform(0.7, 1.3) for o in items}
+    items.sort(key=lambda o: -jit[o.name])
+    for o in items:                                          # parked far away until their wave drops
+        o.location = (50.0 + 2 * items.index(o), 0.0, 0.0)
 
     def add_rb(o, kind, shape, mass=1.0):
         bpy.ops.object.select_all(action='DESELECT')
@@ -624,9 +616,9 @@ def main():
         else:
             rb.mesh_source = 'BASE'
 
-    def simulate(frames):
-        """Rigid-body settle of all items (convex hulls) on the mound collider + ground plane.
-        Starts from the items' current transforms, bakes `frames` frames, applies the final transforms."""
+    def simulate(active, passive, frames):
+        """Rigid-body settle (convex hulls) of `active` items on the mound collider, the ground plane and the
+        already-settled `passive` items. Bakes `frames` frames and applies the final transforms."""
         bpy.ops.rigidbody.world_add()
         rbw = scene.rigidbody_world
         rbw.substeps_per_frame = 30
@@ -637,62 +629,78 @@ def main():
         scene.frame_set(1)
         add_rb(collider, 'PASSIVE', 'MESH')
         add_rb(ground, 'PASSIVE', 'BOX')
-        for o in items:
+        for o in passive:
+            add_rb(o, 'PASSIVE', 'CONVEX_HULL')
+        for o in active:
             d = o.dimensions
             add_rb(o, 'ACTIVE', 'CONVEX_HULL', mass=max(0.05, 600.0 * d.x * d.y * d.z * 0.52))
         hist = {}
         for f in range(1, frames + 1):
             scene.frame_set(f)
             if f in (frames - 15, frames):
-                hist[f] = [o.matrix_world.copy() for o in items]
+                hist[f] = [o.matrix_world.copy() for o in active]
         final = hist[frames]
-        moves = [(final[i].translation - hist[frames - 15][i].translation).length for i in range(len(items))]
-        log(f"settle: {frames} frames, max motion over last 15 frames = {max(moves) * 1000:.1f} mm")
+        moves = [(final[i].translation - hist[frames - 15][i].translation).length for i in range(len(active))]
         bpy.ops.object.select_all(action='DESELECT')
-        for o in items + [collider, ground]:
+        for o in active + passive + [collider, ground]:
             o.select_set(True)
-        bpy.context.view_layer.objects.active = items[0]
+        bpy.context.view_layer.objects.active = collider
         bpy.ops.rigidbody.objects_remove()
         bpy.ops.rigidbody.world_remove()
         scene.frame_set(1)
-        for o, m in zip(items, final):
+        for o, m in zip(active, final):
             o.matrix_world = m
         bpy.context.view_layer.update()
+        return max(moves)
 
-    simulate(args.frames)
-    # anything that rolled off the heap is picked up and dropped back on top (max 4 passes)
-    def heap_height(x, y, skip):
-        """Top of the heap at (x, y): mound + leaf bed, or the highest item bounding sphere above it."""
-        z = float(mound.h(x, y)) + LEAF_BED
-        for o in items:
-            if o in skip:
-                continue
+    def drop_height(x, y, rn, solid):
+        """Lowest centre height at (x, y) for a sphere of radius rn that clears the mound (+ leaf bed) and
+        the bounding spheres of the `solid` items."""
+        z = float(mound.h(x, y)) + LEAF_BED + rn
+        for o in solid:
             c = o.matrix_world.translation
-            r = radius[o.name]
+            rr = radius[o.name] + rn
             d2 = (c.x - x) ** 2 + (c.y - y) ** 2
-            if d2 < r * r:
-                z = max(z, c.z + math.sqrt(r * r - d2))
+            if d2 < rr * rr:
+                z = max(z, c.z + math.sqrt(rr * rr - d2))
         return z
 
-    radius = {o.name: float(np.linalg.norm(verts_np(o.data), axis=1).max()) * o.scale.x for o in items}
-    # anything that rolled off the leafy part of the heap is picked up and dropped into the lowest
-    # hollow of the heap (re-simulating everything each time)
-    for rnd_pass in range(8):
-        esc = [o for o in items if math.hypot(*o.matrix_world.translation.xy) > HEAP_R]
-        if not esc:
-            break
-        log(f"pass {rnd_pass + 1}: re-dropping {len(esc)} escaped item(s): {[o['kind'] for o in esc]}")
-        for k, o in enumerate(esc):
+    settled, queue, tries = [], list(items), {o.name: 0 for o in items}
+    WAVE = 6
+    wave_no = 0
+    while queue:
+        wave, queue = queue[:WAVE], queue[WAVE:]
+        wave_no += 1
+        placed = list(settled)
+        for o in wave:                       # drop each into the lowest hollow of the heap near the middle
             cands = []
-            for _ in range(40):
-                a = rnd.uniform(0, 6.283); r = rnd.uniform(0.04, 0.26)
+            for _ in range(96):
+                a = rnd.uniform(0, 6.283); r = 0.28 * math.sqrt(rnd.random())
                 x, y = r * math.cos(a), r * math.sin(a)
-                cands.append((heap_height(x, y, esc[k:]) + 0.01 * r, x, y))   # items re-placed earlier count
-            zt, x, y = min(cands)
-            o.location = (x, y, zt + radius[o.name] + 0.015)
-            o.rotation_euler = (rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3), rnd.uniform(0, 6.283))
+                zc = drop_height(x, y, radius[o.name], placed)
+                cands.append((zc - radius[o.name] + 0.08 * r, zc, x, y))
+            _, zc, x, y = min(cands)
+            o.location = (x, y, zc + 0.008)
+            if o["kind"] in ("banana", "banana_bunch"):
+                o.rotation_euler = (rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3), rnd.uniform(0, 6.283))
+            else:
+                o.rotation_euler = (rnd.uniform(0, 6.283), rnd.uniform(0, 6.283), rnd.uniform(0, 6.283))
             bpy.context.view_layer.update()
-        simulate(args.frames)
+            placed.append(o)
+        starts = {o.name: o.matrix_world.translation.copy() for o in wave}
+        motion = simulate(wave, settled, args.frames)
+        if os.environ.get("FOOD_DEBUG"):
+            for o in wave:
+                log(f"    {o['kind']:12s} {tuple(round(v, 3) for v in starts[o.name])} -> "
+                    f"{tuple(round(v, 3) for v in o.matrix_world.translation)}")
+        rolled = [o for o in wave if math.hypot(*o.matrix_world.translation.xy) > HEAP_R and tries[o.name] < 10]
+        for o in rolled:
+            tries[o.name] += 1
+            o.location = (50.0 + 2 * items.index(o), 0.0, 0.0)
+        settled += [o for o in wave if o not in rolled]
+        queue += rolled
+        log(f"wave {wave_no}: {len(wave)} dropped, settled (max motion {motion * 1000:.1f} mm), "
+            f"{len(rolled)} rolled off -> re-queued")
     esc = [o for o in items if math.hypot(*o.matrix_world.translation.xy) > HEAP_R]
     if esc:
         log(f"WARNING: {len(esc)} item(s) still off the heap: {[o['kind'] for o in esc]}")

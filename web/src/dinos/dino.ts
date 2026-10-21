@@ -24,14 +24,14 @@ export interface DinoContext {
   time: number;
   foods: Food[];
   onFootstep: (d: Dino, big: boolean, at?: THREE.Vector3, heavy?: boolean) => void;
-  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap', item?: FoodItem) => void;
+  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'chew' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap', item?: FoodItem) => void;
 }
 
 export interface AIData {
   home: THREE.Vector3; target: THREE.Vector3 | null; waitUntil: number; followUntil: number; foodTarget: Food | null;
   angle: number; radius: number; altitude: number; glideUntil: number; actionUntil: number; lastStep: number; breachT: number; nextRoar: number; lastChew: number; breachAt: number;
   yawVel: number; avoidSide: number; blocked: number; bestDist: number; progressAt: number;
-  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number;
+  faceTarget: THREE.Vector3 | null; faceUntil: number; glance: THREE.Vector3; glanceUntil: number; glancing: boolean; biteItem: FoodItem | null; bitten: boolean; scripted: boolean; detour: THREE.Vector3 | null; steerT: number; steerDir: number; steerSpeed: number; steerA: number; steerPick: number; route: THREE.Vector3[] | null; routeGoal: THREE.Vector3; routeIdx: number; routeReplanAt: number; standAt: THREE.Vector3 | null; standItem: FoodItem | null; repositions: number; standOk: boolean | null;
 }
 
 export class Dino {
@@ -65,7 +65,7 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0 };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;
@@ -131,7 +131,7 @@ export class Dino {
     this.loaded = true; this.loading = false;
   }
 
-  private clipFor(s: DinoState): ClipName {
+  clipFor(s: DinoState): ClipName {
     switch (s) {
       case 'walk': case 'stomp': return this.loco ? 'idle' : this.actions.has('walk') ? 'walk' : 'idle';
       case 'roar': case 'splash': return this.actions.has('roar') ? 'roar' : 'idle';
@@ -165,6 +165,14 @@ export class Dino {
     return s === 'roar' ? 2.4 : s === 'eat' ? 4 : s === 'stomp' ? 2.4 : s === 'sniff' ? 2.6 : s === 'flap' ? 3 : s === 'splash' ? 2.2 : 0;
   }
   get isBusy(): boolean { return Dino.actionDuration(this.state) > 0; }
+  /** How long this dinosaur stays busy in a one-shot state (the real clip length when it has one). */
+  busyFor(s: DinoState): number {
+    const name = this.clipFor(s);
+    const a = (s === 'eat' || s === 'roar' || s === 'sniff' || s === 'splash') ? this.actions.get(name) : undefined;
+    return a ? a.getClip().duration + 0.05 : Dino.actionDuration(s);
+  }
+  /** Restart the current one-shot clip from its first frame (seamless feeding loops). */
+  replay(): void { if (this.current) { this.current.reset(); this.current.play(); } this.stateTime = 0; }
 
   /** Per-frame: animation + ground/water alignment (movement is set by ai.ts). */
   update(dt: number, ctx: DinoContext): void {
@@ -176,11 +184,12 @@ export class Dino {
       this.loco.placeBody(dt, this.heading);
       if (!this.animated) return;
       this.animTime += dt;
-      this.loco.resetPose();
+      this.loco.restoreClipPose();
       if (this.mixer) {
         this.mixer.update(dt);
         if (this.current && this.current.loop === THREE.LoopOnce && !this.current.isRunning() && !this.isBusy) this.play(this.clipFor(this.state));
       }
+      this.loco.captureClipPose();
       this.loco.stomp = this.state === 'stomp';
       this.loco.update(dt, this.heading, {
         onPlant: (at, _leg, heavy) => ctx.onFootstep(this, sp.lengthM >= 6 || heavy, at, heavy),
@@ -235,6 +244,9 @@ export class Dino {
   /** Horizontal distance from the root to the snout at the bottom of the eat clip (m). */
   eatReach = 0;
   eatHeight = 0;
+  /** learned correction (m) from real bites: food sits on a heap, not on the ground */
+  eatTrim = 0;
+  get reachNow(): number { return Math.max(0.3, this.eatReach - this.eatTrim); }
   private measureEat(): void {
     const sp = this.species;
     this.eatReach = (sp.snoutM ?? sp.lengthM * 0.45) * 0.8 * this.scale;
@@ -251,6 +263,13 @@ export class Dino {
       if (this.loco.snoutWorld(v)) { this.root.worldToLocal(v); if (v.y < best.y) best = { y: v.y, z: v.z }; }
     }
     eat.stop(); this.loco.resetPose(); this.model.updateMatrixWorld(true);
+    // drop the mixer's cached bindings so the next clip writes every bone again
+    this.mixer.stopAllAction(); this.mixer.uncacheRoot(this.model);
+    for (const [k, a] of this.actions) {
+      const clip = a.getClip(); const na = this.mixer.clipAction(clip);
+      if (k === 'roar' || k === 'eat') { na.setLoop(THREE.LoopOnce, 1); na.clampWhenFinished = true; }
+      this.actions.set(k, na);
+    }
     this.root.rotation.copy(tmpQ); this.root.updateMatrixWorld(true);
     if (best.y < Infinity) { this.eatReach = best.z; this.eatHeight = best.y; }
     this.current = null;
@@ -258,6 +277,8 @@ export class Dino {
 
   /** Top walking speed the legs can carry (m/s). */
   get maxSpeed(): number { return this.loco ? Math.min(this.species.speed * this.scale, this.loco.maxSpeed) : this.species.speed * this.scale; }
+  /** Fastest the legs can carry the body at a trot (m/s). */
+  get trotSpeed(): number { return this.loco ? this.loco.trotSpeed : this.species.speed * this.scale * 1.5; }
   /** Fastest yaw rate the feet can follow when pivoting (rad/s). */
   get maxTurnRate(): number { return this.loco ? this.loco.maxTurnRate : 1.2; }
 

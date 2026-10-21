@@ -1,7 +1,7 @@
 // Behaviours: wander, follow the player, go to food, flyers circle, swimmers patrol.
 // Land movement (steering, avoidance, turning) lives in ai_land.ts; legs in locomotion.ts.
 import * as THREE from 'three';
-import { Dino, type DinoContext, type DinoState, type Food } from './dino.ts';
+import { Dino, type DinoContext, type DinoState, type Food, type FoodItem } from './dino.ts';
 import { heightAt, waterAt } from '../world/heightmap.ts';
 import { HALF } from '../world/biomes.ts';
 import { brake, travel, freeSpot, headingError, pivotToward, resolveOverlaps, bodyOf } from './ai_land.ts';
@@ -27,16 +27,21 @@ export function findSpot(ok: (x: number, z: number) => boolean, cx: number, cz: 
   return null;
 }
 
-/** Where a dinosaur stands to eat from a pile: one "eat reach" from the food, on its slot's side. */
+/** Where a dinosaur stands to eat from a pile: one "eat reach" back from the outermost uneaten item
+ *  on its own side (slot 0 faces the child across the pile, slots 1/2 to either side). */
 export function eatStand(d: Dino, f: Food, player: THREE.Vector3, slot: number, out: THREE.Vector3): THREE.Vector3 {
-  // slot 0 faces the child across the pile, slots 1/2 to either side (±75°)
   const away = Math.atan2(f.pos.x - player.x, f.pos.z - player.z);
   const ang = away + (slot === 0 ? 0 : slot === 1 ? 1.3 : -1.3);
-  const reach = d.eatReach + f.radius * 0.35;
-  return out.set(f.pos.x + Math.sin(ang) * reach, 0, f.pos.z + Math.cos(ang) * reach);
+  const dx = Math.sin(ang), dz = Math.cos(ang);
+  let px = f.pos.x, pz = f.pos.z, best = -Infinity;
+  for (const it of f.items) {
+    if (it.eaten) continue;
+    const proj = (it.pos.x - f.pos.x) * dx + (it.pos.z - f.pos.z) * dz;
+    if (proj > best) { best = proj; px = it.pos.x; pz = it.pos.z; }
+  }
+  return out.set(px + dx * d.eatReach, 0, pz + dz * d.eatReach);
 }
 
-const standTmp = new THREE.Vector3();
 
 export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
   const sp = d.species; const ai = d.ai; const pos = d.root.position;
@@ -50,8 +55,8 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       if (ai.faceTarget && ctx.time < ai.faceUntil) { if (pivotToward(d, ai.faceTarget.x, ai.faceTarget.z, dt) < 0.08) ai.faceTarget = null; }
       else { d.speed = 0; ai.yawVel *= 0.8; d.heading += ai.yawVel * dt; }
       if (d.state === 'eat') eatTick(d, dt, ctx);
-      if (d.stateTime > Dino.actionDuration(d.state)) {
-        if (d.state === 'eat' && ai.foodTarget && ai.foodTarget.amount > 0 && atStand(d, ctx)) { ai.lastChew = -1; d.setState('idle'); d.setState('eat'); }
+      if (d.stateTime > d.busyFor(d.state)) {
+        if (d.state === 'eat' && ai.foodTarget && ai.foodTarget.amount > 0 && ai.biteItem && !ai.biteItem.eaten) { ai.lastChew = -1; ai.bitten = false; d.replay(); }
         else { d.setState('idle'); ai.waitUntil = ctx.time + 1 + Math.random() * 2; }
       }
       resolveOverlaps(d, ctx);
@@ -84,31 +89,77 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       let best: Food | null = null, bd = 130;
       for (const f of ctx.foods) {
         if (f.amount <= 0) continue;
-        if (f.eaters.size >= 3 && !f.eaters.has(d.index)) continue;   // the table is full
+        if (f.eaters.size >= 2 && !f.eaters.has(d.index)) continue;   // two at a time; others wait their turn
         const dd = Math.hypot(f.pos.x - pos.x, f.pos.z - pos.z); if (dd < bd) { bd = dd; best = f; }
+      }
+      if (!best) {
+        // a full pile nearby: come over, wait a few metres away and watch the others eat
+        let full: Food | null = null, fd = 60;
+        for (const f of ctx.foods) { if (f.amount <= 0) continue; const dd = Math.hypot(f.pos.x - pos.x, f.pos.z - pos.z); if (dd < fd) { fd = dd; full = f; } }
+        if (full) {
+          const r = full.radius + d.eatReach + bodyOf(d).front + 2.5;
+          if (!ai.target && Math.hypot(full.pos.x - pos.x, full.pos.z - pos.z) > r + 2) {
+            const a = Math.atan2(pos.x - full.pos.x, pos.z - full.pos.z);
+            ai.target = new THREE.Vector3(full.pos.x + Math.sin(a) * r, 0, full.pos.z + Math.cos(a) * r); ai.bestDist = Infinity; ai.progressAt = ctx.time;
+          }
+          if (d.loco) { d.loco.lookTarget = full.pos; d.loco.lookWeight = 0.9; }
+          ai.waitUntil = Math.max(ai.waitUntil, ctx.time + 1);
+        }
       }
       if (best) {
         if (!best.eaters.has(d.index)) { const taken = new Set(best.eaters.values()); let slot = 0; while (taken.has(slot)) slot++; best.eaters.set(d.index, slot); }
-        ai.foodTarget = best; ai.target = null; ai.bestDist = Infinity; ai.progressAt = ctx.time;
+        ai.foodTarget = best; ai.target = null; ai.bestDist = Infinity; ai.progressAt = ctx.time; ai.standAt = null; ai.standItem = null; ai.repositions = 0;
       }
     }
     if (ai.foodTarget) {
       const f = ai.foodTarget;
-      if (f.amount <= 0) { f.eaters.delete(d.index); ai.foodTarget = null; }
+      if (f.amount <= 0 || !f.items.some((it) => !it.eaten)) { f.eaters.delete(d.index); ai.foodTarget = null; ai.standAt = null; ai.standItem = null; }
       else {
-        const slot = f.eaters.get(d.index) ?? 0;
-        const stand = eatStand(d, f, ctx.player, slot, standTmp);
-        const here = Math.hypot(stand.x - pos.x, stand.z - pos.z);
-        if (here < 0.5) {
-          // final alignment: face the pile, then eat
-          if (pivotToward(d, f.pos.x, f.pos.z, dt) > 0.07 || Math.abs(ai.yawVel) > 0.08) { d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); resolveOverlaps(d, ctx); return; }
-          ai.yawVel = 0; ai.lastChew = -1; d.setState('eat'); ctx.onEvent(d, 'eat'); return;
+        // commit to one item: the outermost one on our side first, afterwards the one nearest our snout
+        if (!ai.standItem || ai.standItem.eaten) {
+          ai.standItem = ai.standAt ? nearestTo(f, snoutLanding(d, landTmp)) : outermost(f, slotDir(d, f, ctx.player));
+          ai.standAt = null;
         }
-        travel(d, ctx, stand.x, stand.z, dt, d.species.speed, 0.35);
-        if (ctx.time - ai.progressAt > 6) {   // can't get to this side → try another slot / give up
-          const taken = new Set(f.eaters.values()); let s2 = (slot + 1) % 3; let n = 0; while (taken.has(s2) && n++ < 3) s2 = (s2 + 1) % 3;
+        const item = ai.standItem!;
+        if (!ai.standAt) {
+          // stand one eat-reach back from the item, on the side we approach from
+          let dx = d.root.position.x - item.pos.x, dz = d.root.position.z - item.pos.z;
+          if (!ai.repositions) { const sd = slotDir(d, f, ctx.player); dx = sd.x; dz = sd.z; }
+          const L = Math.hypot(dx, dz) || 1;
+          ai.standAt = new THREE.Vector3(item.pos.x + dx / L * d.reachNow, 0, item.pos.z + dz / L * d.reachNow);
+          ai.standOk = null;
+        }
+        const here = Math.hypot(ai.standAt.x - pos.x, ai.standAt.z - pos.z);
+        const tol = ai.repositions ? 0.1 : 0.45;
+        if (here < tol || (ai.repositions > 0 && here < 0.8 && ctx.time - ai.progressAt > 1.5)) {
+          if (here < tol && ai.standOk !== false) ai.standOk = true;
+          // final alignment: face the item, then eat it
+          if (pivotToward(d, item.pos.x, item.pos.z, dt) > 0.06 || Math.abs(ai.yawVel) > 0.08) { d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle'); resolveOverlaps(d, ctx); return; }
+          ai.yawVel = 0; ai.lastChew = -1; ai.bitten = false; ai.biteItem = item; d.setState('eat'); ctx.onEvent(d, 'eat'); return;
+        }
+        if (here < (ai.repositions ? 1.5 : 1.6)) {
+          // shuffle: a slow direct step or two while keeping the head on the item
+          const v = Math.min(0.55, Math.max(0.2, here * 0.8)) * (d.species.lengthM > 8 ? 0.8 : 1);
+          const k = Math.min(1, (v * dt) / here);
+          pos.x += (ai.standAt.x - pos.x) * k; pos.z += (ai.standAt.z - pos.z) * k;
+          pivotToward(d, item.pos.x, item.pos.z, dt);
+          d.speed = v; d.setState('walk');
+          if (here < ai.bestDist - 0.03) { ai.bestDist = here; ai.progressAt = ctx.time; }
+          if (ctx.time - ai.progressAt > 1.5) {
+            // blocked (by a neighbour): eat from where we stand — the item nearest to our snout
+            const near = nearestTo(f, snoutLanding(d, landTmp));
+            if (near) { ai.standItem = near; ai.standAt.copy(pos); ai.standOk = false; ai.bestDist = Infinity; ai.progressAt = ctx.time; }
+          }
+          resolveOverlaps(d, ctx);
+          return;
+        }
+        const far = Math.hypot(f.pos.x - pos.x, f.pos.z - pos.z);
+        if (d.loco) { d.loco.lookTarget = f.pos; d.loco.lookWeight = 1; }
+        travel(d, ctx, ai.standAt.x, ai.standAt.z, dt, d.species.speed * d.scale * (ai.repositions ? 0.6 : far > 10 + bodyOf(d).front ? 2.2 : 1), 0.3);
+        if (ctx.time - ai.progressAt > 6) {   // can't get there: try another side / give up
+          const taken = new Set(f.eaters.values()); const slot = f.eaters.get(d.index) ?? 0; let s2 = (slot + 1) % 3; let n = 0; while (taken.has(s2) && n++ < 3) s2 = (s2 + 1) % 3;
           if (n < 3) f.eaters.set(d.index, s2); else { f.eaters.delete(d.index); ai.foodTarget = null; }
-          ai.bestDist = Infinity; ai.progressAt = ctx.time;
+          ai.standAt = null; ai.standItem = null; ai.repositions = 0; ai.bestDist = Infinity; ai.progressAt = ctx.time;
         }
         resolveOverlaps(d, ctx);
         return;
@@ -182,41 +233,80 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
   }
 }
 
-/** Is the dinosaur at its eating spot (so another bite loop makes sense)? */
-function atStand(d: Dino, ctx: DinoContext): boolean {
-  const f = d.ai.foodTarget; if (!f) return false;
-  const s = eatStand(d, f, ctx.player, f.eaters.get(d.index) ?? 0, standTmp);
-  return Math.hypot(s.x - d.root.position.x, s.z - d.root.position.z) < 1.2;
+const aimTmp = new THREE.Vector3();
+const landTmp = new THREE.Vector3();
+/** Unit vector from the pile toward this dinosaur's slot (0 = across from the child, 1/2 = sides). */
+function slotDir(d: Dino, f: Food, player: THREE.Vector3): THREE.Vector3 {
+  const away = Math.atan2(f.pos.x - player.x, f.pos.z - player.z);
+  const slot = f.eaters.get(d.index) ?? 0;
+  // both places on the far side of the pile (facing the child), 110° apart so big bodies don't collide
+  const ang = away + (slot === 0 ? -0.95 : slot === 1 ? 0.95 : Math.PI);
+  return aimTmp.set(Math.sin(ang), 0, Math.cos(ang));
 }
-
-/** Eating: the head goes down to one chosen item (neck IK), takes it at the lowest point, then chews. */
+function outermost(f: Food, dir: THREE.Vector3): FoodItem | null {
+  let best: FoodItem | null = null, bp = -Infinity;
+  for (const it of f.items) { if (it.eaten) continue; const p = (it.pos.x - f.pos.x) * dir.x + (it.pos.z - f.pos.z) * dir.z; if (p > bp) { bp = p; best = it; } }
+  return best;
+}
+function nearestTo(f: Food, p: THREE.Vector3): FoodItem | null {
+  let best: FoodItem | null = null, bd = Infinity;
+  for (const it of f.items) { if (it.eaten) continue; const dd = Math.hypot(it.pos.x - p.x, it.pos.z - p.z); if (dd < bd) { bd = dd; best = it; } }
+  return best;
+}
+/** Where the snout comes down when eating from the current stance. */
+function snoutLanding(d: Dino, out: THREE.Vector3): THREE.Vector3 {
+  return out.set(d.root.position.x + Math.sin(d.heading) * d.reachNow, 0, d.root.position.z + Math.cos(d.heading) * d.reachNow);
+}
+/** Eating: the head goes down to the committed item (neck IK), the jaw snaps shut on it, the head
+ *  lifts and the dinosaur chews where the child can see it. Clip phases: down 0–0.30, bite 0.30–0.42,
+ *  lift 0.42–0.62, chew 0.62–1. Between bites it shuffles closer when the next item is out of reach. */
 function eatTick(d: Dino, dt: number, ctx: DinoContext): void {
   const ai = d.ai; const f = ai.foodTarget;
   const loco = d.loco;
   if (!f) { if (loco) loco.reachWeight = 0; return; }
   const ph = d.clipPhase;
-  if (ph < 0.05) { ai.bitten = false; ai.biteItem = null; }
-  if (!ai.biteItem || ai.biteItem.eaten) {
-    // the item closest to where the snout comes down
-    const s = Math.sin(d.heading), c = Math.cos(d.heading), r = d.eatReach;
-    const nx = d.root.position.x + s * r, nz = d.root.position.z + c * r;
-    let best = null as typeof ai.biteItem, bd = Infinity;
-    for (const it of f.items) { if (it.eaten) continue; const dd = Math.hypot(it.pos.x - nx, it.pos.z - nz) - it.pos.y * 0.3; if (dd < bd) { bd = dd; best = it; } }
-    ai.biteItem = best;
+  if (ph < 0.05 && ai.bitten) { ai.bitten = false; ai.lastChew = -1; }
+  if (!ai.bitten && (!ai.biteItem || ai.biteItem.eaten)) {
+    // the committed item was taken by somebody else: the nearest one under our snout, or step closer
+    const next = nearestTo(f, snoutLanding(d, landTmp));
+    if (next && ph < 0.15 && Math.hypot(next.pos.x - landTmp.x, next.pos.z - landTmp.z) > Math.max(0.2, 0.025 * d.species.lengthM * d.scale)) {
+      ai.standItem = next; ai.standAt = null; ai.repositions++; ai.biteItem = null; ai.bestDist = Infinity; ai.progressAt = ctx.time;
+      if (loco) loco.reachWeight = 0;
+      d.setState('idle'); return;
+    }
+    ai.biteItem = next;
   }
   if (loco) {
-    const k = ph < 0.3 ? smooth(ph / 0.3) : ph > 0.7 ? 1 - smooth((ph - 0.7) / 0.3) : 1;
-    if (ai.biteItem) { loco.reachTarget = ai.biteItem.pos; loco.reachWeight = (ai.bitten ? 0.5 : 1) * k; }
-    else loco.reachWeight = 0;
+    const k = ph < 0.08 ? 0 : ph < 0.28 ? smooth((ph - 0.08) / 0.2) : ph < 0.42 ? 1 : 1 - smooth((ph - 0.42) / 0.12);
+    if (ai.biteItem && !ai.bitten) { loco.reachTarget = ai.biteItem.pos; loco.reachWeight = k; }
+    else loco.reachWeight = Math.max(0, loco.reachWeight - dt * 4);
   }
-  if (!ai.bitten && ph >= 0.48) {
+  if (!ai.bitten && ph >= 0.38) {
     ai.bitten = true;
+    if (ai.biteItem && ai.standOk) {
+      // learn (only from bites taken at the planned spot): how far short or long did the snout come down?
+      const sn = d.snoutPos(landTmp);
+      const e = (ai.biteItem.pos.x - sn.x) * Math.sin(d.heading) + (ai.biteItem.pos.z - sn.z) * Math.cos(d.heading);
+      d.eatTrim = THREE.MathUtils.clamp(d.eatTrim + 0.8 * e, -0.35 * d.eatReach, 0.35 * d.eatReach);
+    }
     if (f.items.length) ctx.onEvent(d, 'bite', ai.biteItem ?? undefined);
     else { f.amount -= 0.12; ctx.onEvent(d, 'bite'); }
-    ai.biteItem = null;
+    ai.standItem = null; ai.biteItem = null;
   }
-  if (f.amount <= 0) { f.amount = 0; f.eaters.delete(d.index); ai.foodTarget = null; if (loco) loco.reachWeight = 0; ctx.onEvent(d, 'finished'); }
-  void dt;
+  if (ph > 0.62) {
+    const chew = Math.floor((ph - 0.62) / 0.095);
+    if (chew !== ai.lastChew && chew < 4) { ai.lastChew = chew; ctx.onEvent(d, 'chew'); }
+  }
+  if (ph > 0.92 && !ai.standItem && f.amount > 0) {
+    // choose the next bite now, so the loop either continues in place or steps closer
+    const next = nearestTo(f, snoutLanding(d, landTmp));
+    if (next) {
+      ai.standItem = next;
+      if (Math.hypot(next.pos.x - landTmp.x, next.pos.z - landTmp.z) > Math.max(0.2, 0.025 * d.species.lengthM * d.scale)) { ai.standAt = null; ai.repositions++; ai.bestDist = Infinity; ai.progressAt = ctx.time; }
+      else ai.biteItem = next;
+    }
+  }
+  if (f.amount <= 0 && ph > 0.9) { f.amount = 0; f.eaters.delete(d.index); ai.foodTarget = null; ai.standAt = null; ai.standItem = null; if (loco) loco.reachWeight = 0; ctx.onEvent(d, 'finished'); }
 }
 function smooth(x: number): number { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); }
 
@@ -224,8 +314,9 @@ function smooth(x: number): number { x = Math.min(1, Math.max(0, x)); return x *
 function updateLook(d: Dino, ctx: DinoContext): void {
   const loco = d.loco; if (!loco) return;
   const ai = d.ai; const pos = d.root.position;
-  const dist = Math.hypot(ctx.eye.x - pos.x, ctx.eye.z - pos.z);
   if (d.state === 'eat' || d.state === 'sniff') { loco.lookWeight = 0; return; }
+  if (ai.foodTarget) return;     // the food branch aims the head while approaching
+  const dist = Math.hypot(ctx.eye.x - pos.x, ctx.eye.z - pos.z);
   if (dist < 32) { loco.lookTarget = ctx.eye; loco.lookWeight = d.state === 'roar' ? 0.7 : 1; return; }
   if (ctx.time > ai.glanceUntil) {
     ai.glanceUntil = ctx.time + 3 + Math.random() * 5;
@@ -255,6 +346,7 @@ export function triggerAction(d: Dino, action: DinoState, ctx: DinoContext): Din
   if (d.species.kind === 'air') { d.setState(action === 'flap' ? 'flap' : 'roar'); ctx.onEvent(d, action === 'flap' ? 'flap' : 'roar'); return d.state; }
   d.ai.target = null;
   if (d.ai.foodTarget) { d.ai.foodTarget.eaters.delete(d.index); d.ai.foodTarget = null; }
+  d.ai.standAt = null; d.ai.standItem = null;
   d.speed = 0;
   d.setState('idle'); d.setState(action);
   ctx.onEvent(d, action as 'roar' | 'eat' | 'stomp' | 'sniff');

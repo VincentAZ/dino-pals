@@ -8,6 +8,7 @@
   "tris after decimate 30000",
   "voxels (51, 177, 96) vox 0.0153 solid 52335 fill 2.88",
   "spine curve samples 171 y range -0.87 1.73",
+  "snout tip [-0.   -0.87  1.2 ] (most-forward vertex y -0.87 )",
   "feet found 2 \u2192 using 2 [(142, 5), (141, 5)]",
   "  leg L: hip [-0.11  0.03  0.61] knee [-0.15  0.02  0.44] ankle [-0.14  0.2   0.21] ball [-0.15  0.14  0.01] toe [-0.18 -0.06  0.01] traced 30 slices",
   "  leg R: hip [0.12 0.04 0.6 ] knee [0.15 0.02 0.44] ankle [0.14 0.2  0.21] ball [0.15 0.14 0.01] toe [ 0.18 -0.06  0.01] traced 29 slices",
@@ -15,10 +16,10 @@
   "mouth line samples 14 open-mouth fraction 0.07",
   "bones 26 neck 2 tail 7 legs ['L', 'R']",
   "geodesic weights 1.3 s",
-  "jaw vertices 2043",
-  "eat reach: EAT_K 1.9 snout z at full pose 0.37",
+  "jaw vertices 2063",
+  "eat reach: EAT_K 1.9 snout z at full pose 0.4",
   "walk stride/cycle 1.413 m, clip 1.19 s \u2192 speed 1.19 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 37}",
+  "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 37}",
   "exported blender/out/velociraptor.glb 1.81 MB"
  ],
  "size": [
@@ -29,14 +30,14 @@
  "clips": {
   "idle": 91,
   "roar": 67,
-  "eat": 97,
+  "eat": 109,
   "walk": 37
  },
  "snout": 0.873841404914856,
- "headZ": 1.2295522689819336,
+ "headZ": 1.200008511543274,
  "eatReach": [
-  0.4914667010307312,
-  0.3731786906719208
+  0.472714364528656,
+  0.3960081934928894
  ],
  "stride": 1.4131475985050201,
  "walkSeconds": 1.2,

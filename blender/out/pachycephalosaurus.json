@@ -14,6 +14,7 @@
   "tris after decimate 35000",
   "voxels (48, 178, 91) vox 0.0265 solid 68710 fill 3.48",
   "spine curve samples 171 y range -1.58 2.92",
+  "snout tip [ 0.01 -1.6   1.77] (most-forward vertex y -1.59 )",
   "feet found 2 \u2192 using 2 [(172, 5), (170, 5)]",
   "  leg L: hip [-0.22 -0.03  1.1 ] knee [-0.34  0.01  0.7 ] ankle [-0.32  0.34  0.36] ball [-0.32  0.22  0.01] toe [-0.34 -0.13  0.01] traced 31 slices",
   "  leg R: hip [ 0.22 -0.03  1.1 ] knee [0.34 0.   0.7 ] ankle [0.31 0.34 0.36] ball [0.32 0.23 0.01] toe [ 0.35 -0.13  0.01] traced 31 slices",
@@ -22,10 +23,10 @@
   "bones 26 neck 2 tail 7 legs ['L', 'R']",
   "geodesic weights 1.2 s",
   "jaw vertices 584",
-  "eat reach: EAT_K 1.9 snout z at full pose 0.52",
+  "eat reach: EAT_K 1.9 snout z at full pose 0.51",
   "walk stride/cycle 2.369 m, clip 1.97 s \u2192 speed 1.204 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 60}",
-  "exported blender/out/pachycephalosaurus.glb 2.84 MB"
+  "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 60}",
+  "exported blender/out/pachycephalosaurus.glb 2.85 MB"
  ],
  "size": [
   1.065704107284546,
@@ -35,14 +36,14 @@
  "clips": {
   "idle": 91,
   "roar": 67,
-  "eat": 97,
+  "eat": 109,
   "walk": 60
  },
  "snout": 1.5942836999893188,
- "headZ": 1.7598892450332642,
+ "headZ": 1.7741193771362305,
  "eatReach": [
-  0.8072291612625122,
-  0.5248809456825256
+  0.8154025077819824,
+  0.5131796598434448
  ],
  "stride": 2.369042992591858,
  "walkSeconds": 1.9666666666666666,

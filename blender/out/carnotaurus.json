@@ -9,17 +9,18 @@
   "tris after decimate 40000",
   "voxels (50, 177, 80) vox 0.0471 solid 51901 fill 3.29",
   "spine curve samples 170 y range -3.43 4.52",
+  "snout tip [ 0.   -3.44  2.74] (most-forward vertex y -3.45 )",
   "feet found 2 \u2192 using 2 [(96, 5), (96, 5)]",
   "  leg L: hip [-0.46 -0.38  2.01] knee [-0.62 -0.38  1.34] ankle [-0.7   0.22  0.49] ball [-0.7   0.08  0.02] toe [-0.71 -0.32  0.02] traced 31 slices",
   "  leg R: hip [ 0.47 -0.38  2.01] knee [ 0.62 -0.38  1.34] ankle [0.69 0.22 0.49] ball [0.7  0.08 0.02] toe [ 0.7  -0.32  0.02] traced 31 slices",
   "landmarks y: snout -3.45 head base -2.73 neck base -2.09 hip -0.38 tail 4.55",
   "mouth line samples 13 open-mouth fraction 0.31",
   "bones 26 neck 2 tail 7 legs ['L', 'R']",
-  "geodesic weights 1.1 s",
-  "jaw vertices 882",
-  "eat reach: EAT_K 1.8 snout z at full pose 0.77",
+  "geodesic weights 1.4 s",
+  "jaw vertices 1004",
+  "eat reach: EAT_K 1.6 snout z at full pose 0.94",
   "walk stride/cycle 2.942 m, clip 2.1 s \u2192 speed 1.402 m/s",
-  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 64}",
+  "clips {'idle': 91, 'roar': 67, 'eat': 109, 'walk': 64}",
   "exported blender/out/carnotaurus.glb 6.64 MB"
  ],
  "size": [
@@ -30,14 +31,14 @@
  "clips": {
   "idle": 91,
   "roar": 67,
-  "eat": 97,
+  "eat": 109,
   "walk": 64
  },
  "snout": 3.454038619995117,
- "headZ": 3.010838508605957,
+ "headZ": 2.7388429641723633,
  "eatReach": [
-  2.030977249145508,
-  0.7696548104286194
+  2.09505295753479,
+  0.9447838664054871
  ],
  "stride": 2.942197561264038,
  "walkSeconds": 2.1,
