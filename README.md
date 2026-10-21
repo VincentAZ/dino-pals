@@ -174,4 +174,8 @@ cd web && node scripts/fetch-env.mjs                  # environment from Poly Ha
 
 **Engine.** [three.js](https://threejs.org) (MIT), [Vite](https://vitejs.dev) (MIT), [glTF-Transform](https://gltf-transform.dev) (MIT), [Basis Universal](https://github.com/BinomialLLC/basis_universal) (Apache 2.0), [Draco](https://github.com/google/draco) (Apache 2.0). Music and sound effects are synthesized in the browser.
 
+## License
+
+The code is released under the [MIT License](LICENSE). The bundled third-party assets keep their own licenses, listed under Credits above and at the end of [LICENSE](LICENSE): the dinosaur models are CC BY 4.0 (please keep the attributions), the environment is CC0, and the animal recordings are public domain or CC0.
+
 <p align="center"><sub>Made with love for one small explorer.</sub></p>
