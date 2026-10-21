@@ -144,9 +144,24 @@ void main() {
   float a;
   vec3 col = uColor;
   if (uMode < 0.5) {
-    float n = texture2D(uNoise, vUv * 0.9 + vSeed * 5.0).r * 0.7 + texture2D(uNoise, vUv * 2.3 + vSeed * 9.0).g * 0.5;
-    a = smoothstep(1.0, 0.25, d) * smoothstep(0.38, 0.7, n + 0.12);
-    col = mix(uColor2, uColor, smoothstep(-0.35, 0.35, c.y + n * 0.3));
+    // cumulus: a cluster of soft puffs fixed per cloud, a flatter base, noise eroding only the rim
+    // (the old noise threshold punched holes that read as dark speckles against the sky)
+    vec2 p = vec2(c.x, c.y * 1.6);
+    float m = 0.0;
+    float msum = 0.0;
+    for (int i = 0; i < 11; i++) {
+      float fi = float(i);
+      vec2 h = fract(sin(vec2(vSeed * 91.7 + fi * 12.9898, vSeed * 47.3 + fi * 78.233)) * 43758.5453);
+      vec2 o = vec2((h.x - 0.5) * 0.66, (h.y - 0.3) * 0.38 * (1.0 - 1.2 * abs(h.x - 0.5)));
+      float r = 0.09 + 0.12 * fract(h.x * 7.13 + h.y * 3.7) * (1.0 - abs(h.x - 0.5));
+      float b = 1.0 - smoothstep(r * 0.35, r, length(p - o));
+      m = max(m, b); msum += b;
+    }
+    float n = texture2D(uNoise, vUv * 1.3 + vSeed * 5.0).r * 0.5 + texture2D(uNoise, vUv * 3.1 + vSeed * 9.0).g * 0.32 + texture2D(uNoise, vUv * 7.0 + vSeed * 2.0).r * 0.18;
+    float dens = m - (1.0 - n) * 0.62;
+    a = smoothstep(0.03, 0.36, dens) * smoothstep(-0.32, -0.16, c.y) * smoothstep(1.0, 0.85, d);
+    float lit = smoothstep(-0.28, 0.3, c.y + (n - 0.5) * 0.35 + (m - 0.5) * 0.1);
+    col = mix(uColor2, uColor, lit) * mix(0.86, 1.0, smoothstep(0.6, 1.6, msum));   // creases between puffs a touch darker
   } else if (uMode < 2.5) {
     float n = texture2D(uNoise, vUv * 0.8 + vSeed * 7.0 + uTime * 0.01).r;
     a = smoothstep(1.0, 0.2, d) * (0.5 + 0.5 * n);
