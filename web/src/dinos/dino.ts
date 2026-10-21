@@ -179,12 +179,25 @@ export class Dino {
     this.animTime += dt;
     if (this.placeholder) this.placeholder.update(dt, this.state, this.speed / Math.max(0.3, sp.speed), this.animTime);
     if (this.mixer) {
+      const walk = this.actions.get('walk'), idle = this.actions.get('idle');
+      if (walk && this.current === walk && (this.state === 'walk' || this.state === 'stomp')) {
+        // feet must cover exactly the ground distance: rate = ground speed / clip's natural speed
+        const natural = Math.max(0.2, sp.speed * this.scale);
+        walk.timeScale = THREE.MathUtils.clamp(this.speed / natural, 0.25, 2.4);
+        // near-stationary → mostly idle, so starts/stops/turns don't moonwalk
+        const w = THREE.MathUtils.clamp(this.speed / (0.45 * natural), 0, 1);
+        if (idle && this.stateTime > 0.4) {
+          if (!idle.isRunning()) { idle.reset(); idle.enabled = true; idle.setEffectiveWeight(0); idle.play(); }
+          walk.setEffectiveWeight(Math.max(0.02, w)); idle.setEffectiveWeight(1 - w);
+        }
+      }
       this.mixer.update(dt);
       if (this.current && this.current.loop === THREE.LoopOnce && !this.current.isRunning() && !this.isBusy) this.play(this.clipFor(this.state));
     }
     // footsteps
     if ((this.state === 'walk' || this.state === 'stomp') && sp.kind === 'land') {
-      const stride = this.state === 'stomp' ? 0.45 : THREE.MathUtils.clamp(sp.lengthM * 0.09, 0.28, 1.1) / Math.max(0.4, this.speed / sp.speed);
+      const rate = Math.max(0.25, this.speed / Math.max(0.2, sp.speed * this.scale));
+      const stride = this.state === 'stomp' ? 0.45 : (sp.walkSeconds ? sp.walkSeconds / 2 : THREE.MathUtils.clamp(sp.lengthM * 0.09, 0.28, 1.1)) / rate;
       if (this.animTime - this.ai.lastStep > stride) { this.ai.lastStep = this.animTime; ctx.onFootstep(this, sp.lengthM >= 6); }
     }
   }

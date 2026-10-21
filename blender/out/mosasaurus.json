@@ -26,6 +26,8 @@
   "swim": 61,
   "roar": 61
  },
+ "stride": null,
+ "walkSeconds": null,
  "bones": [
   "root",
   "spine1",

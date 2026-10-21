@@ -14,7 +14,8 @@
   "legs [(0.17, -0.01, 1727), (-0.17, -0.01, 1719)]",
   "bones 19",
   "weights smoothed",
-  "clips {'idle': 91, 'walk': 40, 'roar': 67, 'eat': 97}",
+  "walk stride/cycle 0.66 m, clip 0.55 s \u2192 speed 1.206 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 17}",
   "exported blender/out/velociraptor.glb 1.78 MB",
   "preview done"
  ],
@@ -25,10 +26,12 @@
  ],
  "clips": {
   "idle": 91,
-  "walk": 40,
   "roar": 67,
-  "eat": 97
+  "eat": 97,
+  "walk": 17
  },
+ "stride": 0.6603445410728455,
+ "walkSeconds": 0.5333333333333333,
  "bones": [
   "root",
   "spine1",

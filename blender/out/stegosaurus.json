@@ -12,8 +12,9 @@
   "legs [(-0.59, -0.71, 732), (0.58, -0.71, 757), (0.63, 1.01, 653), (-0.65, 1.02, 641)]",
   "bones 25",
   "weights smoothed",
-  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
-  "exported blender/out/stegosaurus.glb 2.01 MB",
+  "walk stride/cycle 2.22 m, clip 2.46 s \u2192 speed 0.901 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 75}",
+  "exported blender/out/stegosaurus.glb 2.02 MB",
   "preview done"
  ],
  "size": [
@@ -23,10 +24,12 @@
  ],
  "clips": {
   "idle": 91,
-  "walk": 55,
   "roar": 67,
-  "eat": 97
+  "eat": 97,
+  "walk": 75
  },
+ "stride": 2.2204928398132324,
+ "walkSeconds": 2.466666666666667,
  "bones": [
   "root",
   "spine1",

@@ -17,8 +17,9 @@
   "legs [(0.18, -0.03, 871), (-0.19, -0.0, 870)]",
   "bones 19",
   "weights smoothed",
-  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
-  "exported blender/out/carnotaurus.glb 6.31 MB",
+  "walk stride/cycle 2.886 m, clip 2.06 s \u2192 speed 1.401 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 63}",
+  "exported blender/out/carnotaurus.glb 6.32 MB",
   "preview done"
  ],
  "size": [
@@ -28,10 +29,12 @@
  ],
  "clips": {
   "idle": 91,
-  "walk": 55,
   "roar": 67,
-  "eat": 97
+  "eat": 97,
+  "walk": 63
  },
+ "stride": 2.8858352303504944,
+ "walkSeconds": 2.066666666666667,
  "bones": [
   "root",
   "spine1",

@@ -1,19 +1,478 @@
 {
-  "species": [
-    { "id": "trex", "name": "Tyrannosaurus rex", "sayName": "T. Rex", "kind": "land", "diet": "carnivore", "lengthM": 12, "heightM": 4, "speed": 1.6, "voice": "bigTheropod", "biomes": ["meadow", "jungle"], "count": 2, "file": "trex.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "triceratops", "name": "Triceratops horridus", "sayName": "Triceratops", "kind": "land", "diet": "herbivore", "lengthM": 8, "heightM": 3, "speed": 1.3, "voice": "ceratopsian", "biomes": ["meadow"], "count": 3, "file": "triceratops.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "stegosaurus", "name": "Stegosaurus", "sayName": "Stegosaurus", "kind": "land", "diet": "herbivore", "lengthM": 9, "heightM": 4, "speed": 1.0, "voice": "ceratopsian", "biomes": ["meadow", "lake"], "count": 2, "file": "stegosaurus.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "paluxysaurus", "name": "Paluxysaurus", "sayName": "Paluxysaurus", "kind": "land", "diet": "herbivore", "lengthM": 20, "heightM": 8, "speed": 1.2, "voice": "sauropod", "biomes": ["meadow", "lake"], "count": 2, "file": "paluxysaurus.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "velociraptor", "name": "Velociraptor", "sayName": "Velociraptor", "kind": "land", "diet": "carnivore", "lengthM": 2, "heightM": 0.8, "speed": 3.5, "voice": "raptor", "biomes": ["meadow", "canyon"], "count": 4, "file": "velociraptor.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "sauropelta", "name": "Sauropelta", "sayName": "Sauropelta", "kind": "land", "diet": "herbivore", "lengthM": 5, "heightM": 1.5, "speed": 1.0, "voice": "ceratopsian", "biomes": ["jungle", "swamp"], "count": 2, "file": "sauropelta.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "ankylosaurus", "name": "Ankylosaurus", "sayName": "Ankylosaurus", "kind": "land", "diet": "herbivore", "lengthM": 7, "heightM": 1.7, "speed": 0.9, "voice": "ceratopsian", "biomes": ["meadow", "canyon"], "count": 2, "file": "ankylosaurus.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "iguanodon", "name": "Iguanodon", "sayName": "Iguanodon", "kind": "land", "diet": "herbivore", "lengthM": 10, "heightM": 3, "speed": 1.5, "voice": "ceratopsian", "biomes": ["jungle", "meadow"], "count": 3, "file": "iguanodon.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "ornithocheirus", "name": "Ornithocheirus", "sayName": "Ornithocheirus", "kind": "air", "diet": "piscivore", "lengthM": 3, "heightM": 1, "speed": 7, "voice": "pterosaur", "biomes": ["beach", "lake", "meadow"], "count": 4, "file": "ornithocheirus.glb", "clips": { "idle": "idle", "fly": "fly", "roar": "roar" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "spinosaurus", "name": "Spinosaurus", "sayName": "Spinosaurus", "kind": "land", "diet": "piscivore", "lengthM": 15, "heightM": 5, "speed": 1.4, "voice": "bigTheropod", "biomes": ["beach", "swamp", "lake"], "count": 2, "file": "spinosaurus.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "carnotaurus", "name": "Carnotaurus", "sayName": "Carnotaurus", "kind": "land", "diet": "carnivore", "lengthM": 8, "heightM": 3, "speed": 2.2, "voice": "bigTheropod", "biomes": ["volcano", "canyon"], "count": 2, "file": "carnotaurus.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "allosaurus", "name": "Allosaurus", "sayName": "Allosaurus", "kind": "land", "diet": "carnivore", "lengthM": 9, "heightM": 3.5, "speed": 2.0, "voice": "bigTheropod", "biomes": ["jungle", "snow"], "count": 2, "file": "allosaurus.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "pachycephalosaurus", "name": "Pachycephalosaurus", "sayName": "Pachycephalosaurus", "kind": "land", "diet": "herbivore", "lengthM": 4.5, "heightM": 1.8, "speed": 2.0, "voice": "chirp", "biomes": ["snow", "meadow"], "count": 3, "file": "pachycephalosaurus.glb", "clips": { "idle": "idle", "walk": "walk", "roar": "roar", "eat": "eat" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "pistosaurus", "name": "Pistosaurus", "sayName": "Pistosaurus", "kind": "water", "diet": "piscivore", "lengthM": 3, "heightM": 0.8, "speed": 2.0, "voice": "marine", "biomes": ["lake", "beach"], "count": 3, "file": "pistosaurus.glb", "clips": { "idle": "idle", "swim": "swim", "roar": "roar" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } },
-    { "id": "mosasaurus", "name": "Mosasaurus", "sayName": "Mosasaurus", "kind": "water", "diet": "piscivore", "lengthM": 15, "heightM": 3, "speed": 3.0, "voice": "marine", "biomes": ["beach"], "count": 2, "file": "mosasaurus.glb", "clips": { "idle": "idle", "swim": "swim", "roar": "roar" }, "attribution": { "title": "placeholder", "author": "Dino Pals", "license": "CC0", "url": "" } }
-  ]
+ "version": 1,
+ "species": [
+  {
+   "id": "trex",
+   "name": "Tyrannosaurus rex",
+   "sayName": "T. Rex",
+   "kind": "land",
+   "diet": "carnivore",
+   "lengthM": 12,
+   "speed": 1.29,
+   "voice": "bigTheropod",
+   "biomes": [
+    "meadow",
+    "canyon"
+   ],
+   "count": 2,
+   "attribution": {
+    "title": "Tyrannosaurus Rex",
+    "author": "Arion Digital",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/a3384b114989470fb60f0500aeaae903"
+   },
+   "file": "trex.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 3.87,
+   "widthM": 2.85,
+   "strideM": 1.936,
+   "walkSeconds": 1.5
+  },
+  {
+   "id": "triceratops",
+   "name": "Triceratops",
+   "sayName": "Triceratops",
+   "kind": "land",
+   "diet": "herbivore",
+   "lengthM": 8.5,
+   "speed": 1.194,
+   "voice": "ceratopsian",
+   "biomes": [
+    "meadow"
+   ],
+   "count": 3,
+   "attribution": {
+    "title": "Triceratops Horridus",
+    "author": "IagoMendez",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/cb7bad2c70dc4748a9c58ef9db5fce5e"
+   },
+   "file": "triceratops.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 3.91,
+   "widthM": 2.83,
+   "strideM": 2.269,
+   "walkSeconds": 1.9
+  },
+  {
+   "id": "stegosaurus",
+   "name": "Stegosaurus",
+   "sayName": "Stegosaurus",
+   "kind": "land",
+   "diet": "herbivore",
+   "lengthM": 8,
+   "speed": 0.9,
+   "voice": "ceratopsian",
+   "biomes": [
+    "meadow",
+    "jungle"
+   ],
+   "count": 2,
+   "attribution": {
+    "title": "Stegosaurus",
+    "author": "PAndras",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/b2545ed6031e49939b823b1c8435989e"
+   },
+   "file": "stegosaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 3.48,
+   "widthM": 1.74,
+   "strideM": 2.22,
+   "walkSeconds": 2.467
+  },
+  {
+   "id": "paluxysaurus",
+   "name": "Paluxysaurus",
+   "sayName": "Long neck",
+   "kind": "land",
+   "diet": "herbivore",
+   "lengthM": 20,
+   "speed": 1.007,
+   "voice": "sauropod",
+   "biomes": [
+    "meadow",
+    "jungle",
+    "lake"
+   ],
+   "count": 3,
+   "attribution": {
+    "title": "Paluxysaurus",
+    "author": "Julian Johnson-Mortimer",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/afb6b5c7221b4f43a40762cdd9cdf90c"
+   },
+   "file": "paluxysaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 10.24,
+   "widthM": 4.86,
+   "strideM": 2.986,
+   "walkSeconds": 2.967
+  },
+  {
+   "id": "velociraptor",
+   "name": "Velociraptor",
+   "sayName": "Velociraptor",
+   "kind": "land",
+   "diet": "carnivore",
+   "lengthM": 2.6,
+   "speed": 1.238,
+   "voice": "raptor",
+   "biomes": [
+    "canyon",
+    "meadow"
+   ],
+   "count": 4,
+   "attribution": {
+    "title": "Velociraptor",
+    "author": "Tomas Ibar",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/b227da6c817043ab9a249dbbd127db67"
+   },
+   "file": "velociraptor.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 1.36,
+   "widthM": 0.66,
+   "strideM": 0.66,
+   "walkSeconds": 0.533
+  },
+  {
+   "id": "sauropelta",
+   "name": "Sauropelta",
+   "sayName": "Sauropelta",
+   "kind": "land",
+   "diet": "herbivore",
+   "lengthM": 5.5,
+   "speed": 0.796,
+   "voice": "ceratopsian",
+   "biomes": [
+    "jungle",
+    "swamp"
+   ],
+   "count": 2,
+   "attribution": {
+    "title": "Sauropelta",
+    "author": "Julian Johnson-Mortimer",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/da2bc6ed57404f9f8ed56a975d674b2a"
+   },
+   "file": "sauropelta.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 1.47,
+   "widthM": 1.76,
+   "strideM": 1.194,
+   "walkSeconds": 1.5
+  },
+  {
+   "id": "ankylosaurus",
+   "name": "Ankylosaurus",
+   "sayName": "Ankylosaurus",
+   "kind": "land",
+   "diet": "herbivore",
+   "lengthM": 7,
+   "speed": 0.801,
+   "voice": "ceratopsian",
+   "biomes": [
+    "canyon",
+    "meadow"
+   ],
+   "count": 2,
+   "attribution": {
+    "title": "Ankylosaurus",
+    "author": "InaLaAtzu",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/163daf7cc0664671b017ea874766e809"
+   },
+   "file": "ankylosaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 2.76,
+   "widthM": 1.87,
+   "strideM": 1.656,
+   "walkSeconds": 2.067
+  },
+  {
+   "id": "iguanodon",
+   "name": "Iguanodon",
+   "sayName": "Iguanodon",
+   "kind": "land",
+   "diet": "herbivore",
+   "lengthM": 9,
+   "speed": 0.995,
+   "voice": "ceratopsian",
+   "biomes": [
+    "meadow",
+    "jungle",
+    "swamp"
+   ],
+   "count": 3,
+   "attribution": {
+    "title": "Iguanodon",
+    "author": "Digital3dWorld",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/2dae61d169e346829b85998526091107"
+   },
+   "file": "iguanodon.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 3.2,
+   "widthM": 1.57,
+   "strideM": 1.558,
+   "walkSeconds": 1.567
+  },
+  {
+   "id": "ornithocheirus",
+   "name": "Ornithocheirus",
+   "sayName": "Flying dinosaur",
+   "kind": "air",
+   "diet": "piscivore",
+   "lengthM": 5,
+   "speed": 6,
+   "voice": "pterosaur",
+   "biomes": [
+    "beach",
+    "meadow",
+    "volcano"
+   ],
+   "count": 4,
+   "attribution": {
+    "title": "Ornithocheirus",
+    "author": "Digital3dWorld",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/02d6ca0e98db474fa307b877ad2db90b"
+   },
+   "file": "ornithocheirus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "fly": "fly"
+   },
+   "heightM": 0.65,
+   "widthM": 5.0
+  },
+  {
+   "id": "spinosaurus",
+   "name": "Spinosaurus",
+   "sayName": "Spinosaurus",
+   "kind": "land",
+   "diet": "piscivore",
+   "lengthM": 14,
+   "speed": 1.109,
+   "voice": "bigTheropod",
+   "biomes": [
+    "swamp",
+    "beach"
+   ],
+   "count": 2,
+   "attribution": {
+    "title": "Spinosaurus",
+    "author": "Julian Johnson-Mortimer",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/4f2332ee93874d59a55fb60ed2873ec2"
+   },
+   "file": "spinosaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 6.75,
+   "widthM": 5.59,
+   "strideM": 2.92,
+   "walkSeconds": 2.633
+  },
+  {
+   "id": "carnotaurus",
+   "name": "Carnotaurus",
+   "sayName": "Carnotaurus",
+   "kind": "land",
+   "diet": "carnivore",
+   "lengthM": 8,
+   "speed": 1.396,
+   "voice": "bigTheropod",
+   "biomes": [
+    "volcano",
+    "canyon"
+   ],
+   "count": 2,
+   "attribution": {
+    "title": "CARNOTAURUS DINOSAUR",
+    "author": "Cenker Turhan",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/548c9a0575b14deaae1f12ca9a6c31ca"
+   },
+   "file": "carnotaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 3.49,
+   "widthM": 3.46,
+   "strideM": 2.886,
+   "walkSeconds": 2.067
+  },
+  {
+   "id": "allosaurus",
+   "name": "Allosaurus",
+   "sayName": "Allosaurus",
+   "kind": "land",
+   "diet": "carnivore",
+   "lengthM": 9,
+   "speed": 1.311,
+   "voice": "bigTheropod",
+   "biomes": [
+    "jungle",
+    "volcano"
+   ],
+   "count": 2,
+   "attribution": {
+    "title": "Allosaurus",
+    "author": "PAndras",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/6c5142e093a147bdb86e0eeb837b476c"
+   },
+   "file": "allosaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 2.88,
+   "widthM": 1.82,
+   "strideM": 1.748,
+   "walkSeconds": 1.333
+  },
+  {
+   "id": "pachycephalosaurus",
+   "name": "Pachycephalosaurus",
+   "sayName": "Pachycephalosaurus",
+   "kind": "land",
+   "diet": "herbivore",
+   "lengthM": 4.5,
+   "speed": 1.187,
+   "voice": "chirp",
+   "biomes": [
+    "meadow",
+    "snow"
+   ],
+   "count": 3,
+   "attribution": {
+    "title": "Pachycephalosaurus_animation",
+    "author": "seirogan",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/740349873ae244ef8a19155b525d9193"
+   },
+   "file": "pachycephalosaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "walk": "walk",
+    "eat": "eat"
+   },
+   "heightM": 2.2,
+   "widthM": 1.07,
+   "strideM": 1.702,
+   "walkSeconds": 1.433
+  },
+  {
+   "id": "pistosaurus",
+   "name": "Pistosaurus",
+   "sayName": "Sea dinosaur",
+   "kind": "water",
+   "diet": "piscivore",
+   "lengthM": 3.5,
+   "speed": 1.5,
+   "voice": "marine",
+   "biomes": [
+    "lake",
+    "beach"
+   ],
+   "count": 3,
+   "attribution": {
+    "title": "Pistosaur Animated",
+    "author": "ricksticky",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/773667575a264c7baa4ec404115a044b"
+   },
+   "file": "pistosaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "swim": "swim"
+   },
+   "heightM": 0.66,
+   "widthM": 1.69
+  },
+  {
+   "id": "mosasaurus",
+   "name": "Mosasaurus",
+   "sayName": "Mosasaurus",
+   "kind": "water",
+   "diet": "carnivore",
+   "lengthM": 13,
+   "speed": 1.8,
+   "voice": "marine",
+   "biomes": [
+    "beach"
+   ],
+   "count": 2,
+   "attribution": {
+    "title": "mosasaurus",
+    "author": "Epic_devolepment",
+    "license": "CC-BY-4.0",
+    "url": "https://sketchfab.com/3d-models/6c343575d0df414aba162c69ac1f0105"
+   },
+   "file": "mosasaurus.glb",
+   "clips": {
+    "idle": "idle",
+    "roar": "roar",
+    "swim": "swim"
+   },
+   "heightM": 1.98,
+   "widthM": 4.04
+  }
+ ],
+ "note": "All dinosaur models are third-party CC-BY works, processed (cleaned, rigged, animated, optimized) in Blender for Dino Pals. See attribution per species."
 }

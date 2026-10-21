@@ -10,7 +10,8 @@
   "legs [(-0.28, -0.54, 913), (0.29, -0.54, 913), (0.31, 0.49, 1011), (-0.29, 0.52, 1867)]",
   "bones 25",
   "weights smoothed",
-  "clips {'idle': 91, 'walk': 40, 'roar': 67, 'eat': 97}",
+  "walk stride/cycle 1.194 m, clip 1.49 s \u2192 speed 0.8 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 46}",
   "exported blender/out/sauropelta.glb 3.35 MB",
   "preview done"
  ],
@@ -21,10 +22,12 @@
  ],
  "clips": {
   "idle": 91,
-  "walk": 40,
   "roar": 67,
-  "eat": 97
+  "eat": 97,
+  "walk": 46
  },
+ "stride": 1.194408118724823,
+ "walkSeconds": 1.5,
  "bones": [
   "root",
   "spine1",

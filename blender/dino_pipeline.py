@@ -20,19 +20,19 @@ FPS = 30
 # ---------------------------------------------------------------- species table
 # length = nose-to-tail length in metres (for flyers: wingspan). flip = force head direction override.
 SPECIES = {
-    "trex":              dict(length=12.0, kind="land", gait="biped",  tris=48000, remove=[]),
-    "triceratops":       dict(length=8.5,  kind="land", gait="quad",   tris=45000, remove=["Object_14"], fix_normals=True, clear_normals=True),
-    "stegosaurus":       dict(length=8.0,  kind="land", gait="quad",   tris=40000, remove=[]),
-    "paluxysaurus":      dict(length=20.0, kind="land", gait="quad",   tris=50000, remove=[]),
-    "velociraptor":      dict(length=2.6,  kind="land", gait="biped",  tris=30000, remove=[]),
-    "sauropelta":        dict(length=5.5,  kind="land", gait="quad",   tris=40000, remove=[]),
-    "ankylosaurus":      dict(length=7.0,  kind="land", gait="quad",   tris=40000, remove=[], no_smooth=True),
-    "iguanodon":         dict(length=9.0,  kind="land", gait="quad",   tris=40000, remove=["Object_4"]),
+    "trex":              dict(length=12.0, walk_speed=1.3, kind="land", gait="biped",  tris=48000, remove=[]),
+    "triceratops":       dict(length=8.5, walk_speed=1.2,  kind="land", gait="quad",   tris=45000, remove=["Object_14"], fix_normals=True, clear_normals=True),
+    "stegosaurus":       dict(length=8.0, walk_speed=0.9,  kind="land", gait="quad",   tris=40000, remove=[]),
+    "paluxysaurus":      dict(length=20.0, walk_speed=1.0, amp=0.4, kind="land", gait="quad",   tris=50000, remove=[]),
+    "velociraptor":      dict(length=2.6, walk_speed=1.2, amp=1.3,  kind="land", gait="biped",  tris=30000, remove=[]),
+    "sauropelta":        dict(length=5.5, walk_speed=0.8,  kind="land", gait="quad",   tris=40000, remove=[]),
+    "ankylosaurus":      dict(length=7.0, walk_speed=0.8, amp=0.6,  kind="land", gait="quad",   tris=40000, remove=[], no_smooth=True),
+    "iguanodon":         dict(length=9.0, walk_speed=1.0,  kind="land", gait="quad",   tris=40000, remove=["Object_4"]),
     "ornithocheirus":    dict(length=5.0,  kind="air",  gait="wing",   tris=30000, remove=[]),
-    "spinosaurus":       dict(length=14.0, kind="land", gait="biped",  tris=50000, remove=[]),
-    "carnotaurus":       dict(length=8.0,  kind="land", gait="biped",  tris=40000, remove=["Object_11", "Object_4"]),
-    "allosaurus":        dict(length=9.0,  kind="land", gait="biped",  tris=40000, remove=["Object_6", "Object_8"]),
-    "pachycephalosaurus":dict(length=4.5,  kind="land", gait="biped",  tris=35000, remove=[]),
+    "spinosaurus":       dict(length=14.0, walk_speed=1.1, kind="land", gait="biped",  tris=50000, remove=[]),
+    "carnotaurus":       dict(length=8.0, walk_speed=1.4,  kind="land", gait="biped",  tris=40000, remove=["Object_11", "Object_4"]),
+    "allosaurus":        dict(length=9.0, walk_speed=1.3,  kind="land", gait="biped",  tris=40000, remove=["Object_6", "Object_8"]),
+    "pachycephalosaurus":dict(length=4.5, walk_speed=1.2, amp=1.15,  kind="land", gait="biped",  tris=35000, remove=[]),
     "pistosaurus":       dict(length=3.5,  kind="water",gait="swim",   tris=20000, remove=[]),
     "mosasaurus":        dict(length=13.0, kind="water",gait="swim",   tris=35000, remove=[]),
 }
@@ -313,10 +313,18 @@ for i in range(n_tail):
     bn = add_bone(f"tail{i+1}", spine_at(a), spine_at(b), prev, connect=(i > 0)); tail.append(bn); prev = bn
 # legs
 leg_bones = []
+# tags: quadrupeds → the two legs nearest the head are front; sides by x. bipeds → L/R.
+if GAIT == "quad" and len(legs) == 4:
+    by_y = sorted(legs, key=lambda l: l["y"]); front_set = {id(l) for l in by_y[:2]}
+else:
+    front_set = {id(l) for l in legs if l["y"] < yP - 0.05 * L} if GAIT == "quad" else set()
+used = set()
 for li, l in enumerate(legs):
     side = "L" if l["x"] < 0 else "R"
-    front = l["y"] < yP - 0.05 * L
+    front = id(l) in front_set
     tag = ("F" if front else "B") + side if GAIT == "quad" else side
+    if tag in used: tag = tag + str(li)
+    used.add(tag)
     spz = spine_at(l["y"])[2]
     hip = np.array([l["x"] * 0.6, l["y"], spz * 0.9])
     foot = np.array([l["x"], l["y"], mn[2] + 0.04 * H])
@@ -478,7 +486,7 @@ spines = [PB[f"spine{i+1}"] for i in range(n_torso)]
 head = PB["head"]; jawb = PB["jaw"]; rootb = PB["root"]
 legsP = {tag: (PB[u], PB[lo], PB[ft]) for tag, u, lo, ft, _ in leg_bones}
 big = CFG["length"] > 7.0
-amp = 0.75 if big else 1.0
+amp = CFG.get("amp", 0.75 if big else 1.0)
 
 def tail_sway(t, deg, ph=0.0, freq=1.0):
     for i, tb in enumerate(tails):
@@ -504,14 +512,16 @@ def walk(t, s):
     for nb in necks: rot_world(nb, 'Z', -1.5 * S(t))
     for tag, (u, lo, ft) in legsP.items():
         if GAIT == "quad":
-            ph = 0.0 if tag in ("FL", "BR") else 0.5
+            ph = 0.0 if tag[:2] in ("FL", "BR") else 0.5
         else:
-            ph = 0.0 if tag == "L" else 0.5
+            ph = 0.0 if tag[0] == "L" else 0.5
         sw = S(t, ph)                      # +: leg forward (toward -Y) → rotate about world X negative
-        rot_world(u, 'X', -27 * amp * sw)
-        lift = max(0.0, S(t, ph + 0.25))
-        rot_world(lo, 'X', 18 * amp * lift + 4 * amp * sw)
-        rot_world(ft, 'X', -12 * amp * lift)
+        rot_world(u, 'X', -30 * amp * sw)
+        lift = max(0.0, S(t, ph + 0.25))   # swing phase: knee folds, foot lifts
+        rot_world(lo, 'X', 30 * amp * lift ** 1.5 + 3 * amp * sw)
+        rot_world(ft, 'X', -14 * amp * lift + 6 * amp * max(0.0, -S(t, ph + 0.25)))
+    rot_world(rootb, 'Z', 2.0 * S(t))     # hip sway
+    rot_world(rootb, 'Y', 1.5 * S(t))
 
 def roar(t, s):
     k = ease(t / 0.25) * (1 - ease((t - 0.75) / 0.25))
@@ -566,12 +576,34 @@ def swim_idle(t, s):
     rootb.location.z = 0.01 * H * S(0.5 * t)
 
 if KIND == "land":
-    make_clip("idle", 3.0, idle); make_clip("walk", 1.3 if not big else 1.8, walk)
+    make_clip("idle", 3.0, idle); make_clip("walk", 0.9 if CFG["length"] < 4 else (1.3 if not big else 1.8), walk)
     make_clip("roar", 2.2, roar, loop=False); make_clip("eat", 3.2, eat, loop=False)
 elif KIND == "air":
     make_clip("idle", 2.4, glide); make_clip("fly", 1.0, fly); make_clip("roar", 2.0, roar, loop=False)
 else:
     make_clip("idle", 4.0, swim_idle); make_clip("swim", 2.0, swim); make_clip("roar", 2.0, roar, loop=False)
+# measure the walk clip: foot excursion along Y → stride per cycle; then re-time the clip so that
+# stride / duration equals the species' intended walking speed (no foot sliding at timeScale 1)
+STRIDE = None
+def measure_stride():
+    act, nfr = CLIPS["walk"]
+    arm.animation_data.action = act
+    try: arm.animation_data.action_slot = act.slots[0]
+    except Exception: pass
+    ys = {ft: [] for _, _, _, ft, _ in leg_bones}
+    for f in range(1, nfr + 1):
+        sc.frame_set(f)
+        for _, _, _, ft, _ in leg_bones:
+            ys[ft].append((arm.matrix_world @ PB[ft].tail).y)
+    arm.animation_data.action = None
+    return 2.0 * max(max(v) - min(v) for v in ys.values())   # two stance phases per cycle
+if "walk" in CLIPS and leg_bones:
+    STRIDE = measure_stride()
+    T = min(3.2, max(0.5, STRIDE / CFG.get("walk_speed", 1.0)))
+    act, nfr = CLIPS.pop("walk"); bpy.data.actions.remove(act)
+    make_clip("walk", T, walk)
+    STRIDE = measure_stride()
+    log("walk stride/cycle", round(STRIDE, 3), "m, clip", round(T, 2), "s → speed", round(STRIDE / T, 3), "m/s")
 bpy.ops.object.mode_set(mode='OBJECT')
 
 # push every clip into the NLA so the glTF exporter picks them all up
@@ -661,5 +693,6 @@ if PREVIEW:
     log("preview done")
 
 json.dump(dict(species=SPECIES_ID, log=LOG, size=[float(x) for x in size], clips={k: v[1] for k, v in CLIPS.items()},
+               stride=STRIDE, walkSeconds=((CLIPS["walk"][1] - 1) / FPS) if "walk" in CLIPS else None,
                bones=[b.name for b in arm_data.bones]), open(os.path.join(OUT_DIR, f"{SPECIES_ID}.json"), "w"), indent=1)
 log("total", round(time.time() - t0, 1), "s")

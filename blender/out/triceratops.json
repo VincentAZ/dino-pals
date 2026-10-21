@@ -17,7 +17,8 @@
   "legs [(-0.98, -1.16, 1316), (0.89, -1.16, 1701), (-0.57, 0.66, 1773), (0.61, 1.11, 1897)]",
   "bones 25",
   "weights smoothed",
-  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
+  "walk stride/cycle 2.269 m, clip 1.89 s \u2192 speed 1.199 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 58}",
   "exported blender/out/triceratops.glb 3.29 MB",
   "preview done"
  ],
@@ -28,10 +29,12 @@
  ],
  "clips": {
   "idle": 91,
-  "walk": 55,
   "roar": 67,
-  "eat": 97
+  "eat": 97,
+  "walk": 58
  },
+ "stride": 2.2687156200408936,
+ "walkSeconds": 1.9,
  "bones": [
   "root",
   "spine1",
@@ -47,9 +50,9 @@
   "thigh.FR",
   "shin.FR",
   "foot.FR",
-  "thigh.FL.001",
-  "shin.FL.001",
-  "foot.FL.001",
+  "thigh.BL",
+  "shin.BL",
+  "foot.BL",
   "thigh.BR",
   "shin.BR",
   "foot.BR",

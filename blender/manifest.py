@@ -44,7 +44,10 @@ for s in species:
     s["clips"] = clips
     meta = os.path.join(root, "blender", "out", f"{s['id']}.json")
     if os.path.exists(meta):
-        sz = json.load(open(meta))["size"]; s["heightM"] = round(sz[2], 2); s["widthM"] = round(sz[0], 2)
+        j = json.load(open(meta)); sz = j["size"]; s["heightM"] = round(sz[2], 2); s["widthM"] = round(sz[0], 2)
+        if j.get("stride") and j.get("walkSeconds"):
+            s["strideM"] = round(j["stride"], 3); s["walkSeconds"] = round(j["walkSeconds"], 3)
+            s["speed"] = round(j["stride"] / j["walkSeconds"], 3)   # natural speed: no foot sliding at timeScale 1
 json.dump(dict(version=1, species=species, note="All dinosaur models are third-party CC-BY works, processed (cleaned, rigged, animated, optimized) in Blender for Dino Pals. See attribution per species."),
           open(os.path.join(outdir, "manifest.json"), "w"), indent=1)
 print("manifest written", len(species))

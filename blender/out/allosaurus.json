@@ -12,8 +12,9 @@
   "legs [(0.56, -0.52, 3794), (-0.61, 0.5, 2296)]",
   "bones 19",
   "weights smoothed",
-  "clips {'idle': 91, 'walk': 55, 'roar': 67, 'eat': 97}",
-  "exported blender/out/allosaurus.glb 2.69 MB",
+  "walk stride/cycle 1.748 m, clip 1.34 s \u2192 speed 1.302 m/s",
+  "clips {'idle': 91, 'roar': 67, 'eat': 97, 'walk': 41}",
+  "exported blender/out/allosaurus.glb 2.68 MB",
   "preview done"
  ],
  "size": [
@@ -23,10 +24,12 @@
  ],
  "clips": {
   "idle": 91,
-  "walk": 55,
   "roar": 67,
-  "eat": 97
+  "eat": 97,
+  "walk": 41
  },
+ "stride": 1.7483514547348022,
+ "walkSeconds": 1.3333333333333333,
  "bones": [
   "root",
   "spine1",
