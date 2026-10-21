@@ -17,6 +17,17 @@ No rules, no score, no reading: tap the ground to walk, tap a dinosaur to hear i
 cd web && npm install && npm run dev
 ```
 
+## Tests (run from `web/` after `npm run build`)
+Headless Chromium with the GPU (plus WebKit for Safari), iPad-sized touch viewport:
+- `node tests/smoke.mjs`: every biome, both quality tiers, portrait, touch gestures, zero errors.
+- `node tests/webkit_smoke.mjs`: the Safari engine.
+- `node tests/gait.mjs`, `node tests/smooth.mjs`: foot slip and IK reach per species; per-frame jolts, hip dips and sideways sliding (`SCEN=free|food|taps`).
+- `node tests/collide.mjs`, `node tests/eat.mjs`: no animal ever overlaps a tree or another animal; bites land in the mouth.
+- `node tests/monkey.mjs`, `node tests/spam.mjs`: minutes of random toddler input; rapid taps.
+- `node tests/lifecycle.mjs`, `node tests/governor.mjs`, `node tests/leak.mjs`, `node tests/texmem.mjs`: iPad lifecycle, adaptive resolution, long-session memory, GPU texture budget.
+- `BASE=https://… node tests/prod.mjs`: post-deploy check against the live site.
+- `node tests/reel.mjs`: renders a 30 fps demo video to `demo/dino-pals-reel.mp4`.
+
 ## Rebuild dinosaurs
 ```bash
 blender/run_all.sh <dir-with-source-glbs> --preview   # rig + animate + export + QA renders
