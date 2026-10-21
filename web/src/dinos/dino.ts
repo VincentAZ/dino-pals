@@ -322,7 +322,9 @@ export class Dino {
     } else if (sp.kind === 'water') {
       const w = waterAt(pos.x, pos.z);
       const level = w.kind === 'none' ? 0 : w.level;
-      let y = level - sp.heightM * 0.35 + Math.sin(ctx.time * 0.8 + this.index) * 0.2;
+      // ride low like a real marine reptile: only the back breaks the surface (breaching lifts it clear)
+      const sub = sp.heightM > 1.5 ? 0.65 : 0.45;   // small swimmers keep head and back up where a child can see them
+      let y = level - sp.heightM * this.scale * sub + Math.sin(ctx.time * 0.8 + this.index) * 0.12;
       if (this.ai.breachT >= 0) { const t = this.ai.breachT; y += Math.sin(Math.min(1, t / 1.4) * Math.PI) * sp.heightM * 1.2; this.root.rotation.x = -Math.sin(Math.min(1, t / 1.4) * Math.PI * 2) * 0.5; }
       else this.root.rotation.x *= 0.9;
       pos.y += (y - pos.y) * Math.min(1, dt * 3);

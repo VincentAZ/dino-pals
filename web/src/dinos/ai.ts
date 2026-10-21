@@ -312,7 +312,7 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
     if (following && Math.random() < dt * 0.02) ai.altitude = 12 + Math.random() * 10; else if (!following && ai.altitude < 20 && Math.random() < dt * 0.1) ai.altitude = 25 + Math.random() * 30;
   } else {
     // water: patrol between random deep spots; breach on request
-    const minDepth = Math.max(1.2, sp.heightM * 0.6);
+    const minDepth = Math.max(1.2, sp.heightM * d.scale * 1.05);   // deep enough for the whole body below the surface
     if (ai.breachAt >= 0 && ctx.time > ai.breachAt) { ai.breachAt = -1; ai.breachT = 0; d.setState('roar'); ctx.onEvent(d, 'splash'); }
     if (ai.breachT >= 0) { ai.breachT += dt; if (ai.breachT > 1.6) { ai.breachT = -1; d.setState('swim'); } }
     if (d.state === 'roar' && d.stateTime > 2.2 && ai.breachT < 0) d.setState('swim');
