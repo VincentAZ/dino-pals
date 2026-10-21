@@ -10,3 +10,4 @@ blender/out/*.blend1
 blender/out/*.log
 .vercel/
 .DS_Store
+.claude/
