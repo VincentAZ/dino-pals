@@ -76,6 +76,7 @@ interface DinoApi {
   simulateSlow: (ms: number) => void;
   setJawClose: (species: string, deg: number) => void;
   clearFx: () => void;
+  makeThirsty: (id: string) => void;
   ground: (x: number, z: number) => { h: number; water: number; kind: string };
   headPos: (id: string) => [number, number, number, number] | null;
   motionSample: () => (string | number)[][];
@@ -232,6 +233,7 @@ async function main(): Promise<void> {
           break;
         }
         case 'yawn': playVoice(audio, d.species.voice, s.gain * 0.35, s.pan, d.sizeM * 1.15); break;
+        case 'drink': { const sn = d.snoutPos(new THREE.Vector3()); const w = waterAt(sn.x, sn.z); weather.puffs.spawn('splash', sn.x, w.kind !== 'none' ? w.level : sn.y, sn.z, 5, 0.22); splash(audio, s.gain * 0.18, s.pan, false); break; }
         case 'graze': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('leaf', sn.x, Math.max(sn.y, p.y + 0.2), sn.z, 5); eatCrunch(audio, s.gain * 0.25, s.pan); break; }
         case 'finished': { const sn = d.snoutPos(new THREE.Vector3()); weather.puffs.spawn('heart', sn.x, sn.y + 0.8, sn.z, 10); sparkle(audio); break; }
         case 'splash': splash(audio, s.gain, s.pan, d.species.lengthM > 8); weather.puffs.spawn('splash', p.x, Math.max(p.y, 0), p.z, 40, Math.min(3, d.species.lengthM / 5)); break;
@@ -392,6 +394,7 @@ async function main(): Promise<void> {
     },
     headPos: (id) => { const d = dinos.dinos.find((x) => x.root.name === id); if (!d) return null; const v = d.snoutPos(new THREE.Vector3()); return [v.x, v.y, v.z, d.heading]; },
     ground: (x, z) => { const w = waterAt(x, z); return { h: heightAt(x, z), water: w.kind === 'none' ? -1 : w.level, kind: w.kind }; },
+    makeThirsty: (id) => { const d = dinos.dinos.find((x) => x.root.name === id); if (d) { d.ai.nextDrink = 0; d.ai.target = null; d.ai.waitUntil = 0; } },
     clearFx: () => { weather.sparkles.clear(); weather.puffs.clear(); },
     setJawClose: (species, deg) => { for (const d of dinos.dinos) if (d.species.id === species && d.loco) d.loco.jawClose = THREE.MathUtils.degToRad(deg); },
     setDinoCulling: (on) => { Dino.cullDinos = on; for (const d of dinos.dinos) d.root.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) o.frustumCulled = on; }); },

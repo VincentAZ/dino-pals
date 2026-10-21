@@ -113,7 +113,8 @@ async function run(viewport, label, full, tier = 'high') {
     const p0 = await page.evaluate(() => window.__dino.stats().player);
     // find a ground spot (not a dinosaur) along the lower part of the screen and tap it with a real touch
     let walkPt = null;
-    for (const fx of [0.5, 0.35, 0.65, 0.2, 0.8]) { const r = await page.evaluate(([x, y]) => window.__dino.tapAt(x, y), [viewport.width * fx, viewport.height * 0.8]); if (r === 'walk') { walkPt = fx; break; } }
+    // (a dinosaur may legitimately stand in front of the camera: search more of the lower screen)
+    outer: for (const fy of [0.8, 0.9, 0.7]) for (const fx of [0.5, 0.35, 0.65, 0.2, 0.8, 0.1, 0.9]) { const r = await page.evaluate(([x, y]) => window.__dino.tapAt(x, y), [viewport.width * fx, viewport.height * fy]); if (r === 'walk') { walkPt = fx; break outer; } }
     assert(walkPt !== null, `found a ground tap spot (${walkPt})`);
     await page.evaluate(() => window.__dino.teleport(window.__dino.stats().player.x, window.__dino.stats().player.z));
     await page.touchscreen.tap(viewport.width * (walkPt ?? 0.5), viewport.height * 0.8);

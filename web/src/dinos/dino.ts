@@ -33,7 +33,7 @@ export interface DinoContext {
   dt?: number;
   foods: Food[];
   onFootstep: (d: Dino, big: boolean, at?: THREE.Vector3, heavy?: boolean) => void;
-  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'chew' | 'graze' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap' | 'snore' | 'yawn', item?: FoodItem) => void;
+  onEvent: (d: Dino, ev: 'roar' | 'eat' | 'bite' | 'chew' | 'graze' | 'finished' | 'splash' | 'stomp' | 'sniff' | 'flap' | 'snore' | 'yawn' | 'drink', item?: FoodItem) => void;
 }
 
 export interface AIData {
@@ -45,6 +45,8 @@ export interface AIData {
   tapSeq: number; lastTapAt: number; tapAct: boolean; queued: DinoState | null;
   /** feeding shuffle: its own smoothed velocity (m/s), so steps in and out of it don't jolt */
   shuffleV: THREE.Vector3; shuffling: boolean;
+  /** drinking at a water edge: where the snout goes, where to stand, sips left, when thirsty again */
+  drinkAt: THREE.Vector3 | null; drinkStand: THREE.Vector3 | null; sips: number; nextDrink: number;
 }
 
 const GLB_CACHE = new Map<string, Promise<GLTF>>();
@@ -128,7 +130,7 @@ export class Dino {
     this.root.position.copy(pos); this.heading = heading; this.root.rotation.y = heading;
     this.root.name = `dino-${species.id}-${index}`;
     this.radius = Math.max(2.2, species.lengthM * 0.45);
-    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, awakeUntil: 0, snoreAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet(), tapSeq: 0, lastTapAt: -99, tapAct: false, queued: null, shuffleV: new THREE.Vector3(), shuffling: false };
+    this.ai = { home: pos.clone(), target: null, waitUntil: 0, followUntil: 0, foodTarget: null, angle: Math.random() * Math.PI * 2, radius: 40 + Math.random() * 40, altitude: 25 + Math.random() * 30, glideUntil: 0, actionUntil: 0, lastStep: 0, breachT: -1, nextRoar: 10 + Math.random() * 40, breachAt: -1, lastChew: -1, yawVel: 0, avoidSide: 0, blocked: 0, bestDist: Infinity, progressAt: 0, faceTarget: null, faceUntil: 0, glance: new THREE.Vector3(), glanceUntil: 0, glancing: false, biteItem: null, bitten: false, scripted: false, detour: null, steerT: 0, steerDir: heading, steerSpeed: 0, steerA: 0, steerPick: 0, route: null, routeGoal: new THREE.Vector3(), routeIdx: 0, routeReplanAt: 0, standAt: null, standItem: null, repositions: 0, standOk: null, echoAt: 0, awakeUntil: 0, snoreAt: 0, approachUntil: 0, followSide: 0, sniffFood: null, sniffed: new WeakSet(), tapSeq: 0, lastTapAt: -99, tapAct: false, queued: null, shuffleV: new THREE.Vector3(), shuffling: false, drinkAt: null, drinkStand: null, sips: 0, nextDrink: 40 + Math.random() * 120 };
     // placeholder immediately so the world is never empty
     this.placeholder = buildPlaceholder(species);
     this.model = this.placeholder.root;

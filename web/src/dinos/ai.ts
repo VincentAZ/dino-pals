@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Dino, type DinoContext, type DinoState, type Food, type FoodItem } from './dino.ts';
 import { heightAt, waterAt } from '../world/heightmap.ts';
 import { HALF } from '../world/biomes.ts';
-import { brake, travel, freeSpot, headingError, pivotToward, resolveOverlaps, bodyOf, coast, setAICtx, moveBlocked } from './ai_land.ts';
+import { brake, travel, freeSpot, headingError, pivotToward, resolveOverlaps, bodyOf, coast, setAICtx, moveBlocked, landOk, bodyFree } from './ai_land.ts';
 
 function turnToward(d: Dino, tx: number, tz: number, dt: number, rate: number): number {
   const diff = headingError(d, tx, tz);
@@ -58,6 +58,8 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
       if (d.state === 'eat') eatTick(d, dt, ctx);
       if (d.stateTime > d.busyFor(d.state)) {
         if (d.state === 'eat' && ai.foodTarget && ai.foodTarget.amount > 0 && ai.biteItem && !ai.biteItem.eaten) { ai.lastChew = -1; ai.bitten = false; d.replay(); }
+        else if (d.state === 'eat' && ai.sips > 1) { ai.sips--; ai.lastChew = -1; ai.bitten = false; d.replay(); }   // another sip
+        else if (d.state === 'eat' && ai.sips === 1) { ai.sips = 0; ai.drinkAt = null; ai.drinkStand = null; ai.nextDrink = ctx.time + 90 + Math.random() * 120; d.setState('idle'); ai.waitUntil = ctx.time + 1 + Math.random() * 2; }
         else { d.setState('idle'); ai.waitUntil = ctx.time + 1 + Math.random() * 2; }
       }
       resolveOverlaps(d, ctx);
@@ -275,6 +277,22 @@ export function updateAI(d: Dino, dt: number, ctx: DinoContext): void {
         return;
       }
     }
+    // thirsty now and then: walk to the nearest shallow water edge, lower the head and drink a few sips
+    if (!ai.target && !ai.drinkStand && ctx.time > ai.nextDrink && !ai.scripted) {
+      const found = findWaterEdge(d, ctx);
+      if (found) { ai.drinkAt = found[0]; ai.drinkStand = found[1]; ai.bestDist = Infinity; ai.progressAt = ctx.time; }
+      else ai.nextDrink = ctx.time + 40 + Math.random() * 40;
+    }
+    if (ai.drinkStand && ai.drinkAt) {
+      const here = Math.hypot(ai.drinkStand.x - pos.x, ai.drinkStand.z - pos.z);
+      if (here > 0.7 && ctx.time - ai.progressAt < 12) {
+        travel(d, ctx, ai.drinkStand.x, ai.drinkStand.z, dt, sp.speed * d.speedScale, 0.5);
+      } else if (here > 0.7) { ai.drinkStand = null; ai.drinkAt = null; ai.nextDrink = ctx.time + 30; }   // can't get there
+      else if (pivotToward(d, ai.drinkAt.x, ai.drinkAt.z, dt, ctx) > 0.08 || Math.abs(ai.yawVel) > 0.08) d.setState(Math.abs(ai.yawVel) > 0.05 ? 'walk' : 'idle');
+      else { ai.yawVel = 0; ai.sips = 2 + Math.floor(Math.random() * 3); ai.lastChew = -1; ai.bitten = false; coast(d, dt); d.setState('eat'); }
+      resolveOverlaps(d, ctx);
+      return;
+    }
     if (!ai.target && ctx.time > ai.waitUntil) {
       const spot = freeSpot(d, ctx, ai.home.x, ai.home.z, 45 + sp.lengthM * 2, 16);
       if (spot) { ai.target = spot; ai.bestDist = Infinity; ai.progressAt = ctx.time; } else ai.waitUntil = ctx.time + 2;
@@ -377,8 +395,8 @@ function eatTick(d: Dino, dt: number, ctx: DinoContext): void {
     if (loco) loco.reachWeight = 0;
     const ph = d.clipPhase;
     if (ph < 0.05) ai.bitten = false;
-    if (!ai.bitten && ph >= 0.38) { ai.bitten = true; ctx.onEvent(d, 'graze'); }
-    if (ph > 0.62) { const chew = Math.floor((ph - 0.62) / 0.095); if (chew !== ai.lastChew && chew < 3) { ai.lastChew = chew; ctx.onEvent(d, 'chew'); } }
+    if (!ai.bitten && ph >= 0.38) { ai.bitten = true; ctx.onEvent(d, ai.sips > 0 ? 'drink' : 'graze'); }
+    if (ph > 0.62 && ai.sips === 0) { const chew = Math.floor((ph - 0.62) / 0.095); if (chew !== ai.lastChew && chew < 3) { ai.lastChew = chew; ctx.onEvent(d, 'chew'); } }
     return;
   }
   const ph = d.clipPhase;
@@ -462,6 +480,30 @@ function updateLook(d: Dino, ctx: DinoContext): void {
   loco.lookTarget = ai.glancing ? ai.glance : null; loco.lookWeight = 0.8;
 }
 
+/**
+ * The nearest shallow water edge within 60 m: returns [where the snout drinks, where to stand], or null.
+ * The stand point is one neck-reach back from the water, on walkable ground, facing the water.
+ */
+function findWaterEdge(d: Dino, ctx: DinoContext): [THREE.Vector3, THREE.Vector3] | null {
+  const pos = d.root.position; const reach = Math.max(0.8, d.reachNow);
+  let best: [THREE.Vector3, THREE.Vector3] | null = null, bd = Infinity;
+  for (let r = 6; r <= 60 && !best; r += 6) {
+    for (let k = 0; k < 32; k++) {
+      const a = (k / 32) * Math.PI * 2; const x = pos.x + Math.sin(a) * r, z = pos.z + Math.cos(a) * r;
+      const w = waterAt(x, z); if (w.kind === 'none' || w.kind === 'sea') continue;
+      const depth = w.level - heightAt(x, z); if (depth < 0.02 || depth > 0.3) continue;
+      // step back toward the animal until dry, then one neck-reach further: the stand point
+      let ex = x, ez = z; const ux = (pos.x - x) / r, uz = (pos.z - z) / r;
+      for (let i = 0; i < 12; i++) { const wi = waterAt(ex, ez); if (wi.kind === 'none' || wi.level <= heightAt(ex, ez)) break; ex += ux * 0.5; ez += uz * 0.5; }
+      const sx = ex + ux * reach * 0.9, sz = ez + uz * reach * 0.9;
+      if (!landOk(sx, sz) || !bodyFree(d, ctx, sx, sz, Math.atan2(-ux, -uz), 0.6)) continue;
+      const dd = Math.hypot(sx - pos.x, sz - pos.z);
+      if (dd < bd) { bd = dd; best = [new THREE.Vector3(ex - ux * 0.3, 0, ez - uz * 0.3), new THREE.Vector3(sx, 0, sz)]; }
+    }
+  }
+  return best;
+}
+
 /** The second (per-species) action after a repeated tap. */
 export function secondAction(d: Dino): DinoState {
   const sp = d.species;
@@ -508,6 +550,7 @@ export function triggerAction(d: Dino, action: DinoState, ctx: DinoContext): Din
   d.ai.target = null;
   if (d.ai.foodTarget) { d.ai.foodTarget.eaters.delete(d.index); d.ai.foodTarget = null; }
   d.ai.standAt = null; d.ai.standItem = null;
+  d.ai.drinkAt = null; d.ai.drinkStand = null; d.ai.sips = 0;
   d.ai.awakeUntil = ctx.time + 45;
   d.setState('idle'); d.setState(action);   // keeps its speed: the busy branch coasts it to a halt
   ctx.onEvent(d, action as 'roar' | 'eat' | 'stomp' | 'sniff');
