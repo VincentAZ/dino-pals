@@ -24,7 +24,7 @@ export interface DinoContext {
   view: THREE.Vector3;
   /** 0 = day … 1 = deep night */
   night: number;
-  obstacles: { near: (x: number, z: number, r: number, out: Obstacle[]) => Obstacle[] };
+  obstacles: { near: (x: number, z: number, r: number, out: Obstacle[]) => Obstacle[]; rebuilds?: number };
   others: Dino[];
   /** extra round no-go zones [x, z, r] (the explorer, the camera) */
   keepClear: [number, number, number][];

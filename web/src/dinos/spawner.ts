@@ -5,13 +5,15 @@ import { Dino, type DinoContext } from './dino.ts';
 import type { Species } from './manifest.ts';
 import { updateAI, findSpot, runQueuedTap } from './ai.ts';
 import { resetRouteBudget } from './path.ts';
-import { prewarmLand, aiProf } from './ai_land.ts';
+import { prewarmLand, aiProf, resolveOverlaps } from './ai_land.ts';
 import { BIOMES, type BiomeId } from '../world/biomes.ts';
 import { heightAt, slopeAt, waterAt } from '../world/heightmap.ts';
 import { DINO_SLEEP_DIST, MAX_ANIMATED_DINOS } from '../config.ts';
 import { mulberry32 } from '../util/noise.ts';
 
 export class DinoManager {
+  private frame = 0;
+  private seenRebuilds = -1;
   group = new THREE.Group();
   dinos: Dino[] = [];
   private loader: GLTFLoader;
@@ -130,6 +132,8 @@ export class DinoManager {
   update(dt: number, ctx: DinoContext, shadowCenter: THREE.Vector3, camera: THREE.Camera): void {
     const p = ctx.player;
     resetRouteBudget(1);
+    this.frame++;
+    const fresh = (ctx.obstacles.rebuilds ?? 0) !== this.seenRebuilds; this.seenRebuilds = ctx.obstacles.rebuilds ?? 0;   // new trees: check everyone at once
     ctx.dt = dt;
     prewarmLand(p.x, p.z, 0.6);   // walkability ahead of need, so route plans are lookups
     this.herdTimer -= dt;
@@ -146,7 +150,13 @@ export class DinoManager {
       if (d.animated) animated++;
       if (!awake) { if (d.ai.followUntil > ctx.time) d.ai.followUntil = 0; continue; }
       // only animated dinosaurs may move (an un-animated one would glide like a statue)
-      if (d.animated || d.species.kind !== 'land') { const ta = performance.now(); updateAI(d, dt, ctx); runQueuedTap(d, ctx); aiProf.ai += performance.now() - ta; } else d.speed = 0;
+      if (d.animated || d.species.kind !== 'land') { const ta = performance.now(); updateAI(d, dt, ctx); runQueuedTap(d, ctx); aiProf.ai += performance.now() - ta; }
+      else {
+        d.speed = 0;
+        // trees stream in around the explorer and can appear where a resting, un-animated dinosaur stands:
+        // nudge it clear now and then (a sauropod is visible from far away)
+        if ((this.frame + d.index) % 30 === 0 || fresh) resolveOverlaps(d, ctx);
+      }
       d.animInterval = dist < 45 ? 0 : dist < 100 ? 1 / 31 : 1 / 16;
       const camD = d.root.position.distanceTo((camera as THREE.PerspectiveCamera).position);
       const lodFar = 30 + d.species.lengthM * 1.5;

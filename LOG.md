@@ -234,3 +234,10 @@ Brief: the two spots the realism pass left below standard. Conifers still used c
   Snow biome high: 658 k → 773 k triangles, 418 → 387 calls. Volcano slope high: 293 k → 338 k. The texture growth is the two new ground layers (+2.7 MB per array) plus two needle atlases (2048×1024 BC7/ASTC + 1024×512 normals, ~3.4 MB each).
 - **Tests:** `tsc` clean, build OK, `tests/smoke.mjs` PASSED (zero errors on all three passes), `tests/webkit_smoke.mjs` 0 errors / 0 warnings, `tests/cachebust.mjs` PASSED (162 versioned requests, 0 bare).
 - **Open:** the big firs are tall forest trees whose crowns start 6 m up, so at the explorer's eye height you mostly see their trunks; the young firs carry the close-up needle detail. Needle-card density (~520–660 px/m) is a little softer than the screen at 2 m. Untested on a physical iPad.
+
+### Distant dinosaurs inside streamed-in trees
+- Longer monkey runs that check overlaps after every action caught a rare case: an idle sauropod 0.47 m inside a tree trunk, persisting. Trees stream in around the explorer and can appear where a distant dinosaur stands. Dinosaurs outside the 16 nearest are frozen (no AI), so nothing pushed them out, and a 10 m sauropod is visible from 100 m away.
+- The obstacle grid now counts its rebuilds. When new trees arrive, every frozen dinosaur gets one overlap pass, plus a staggered pass about once a second. The same seed now runs with zero overlap events. The monkey test's memory check is an absolute budget, since `tests/leak.mjs` covers plateauing.
+
+### Final regression on the merged world (environment pass 2 + all of the above)
+smoke (all biomes, both tiers, portrait), WebKit 0 errors/0 warnings, gait slip of 1.1 cm or less, collide 0 overlaps, eat 23 bites median 5.9 cm, spam, lifecycle, air/water, family, sleep, cache-bust, governor, smoothness (free/food/taps) and a 7-minute monkey all pass. GPU textures 197 MB at start and 232 MB with everything loaded. 60 fps at 1x and 4x CPU throttle, 49 fps at 6x.

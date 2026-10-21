@@ -12,13 +12,15 @@ export class ObstacleGrid {
   private veg: Vegetation;
   private nextCheck = 0;
   count = 0;
+  /** increments whenever the grid is rebuilt (new trees / rocks streamed in) */
+  rebuilds = 0;
   constructor(veg: Vegetation) { this.veg = veg; }
 
   /** Rebuild when the vegetation changed (at most twice a second). */
   update(time: number): void {
     if (time < this.nextCheck || this.veg.version === this.builtVersion) return;
     this.nextCheck = time + 0.5;
-    this.builtVersion = this.veg.version;
+    this.builtVersion = this.veg.version; this.rebuilds++;
     this.cells.clear(); this.count = 0;
     this.veg.forEachObstacle((x, z, r, canopy, h, tree) => {
       const o: Obstacle = { x, z, r, canopy, h, tree };
