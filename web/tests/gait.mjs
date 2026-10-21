@@ -52,12 +52,13 @@ for (const sp of SPECIES) {
   // ---- stop and settle
   await page.evaluate((id) => window.__dino.command(id, { stop: true }), id);
   for (let f = 0; f < 30; f++) { await page.evaluate(() => window.__dino.step(3)); if (f % 3 === 0) await shot(`${sp}_stop_${String(f / 3).padStart(2, '0')}`); }
+  const stop = await page.evaluate((id) => window.__dino.loco(id), id);
   // ---- turn in place towards a point behind, 3/4 high view
   await page.evaluate(([id, L]) => { const a = window.__dino; const d = a.loco(id); a.watch(id, -2.3, 0.45, L * 1.1, 0.3); a.command(id, { face: [d.pos[0] - 20, d.pos[1] + 2] }); }, [id, L]);
   for (let f = 0; f < 36; f++) { await page.evaluate(() => window.__dino.step(3)); if (f % 2 === 0) await shot(`${sp}_turn_${String(f / 2).padStart(2, '0')}`); }
   const turn = await page.evaluate((id) => window.__dino.loco(id), id);
-  results[sp] = { id, walk, turn };
-  console.log(sp, JSON.stringify({ walk, turn: { heading: turn.heading, maxSlip: turn.maxSlip, maxReach: turn.maxReach, steps: turn.steps } }));
+  results[sp] = { id, walk, stop, turn };
+  console.log(sp, JSON.stringify({ walk, stop: { maxSlip: stop.maxSlip, maxReach: stop.maxReach, steps: stop.steps, settle: stop.settle, emergency: stop.emergency }, turn: { heading: turn.heading, maxSlip: turn.maxSlip, maxReach: turn.maxReach, steps: turn.steps } }));
   await page.evaluate((id) => { const a = window.__dino; a.watch(null); a.command(id, { place: [400, 400, 0], stop: true }); }, id);
 }
 fs.writeFileSync(`${OUT}/results.json`, JSON.stringify({ results, errors }, null, 1));

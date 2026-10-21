@@ -76,7 +76,9 @@ export class Locomotion {
   jaw: THREE.Bone | null = null;
   legLen: number;                         // mean hip height (m)
   footRadius: number;                     // mean horizontal distance of feet from the root origin
+  footRadiusMax = 1;
   baseCycle: number;
+  private minCycle = 0.5; private maxCycle = 1.5; private stanceMax = 1;
   duty: number;
   private walkDuty = 0.3;
   private trotK = 0;
@@ -87,6 +89,7 @@ export class Locomotion {
   maxTurnRate: number;
   bodyHalfWidth: number;
   phase = 0;
+  lastCycle = 0;
   private prevPos = new THREE.Vector3();
   private prevHeading = 0;
   private vel = new THREE.Vector3();
@@ -143,7 +146,8 @@ export class Locomotion {
       const side = tag.endsWith('L') ? 1 : -1;   // three.js: Blender −X (left) → +X? decided by position below
       this.legs.push({
         tag, front, side: Math.sign(hip.x) || side, thigh, shin, foot, toes, tip, a, b,
-        restHip: hip, restBall: new THREE.Vector3(ball.x, 0, ball.z), restAnkleOff: ankle.clone().sub(new THREE.Vector3(ball.x, 0, ball.z)),
+        // home: the foot's ball straight under its hip (models are often posed mid-stride), toes as modelled
+        restHip: hip, restBall: new THREE.Vector3(ball.x, 0, hip.z + (ball.z - ankle.z) * 0.5), restAnkleOff: ankle.clone().sub(new THREE.Vector3(ball.x, 0, ball.z)),
         restToeOff: new THREE.Vector3(toe.x - ball.x, 0, toe.z - ball.z), poleLocal: pole, hipH: hip.y,
         offset: this.biped ? (tag.startsWith('L') ? 0 : 0.5) : (quadOffsets[tag.slice(0, 2)] ?? 0),
         walkOffset: this.biped ? (tag.startsWith('L') ? 0 : 0.5) : (quadOffsets[tag.slice(0, 2)] ?? 0),
@@ -155,15 +159,21 @@ export class Locomotion {
     root.rotation.set(0, rot, 0); root.updateMatrixWorld(true);
     this.legLen = this.legs.reduce((s, l) => s + l.hipH, 0) / this.legs.length;
     this.footRadius = this.legs.reduce((s, l) => s + Math.hypot(l.restBall.x, l.restBall.z), 0) / this.legs.length;
+    this.footRadiusMax = Math.max(...this.legs.map((l) => Math.hypot(l.restBall.x, l.restBall.z)));
     this.bodyHalfWidth = Math.max(...this.legs.map((l) => Math.abs(l.restBall.x))) + 0.15 * this.legLen;
-    this.baseCycle = (this.biped ? 2 : 2.5) * (0.26 + 0.17 * Math.sqrt(this.legLen));
-    this.duty = this.biped ? 0.42 : 0.3;
+    // gait timing from dynamic similarity (Alexander 1976): relative stride λ/h = 2.3·Fr^0.3, Fr = v²/(g·h)
+    const h = this.legLen;
+    this.minCycle = 0.5 * Math.sqrt(h); this.maxCycle = 1.6 * Math.sqrt(h);
+    this.baseCycle = 0.5 * (this.minCycle + this.maxCycle);
+    this.duty = this.biped ? 0.42 : 0.3;            // swing fraction of the cycle
     this.walkDuty = this.duty;
-    this.vRef = 0.35 * Math.sqrt(9.81 * this.legLen);
-    const maxStride = (this.biped ? 1.05 : 0.85) * this.legLen;
-    this.maxSpeed = maxStride / (this.baseCycle * 0.75);
-    this.maxTurnRate = Math.min(1.4, (0.55 * maxStride) / (Math.max(0.3, this.footRadius) * this.baseCycle));
-    this.trotSpeed = this.maxSpeed * (this.biped ? 1.45 : 1.6);
+    this.stanceMax = (this.biped ? 1.0 : 0.8) * h;   // how far a planted foot can travel under the hip
+    this.vRef = 0.35 * Math.sqrt(9.81 * h);
+    this.maxSpeed = Math.sqrt(0.25 * 9.81 * h);      // walk → trot transition (Froude 0.25)
+    this.trotSpeed = Math.sqrt((this.biped ? 0.6 : 0.5) * 9.81 * h);
+    const maxStride = (this.biped ? 1.05 : 0.85) * h;
+    this.maxTurnRate = Math.min(1.4, (0.5 * this.stanceMax) / (Math.max(0.3, this.footRadiusMax) * this.minCycle * 1.4 * (1 - this.duty)));
+    void maxStride;
   }
 
   /** Last pose written by the animation mixer (three.js only writes a bone when its value changes,
@@ -247,17 +257,21 @@ export class Locomotion {
     const pos = this.root.position;
     this.model.updateMatrixWorld(true);
     const v = Math.hypot(this.vel.x, this.vel.z);
-    const turnSpeed = Math.abs(this.yawRate) * this.footRadius;
+    const turnSpeed = Math.abs(this.yawRate) * this.footRadiusMax;
     this.speedEff = Math.max(v, turnSpeed);
     const moving = this.speedEff > 0.04 && !busy;
     const sf = THREE.MathUtils.clamp(this.speedEff / Math.max(0.3, this.vRef), 0, 2.2);
-    const cycle = this.baseCycle * THREE.MathUtils.clamp(1.15 - 0.35 * sf, 0.62, 1.15);
+    const ve = Math.max(0.05, this.speedEff), h = this.legLen;
+    const stride = 2.3 * h * Math.pow((ve * ve) / (9.81 * h), 0.3);
+    let cycle = THREE.MathUtils.clamp(stride / ve, this.minCycle, this.maxCycle);
+    cycle = Math.max(this.minCycle, Math.min(cycle, this.stanceMax / (ve * (1 - this.duty))));
     // gait transition: walk → trot as the speed rises past the walking range
     const trot = THREE.MathUtils.smoothstep(this.speedEff / Math.max(0.2, this.maxSpeed), 0.85, 1.15);
     if (!this.legs.some((l) => l.swinging) || Math.abs(trot - this.trotK) > 0.25) this.trotK = trot;
     for (const l of this.legs) l.offset = THREE.MathUtils.lerp(l.walkOffset, l.trotOffset, this.trotK);
     this.duty = THREE.MathUtils.lerp(this.walkDuty, this.biped ? 0.48 : 0.44, this.trotK);
     if (moving) { this.phase += dt / cycle; this.stillTime = 0; } else this.stillTime += dt;
+    this.lastCycle = cycle;
     const stance = (1 - this.duty) * cycle;
 
     // ---------------------------------------------------------------- schedule swings
@@ -353,7 +367,7 @@ export class Locomotion {
       const drop = (H.y + bobY - T.y) - vmax;
       if (drop > need) need = drop;
     }
-    need = Math.min(need, 0.35 * this.legLen);
+    need = Math.min(need, 0.45 * this.legLen);
     this.reachDrop += (need - this.reachDrop) * Math.min(1, dt * (need > this.reachDrop ? 30 : 3));
     const dy = bobY - this.reachDrop;
     if (Math.abs(dy) > 1e-4 || Math.abs(swayX) > 1e-4) {
@@ -467,7 +481,10 @@ export class Locomotion {
   }
 
   /** Re-plant every foot under the body (after a teleport). */
-  resetPlants(): void { this.started = false; for (const l of this.legs) { l.swinging = false; l.lastK = -99; } this.vel.set(0, 0, 0); this.yawRate = 0; }
+  resetPlants(): void {
+    this.started = false; for (const l of this.legs) { l.swinging = false; l.lastK = -99; } this.vel.set(0, 0, 0); this.yawRate = 0;
+    this.stats = { maxSlip: 0, maxReach: 0, steps: 0, gait: 0, settle: 0, emergency: 0 };
+  }
 
   /** World position of the snout tip (end effector). */
   snoutWorld(out: THREE.Vector3): THREE.Vector3 | null { return this.snout ? wpos(this.snout, out) : null; }
