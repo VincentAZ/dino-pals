@@ -78,6 +78,7 @@ interface DinoApi {
   clearFx: () => void;
   makeThirsty: (id: string) => void;
   flyby: (id: string) => void;
+  showFootprints: (on: boolean) => void;
   ground: (x: number, z: number) => { h: number; water: number; kind: string };
   headPos: (id: string) => [number, number, number, number] | null;
   motionSample: () => (string | number)[][];
@@ -395,6 +396,7 @@ async function main(): Promise<void> {
     },
     headPos: (id) => { const d = dinos.dinos.find((x) => x.root.name === id); if (!d) return null; const v = d.snoutPos(new THREE.Vector3()); return [v.x, v.y, v.z, d.heading]; },
     ground: (x, z) => { const w = waterAt(x, z); return { h: heightAt(x, z), water: w.kind === 'none' ? -1 : w.level, kind: w.kind }; },
+    showFootprints: (on) => { footprints.mesh.visible = on; },
     flyby: (id) => { const d = dinos.dinos.find((x) => x.root.name === id); if (d) { d.ai.actionUntil = clock.t + 15; d.ai.altitude = 10; } },
     makeThirsty: (id) => { const d = dinos.dinos.find((x) => x.root.name === id); if (d) { d.ai.nextDrink = 0; d.ai.target = null; d.ai.waitUntil = 0; } },
     clearFx: () => { weather.sparkles.clear(); weather.puffs.clear(); },
