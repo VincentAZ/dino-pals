@@ -19,6 +19,7 @@ import { loadManifest, type Species } from './dinos/manifest.ts';
 import { DinoManager } from './dinos/spawner.ts';
 import { ktx2Loader } from './world/ktx2.ts';
 import { installAssetVersioning } from './assets.ts';
+import { Footprints } from './world/footprints.ts';
 import { loadSkinDetail } from './dinos/skin.ts';
 import { facePlayer, tapAction } from './dinos/ai.ts';
 import { Dino } from './dinos/dino.ts';
@@ -180,6 +181,7 @@ async function main(): Promise<void> {
   };
   const foodSystem = new FoodSystem(scene, gltf, foods);
   const zzz = new Zzz(); scene.add(zzz.group);
+  const footprints = new Footprints(); scene.add(footprints.mesh);
   void foodSystem.load();
   const keepClear: [number, number, number][] = [[0, 0, 1.6], [0, 0, 1.4]];
   const biteLog: { dino: string; dist: number; t: number }[] = [];
@@ -187,6 +189,9 @@ async function main(): Promise<void> {
     player: player.pos, eye: player.eye, view: new THREE.Vector3(0, 0, -1), night: 0, time: 0, foods, obstacles, others: dinos.dinos, keepClear,
     onFootstep: (d, big, at, heavy) => {
       const p = at ?? d.root.position;
+      if (at && d.loco && d.species.kind === 'land' && Math.hypot(p.x - player.pos.x, p.z - player.pos.z) < 70) {
+        footprints.add(p, d.heading, THREE.MathUtils.clamp(d.loco.legLen * 0.38, 0.14, 1.3), d.loco.biped);
+      }
       const s = spatial(p, big ? 120 : 50);
       footstep(audio, big, s.gain * (big ? 0.8 : 0.3) * (heavy ? 1.4 : 1), s.pan);
       if (heavy) thump(audio, s.gain * 0.8, s.pan);
@@ -594,6 +599,7 @@ async function main(): Promise<void> {
     const dMs = performance.now() - tD; dinoMs += (dMs - dinoMs) * 0.05; dinoMaxMs = Math.max(dinoMaxMs * 0.995, dMs);
     foodSystem.update(dt);
     zzz.update(dt);
+    footprints.update(dt);
     ambience.update(dt, biomeW, sky.state.night, weather.rainAmount);
     music.update(sky.state.night);
     loadingNow = vegetation.loadedCount < vegetation.species.size || dinos.dinos.some((d) => d.loading);   // something near the child is still arriving
