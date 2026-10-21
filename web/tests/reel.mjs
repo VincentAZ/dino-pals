@@ -66,16 +66,24 @@ if (spot) {
   await page.evaluate(() => window.__dino.watch(null));
   await page.evaluate(([id, spot]) => { const a = window.__dino; a.teleport(spot.bx + 6, spot.bz + 6); let k = 0; for (const d of a.dinos) if (d.id !== id && Math.hypot(d.x - spot.bx, d.z - spot.bz) < 80) a.command(d.id, { place: [300 + 30 * (k++), 300, 0], stop: true }); a.command(id, { place: [spot.bx, spot.bz, 0], stop: true }); }, [tri, spot]);
   await ready([tri]);
-  await page.evaluate(([id, spot]) => { const a = window.__dino; a.command(id, { place: [spot.bx, spot.bz, 0], stop: true }); a.step(10); a.command(id, { release: true }); a.makeThirsty(id); a.watch(id, -1.3, 0.3, 11, 0.3); }, [tri, spot]);
+  await page.evaluate(([id, spot]) => {
+    const a = window.__dino; a.command(id, { place: [spot.bx, spot.bz, 0], stop: true }); a.step(10); a.command(id, { release: true }); a.makeThirsty(id);
+    // film from out over the water, looking back at the bank (no trees in the way)
+    const ux = spot.x - spot.bx, uz = spot.z - spot.bz, L = Math.hypot(ux, uz) || 1; const g = a.ground(spot.x, spot.z);
+    a.director([spot.x + ux / L * 4 + uz / L * 3, Math.max(g.h, g.water) + 2.4, spot.z + uz / L * 4 - ux / L * 3], id, [0, 0, 0], 0.35);
+  }, [tri, spot]);
   await film(300);
 }
 // H. Swimmers ride low; a pterosaur passes overhead
 await page.evaluate(() => { const a = window.__dino; a.watch(null); a.teleportBiome('beach'); });
 await page.waitForFunction(() => !window.__dino.busy(), null, { timeout: 60000 }).catch(() => {});
 const mosa = await idOf('mosasaurus');
-if (mosa) { await page.evaluate((id) => { const a = window.__dino; a.watch(id, -1.57, 0.3, 24, 0.3); }, mosa); await film(150); }
+if (mosa) { await page.evaluate((id) => { const a = window.__dino; a.director(null); a.watch(id, -1.57, 0.3, 24, 0.3); a.step(2); }, mosa); await film(150); }
 const ptero = await idOf('ornithocheirus');
-if (ptero) { await page.evaluate((id) => { const a = window.__dino; a.watch(null); a.teleportBiome('meadow'); a.command(id, { place: [20, -20, 0] }); a.flyby(id); a.watch(id, 2.6, -0.25, 16, 0.5); }, ptero); await film(180); }
+if (ptero) {
+  await page.evaluate((id) => { const a = window.__dino; a.watch(null); a.director(null); a.teleport(0, 0); a.command(id, { place: [20, -20, 0] }); a.flyby(id); a.step(30); const gy = a.stats().player.y; a.director([0, gy + 1.6, 0], id, [0, 0, 0], 0.5); }, ptero);
+  await film(180);
+}
 console.log('frames', n, 'errors', errors.length, errors.slice(0, 3));
 await browser.close(); try { process.kill(-server.pid, 'SIGTERM'); } catch { server.kill(); }
 execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', '30', '-i', `${FR}/f%04d.jpg`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-vf', 'scale=1280:-2', '-crf', '23', '-preset', 'slow', '-movflags', '+faststart', OUTMP4]);
