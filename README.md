@@ -103,6 +103,7 @@ Run from `web/` after `npm run build`. They drive headless Chromium with the GPU
 
 | Command | Checks |
 |---|---|
+| `npm run test:mobile` | Build, then check real phone/tablet taps in Chromium and WebKit; pending audio/fullscreen permissions, pinch/cancel/hold recovery, buttons, rotation and scrolling the parent panel |
 | `node tests/smoke.mjs` | Every biome, both quality tiers, portrait, touch gestures, zero errors |
 | `node tests/webkit_smoke.mjs`, `node tests/visual_parity.mjs` | The Safari engine: errors, and the same frames rendered in Chromium and WebKit |
 | `node tests/gait.mjs`, `node tests/smooth.mjs` | Foot slip and IK reach per species; per-frame jolts, hip dips and sideways sliding |

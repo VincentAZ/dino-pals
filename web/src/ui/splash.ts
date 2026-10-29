@@ -1,7 +1,7 @@
 // The only "screen": a full-bleed scene rendered from the game itself, with a pulsing tap hint.
 import { versioned } from '../assets.ts';
 
-export function showSplash(): Promise<void> {
+export function showSplash(onStart: () => void): Promise<void> {
   const el = document.createElement('div');
   el.id = 'splash';
   el.innerHTML = `
@@ -16,13 +16,17 @@ export function showSplash(): Promise<void> {
   img.onload = () => { (el.querySelector('.splash-img') as HTMLElement).style.backgroundImage = `url("${img.src}")`; el.classList.add('ready'); };
   img.src = versioned('/assets/ui/splash.webp');
   return new Promise((resolve) => {
-    const go = (e: Event) => {
+    const go = (e: PointerEvent) => {
+      if (!e.isPrimary || e.button !== 0) return;
       e.preventDefault();
-      el.removeEventListener('pointerdown', go);
+      el.removeEventListener('pointerup', go);
+      // Audio/fullscreen permission must be requested directly in the completed
+      // tap, before any terrain-loading await can consume its user activation.
+      onStart();
       el.classList.add('out');
       setTimeout(() => el.remove(), 700);
       resolve();
     };
-    el.addEventListener('pointerdown', go, { passive: false });
+    el.addEventListener('pointerup', go, { passive: false });
   });
 }

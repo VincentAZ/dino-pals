@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:mobile": "npm run build && node tests/mobile.mjs"
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.5.1",

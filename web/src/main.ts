@@ -157,20 +157,24 @@ async function main(): Promise<void> {
   dinos.spawnAll(speciesList);
 
   // splash (the only screen) — start loading underneath it
-  const splashP = showSplash();
+  const splashP = showSplash(() => {
+    void audio.unlock();
+    try { void document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {}); } catch { /* unavailable on iOS */ }
+  });
   await terrainReady;
   water = new Water(terrain.uniforms.uNoise.value, terrain.heightTexture!);
   scene.add(water.group);
   await splashP;
-  await audio.unlock();
+  // Permission prompts may remain pending on iOS. The world and its controls
+  // must start independently; later completed taps can retry the audio unlock.
   void samples.load(audio);
   ambience.start(); music.start();
   requestWakeLock();
   // iOS parks the audio context as "interrupted" after calls, Siri or other apps; the next touch revives it
   const reviveAudio = (): void => { if (audio.ctx.state !== 'running' && !document.hidden) void audio.unlock(); };
   window.addEventListener('pointerdown', reviveAudio, { capture: true, passive: true });
+  window.addEventListener('pointerup', reviveAudio, { capture: true, passive: true });
   window.addEventListener('touchend', reviveAudio, { capture: true, passive: true });
-  try { await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); } catch { /* not available on iOS */ }
 
   // ---------- interactions ----------
   const foods: Food[] = [];
@@ -627,6 +631,7 @@ async function main(): Promise<void> {
   };
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
+  onResize();   // fullscreen or rotation may have resized the viewport while terrain was loading
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { running = false; cancelAnimationFrame(raf); audio.suspend(); }
     else { if (!running) { running = true; last = performance.now(); frame(); } audio.resume(); requestWakeLock(); }

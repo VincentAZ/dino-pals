@@ -22,10 +22,14 @@ export class AudioEngine {
   }
   private mk(v: number): GainNode { const g = this.ctx.createGain(); g.gain.value = v; g.connect(this.master); return g; }
   async unlock(): Promise<void> {
-    try { await this.ctx.resume(); } catch { /* ignore */ }
-    // iOS: play a silent buffer to fully unlock
-    try { const s = this.ctx.createBufferSource(); s.buffer = this.ctx.createBuffer(1, 1, 22050); s.connect(this.ctx.destination); s.start(0); } catch { /* ignore */ }
-    this.unlocked = true;
+    try {
+      const resumed = this.ctx.resume();
+      // Both requests stay inside the gesture, including Safari's silent buffer.
+      const s = this.ctx.createBufferSource(); s.buffer = this.ctx.createBuffer(1, 1, 22050);
+      s.connect(this.ctx.destination); s.onended = () => s.disconnect(); s.start(0);
+      await resumed;
+      this.unlocked = this.ctx.state === 'running';
+    } catch { /* playback permission can be retried on the next tap */ }
   }
   get now(): number { return this.ctx.currentTime; }
   noise(): AudioBufferSourceNode { const s = this.ctx.createBufferSource(); s.buffer = this.noiseBuffer; s.loop = true; return s; }

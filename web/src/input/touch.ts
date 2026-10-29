@@ -15,35 +15,43 @@ export class TouchInput {
   private held = false;
   private holdTimer = 0;
   private lastPinch = 0;
+  private tapAllowed = false;
   private el: HTMLElement;
   private h: TouchHandlers;
-  enabled = true;
+  private active = true;
+  get enabled(): boolean { return this.active; }
+  set enabled(value: boolean) { this.active = value; if (!value) this.reset(); }
   constructor(el: HTMLElement, h: TouchHandlers) {
     this.el = el; this.h = h;
     el.addEventListener('pointerdown', this.down, { passive: false });
     el.addEventListener('pointermove', this.move, { passive: false });
     el.addEventListener('pointerup', this.up, { passive: false });
-    el.addEventListener('pointercancel', this.up, { passive: false });
-    el.addEventListener('pointerleave', this.up, { passive: false });
+    el.addEventListener('pointercancel', this.cancel, { passive: false });
+    el.addEventListener('lostpointercapture', this.cancel);
+    el.addEventListener('pointerleave', (e) => { if (!el.hasPointerCapture(e.pointerId)) this.cancel(e); });
+    window.addEventListener('blur', () => this.reset());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.reset(); });
     for (const ev of ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'gesturechange', 'dblclick', 'contextmenu']) {
       el.addEventListener(ev, (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
     }
   }
   private down = (e: PointerEvent): void => {
-    if (!this.enabled) return;
+    if (!this.enabled || e.button !== 0) return;
     e.preventDefault();
     try { this.el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-    this.pointers.set(e.pointerId, { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() });
+    this.pointers.set(e.pointerId, { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: e.timeStamp });
     if (this.pointers.size === 1) {
-      this.dragging = false; this.held = false;
+      this.dragging = false; this.held = false; this.tapAllowed = true;
       clearTimeout(this.holdTimer);
       this.holdTimer = window.setTimeout(() => {
         const p = this.pointers.get(e.pointerId);
-        if (p && this.pointers.size === 1 && !this.dragging) { this.held = true; this.h.onHold(p.x, p.y); }
+        if (this.enabled && p && this.pointers.size === 1 && this.tapAllowed && !this.dragging) { this.held = true; this.h.onHold(p.x, p.y); }
       }, 520);
-    } else if (this.pointers.size === 2) {
+    } else {
       clearTimeout(this.holdTimer);
-      this.lastPinch = this.pinchDist();
+      this.tapAllowed = false;
+      this.endHold();
+      this.lastPinch = this.pointers.size === 2 ? this.pinchDist() : 0;
     }
   };
   private pinchDist(): number {
@@ -56,6 +64,7 @@ export class TouchInput {
     e.preventDefault();
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY;
+    if (this.pointers.size > 2) return;
     if (this.pointers.size === 2) {
       const d = this.pinchDist();
       if (this.lastPinch > 0) this.h.onPinch(d / this.lastPinch);
@@ -73,10 +82,28 @@ export class TouchInput {
     this.pointers.delete(e.pointerId);
     clearTimeout(this.holdTimer);
     if (this.pointers.size === 0) {
-      if (this.held) { this.h.onHoldEnd?.(); }
-      else if (!this.dragging && performance.now() - p.t < 600) this.h.onTap(p.x, p.y);
-      this.dragging = false; this.held = false;
+      const isTap = this.enabled && !this.held && !this.dragging && this.tapAllowed &&
+        e.timeStamp - p.t < 600 && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) <= 10;
+      this.endHold();
+      this.dragging = false; this.tapAllowed = false;
+      if (isTap) this.h.onTap(e.clientX, e.clientY);
     }
     this.lastPinch = 0;
   };
+  private endHold(): void {
+    if (this.held) { this.held = false; this.h.onHoldEnd?.(); }
+  }
+  private cancel = (e: PointerEvent): void => {
+    if (this.pointers.has(e.pointerId)) this.reset();
+  };
+  private reset(): void {
+    clearTimeout(this.holdTimer);
+    const pointers = [...this.pointers.keys()];
+    this.pointers.clear();
+    this.endHold();
+    this.dragging = false; this.tapAllowed = false; this.lastPinch = 0;
+    for (const id of pointers) {
+      try { if (this.el.hasPointerCapture(id)) this.el.releasePointerCapture(id); } catch { /* already cancelled */ }
+    }
+  }
 }
